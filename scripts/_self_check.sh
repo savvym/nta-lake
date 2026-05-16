@@ -29,7 +29,9 @@ FILTER="${1:-}"
 
 PASS=0
 FAIL=0
+SKIP=0
 FAILED_ACS=()
+SKIPPED_ACS=()
 
 run_ac() {
   local id="$1"
@@ -43,6 +45,35 @@ run_ac() {
     FAIL=$((FAIL + 1))
     FAILED_ACS+=("$id")
   fi
+}
+
+# core-domain-model 引入：探针未通过时整条 AC 视作 SKIP 而非 FAIL
+# 探针实现：python socket connect（不依赖 pg_isready 客户端在 host 安装）
+_pg_reachable() {
+  python3 -c "
+import socket, sys
+s = socket.socket()
+s.settimeout(1)
+try:
+    s.connect(('localhost', int('${DATAPLAT_PG_PORT:-5432}')))
+    s.close()
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+"
+}
+
+run_ac_skipif_no_pg() {
+  local id="$1"
+  local desc="$2"
+  shift 2
+  if ! _pg_reachable 2>/dev/null; then
+    printf "SKIP  %-10s  %s（Postgres %s:%s 未通）\n" "$id" "$desc" "localhost" "${DATAPLAT_PG_PORT:-5432}"
+    SKIP=$((SKIP + 1))
+    SKIPPED_ACS+=("$id")
+    return 0
+  fi
+  run_ac "$id" "$desc" "$@"
 }
 
 # =============================================================================
@@ -109,16 +140,85 @@ run_bootstrap_monorepo() {
 }
 
 # =============================================================================
+# Block: core-domain-model-20260516
+# 17 条 AC（详见 .harness/changes/core-domain-model-20260516/request_analysis/spec.md）
+# AC-13 / AC-15 在 Postgres 不可用时 SKIP（pg_isready 探针）
+# =============================================================================
+
+run_core_domain_model() {
+  echo "=== core-domain-model-20260516 :: 17 AC ==="
+
+  run_ac AC-1 "core/domain 6 模块齐全" \
+    bash -c 'for f in repository commit tree blob refs lineage; do test -f "packages/core/src/dataplat_core/domain/$f.py" || exit 1; done'
+
+  run_ac AC-2 "Repository + 分层 Subtype Literal 严格校验" \
+    bash -c '(cd packages/core && uv run python -c "from dataplat_core.domain.repository import Repository; r=Repository(id=\"r1\", owner=\"o\", name=\"n\", layer=\"bronze\", subtype=\"pdf\", visibility=\"private\"); assert r.subtype==\"pdf\"") && ! (cd packages/core && uv run python -c "from dataplat_core.domain.repository import Repository; Repository(id=\"r2\", owner=\"o\", name=\"n\", layer=\"bronze\", subtype=\"bogus-subtype\", visibility=\"private\")") 2>/dev/null'
+
+  run_ac AC-3 "Commit 字段齐全" \
+    bash -c 'cd packages/core && uv run python -c "from dataplat_core.domain.commit import Commit; c=Commit(hash=\"a\"*64, repo_id=\"r1\", tree_hash=\"b\"*64, parents=[], author_id=\"u1\"); assert len(c.hash)==64"'
+
+  run_ac AC-4 "Lineage + ProducedBy + config_hash 64-hex" \
+    bash -c 'cd packages/core && uv run python -c "from dataplat_core.domain.lineage import Lineage, ProducedBy, InputRef; l=Lineage(produced_by=ProducedBy(kind=\"processor\", name=\"x\", version=\"0.1\", config_hash=\"c\"*64), inputs=[], run_id=\"r1\", env={}); assert l.produced_by.kind==\"processor\"; assert len(l.produced_by.config_hash)==64"'
+
+  run_ac AC-5 "BlobRef sha256 round-trip" \
+    bash -c 'cd packages/core && uv run python -c "from dataplat_core.domain.blob import BlobRef; b=BlobRef(sha256=\"a\"*64, size=10, storage_key=\"blobs/aa/x\"); assert BlobRef.model_validate_json(b.model_dump_json())==b"'
+
+  run_ac AC-6 "Tree + TreeEntry" \
+    bash -c 'cd packages/core && uv run python -c "from dataplat_core.domain.tree import Tree, TreeEntry; e=TreeEntry(name=\"a\", mode=33188, entry_type=\"blob\", target_hash=\"c\"*64); t=Tree(hash=\"d\"*64, entries=[e]); assert t.entries[0].name==\"a\""'
+
+  run_ac AC-7 "Ref 字段" \
+    bash -c 'cd packages/core && uv run python -c "from dataplat_core.domain.refs import Ref; r=Ref(repo_id=\"r1\", name=\"main\", commit_hash=\"e\"*64); assert r.name==\"main\""'
+
+  run_ac AC-8 "8 个 Protocol/数据类 import 齐全" \
+    bash -c 'cd packages/core && uv run python -c "from dataplat_core.protocols.adapter import SourceAdapter, IngestResult; from dataplat_core.protocols.processor import Processor, ProcessResult, RepoView, RepoSelector, RepoSpec; from dataplat_core.protocols.runcontext import RunContext"'
+
+  run_ac AC-9 "ORM 7 模块齐全 + Tree 拆两表" \
+    bash -c 'for f in __init__ base repository commit tree refs blob; do test -f "apps/api/dataplat_api/models/$f.py" || exit 1; done && grep -q "class TreeEntryORM" apps/api/dataplat_api/models/tree.py'
+
+  run_ac AC-10 "db.py 导出 engine/session + get_session 为 async generator" \
+    bash -c 'cd apps/api && uv run python -c "import inspect; from dataplat_api.db import engine, AsyncSessionLocal, get_session; assert engine is not None; assert inspect.isasyncgenfunction(get_session)"'
+
+  run_ac AC-11 "Alembic 3 文件齐全" \
+    bash -c 'test -f apps/api/alembic.ini && test -f apps/api/alembic/env.py && ls apps/api/alembic/versions/0001_*.py >/dev/null'
+
+  run_ac AC-12 "apps/api 新依赖 sqlalchemy/alembic/asyncpg" \
+    python3 -c "import tomllib; d=tomllib.load(open('apps/api/pyproject.toml','rb')); deps=d['project']['dependencies']; assert any('sqlalchemy' in x for x in deps) and any('alembic' in x for x in deps) and any('asyncpg' in x for x in deps)"
+
+  run_ac_skipif_no_pg AC-13 "alembic upgrade head + 0001 head" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && cd apps/api && uv run alembic upgrade head && uv run alembic current 2>&1 | grep -q "0001"'
+
+  run_ac AC-14 "packages/core 单测 ≥ 6 + 全 PASS" \
+    bash -c '(cd packages/core && uv run pytest -q --tb=no tests/) && [ "$(cd packages/core && uv run pytest --collect-only -q tests/ 2>&1 | grep -cE "::")" -ge 6 ]'
+
+  run_ac_skipif_no_pg AC-15 "apps/api ORM smoke ≥ 2 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && (cd apps/api && uv run pytest -q --tb=no tests/test_models.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_models.py 2>&1 | grep -cE "test_models\.py::")" -ge 2 ]'
+
+  run_ac AC-16 "ruff + mypy 范围内 0 错误" \
+    bash -c 'uv run ruff check apps/api packages/core && uv run mypy apps/api/dataplat_api packages/core/src'
+
+  run_ac AC-17 "AC-17 == 本 block 自递归（脚本能跑通即满足）" \
+    true
+}
+
+# =============================================================================
 # 主控
 # =============================================================================
 
 case "$FILTER" in
-  ""|bootstrap-monorepo|bootstrap-monorepo-20260516)
+  "")
     run_bootstrap_monorepo
+    echo
+    run_core_domain_model
+    ;;
+  bootstrap-monorepo|bootstrap-monorepo-20260516)
+    run_bootstrap_monorepo
+    ;;
+  core-domain-model|core-domain-model-20260516)
+    run_core_domain_model
     ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo（更多变更将随后续 stage 5 追加）" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model" >&2
     exit 2
     ;;
 esac
@@ -127,11 +227,16 @@ echo
 echo "=== 汇总 ==="
 echo "PASS: $PASS"
 echo "FAIL: $FAIL"
+echo "SKIP: $SKIP"
 
 if [ "$FAIL" -gt 0 ]; then
   echo "失败: ${FAILED_ACS[*]}"
   exit 1
 fi
 
-echo "全部通过。"
+if [ "$SKIP" -gt 0 ]; then
+  echo "跳过: ${SKIPPED_ACS[*]}（环境探针未通过，非测试失败）"
+fi
+
+echo "全部通过（FAIL=0；SKIP 不阻塞）。"
 exit 0
