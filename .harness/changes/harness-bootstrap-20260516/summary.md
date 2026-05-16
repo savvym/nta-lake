@@ -4,8 +4,8 @@ title: 建立 .harness/ 与 wiki/ 基线骨架，作为后续所有变更的运�
 owner: zhhdzhang
 started_at: 2026-05-16T03:00:00Z
 stage: push
-status: in_progress
-last_updated: 2026-05-16T21:15:00Z
+status: done_local_only
+last_updated: 2026-05-16T21:30:00Z
 related_changes: []
 ---
 
@@ -49,7 +49,7 @@ related_changes: []
 | 4 编码评审 | **done** | v1 | **APPROVED** (MUST FIX=0, SHOULD FIX=3：#1 defer / #2 现场修 / #3 现场修；NICE=3：#1 现场修 / #2 #3 defer) | [code_review_v1.md](coding/review/code_review_v1.md) |
 | 5 单测编写 | done（test_report v1 就地补 3 条 §已知问题 + 反向引用 stage 4 决策；脚本头注 bash ≥ 3.2） | v1（就地修订） | — | [test_report_v1.md](unit_test/test_report_v1.md) · [check_harness.sh](unit_test/check_harness.sh) |
 | 6 单测评审 | **done** | v1 | **APPROVED** (MUST FIX=0, SHOULD FIX=3：#1/#2 现场修自陈、#3 reviewer 自标接受；NICE=4：#3/#4 现场修、#1/#2 defer) | [test_review_v1.md](unit_test/review/test_review_v1.md) |
-| 7 代码推送 | pending（仓库尚未 git init） | — | — | — |
+| 7 代码推送 | done（按用户 A 路径）| commit `9f4b484` 在 main 上 | — | `9f4b484` first commit（48 files / 5860 insertions）；精确 add 跳过 `.claude/settings.local.json`；**远端 push skipped**：留给 follow-up `harness-remote-push-<yyyymmdd>` 或 `bootstrap-monorepo` 一并配置 origin |
 | 8 CI 验证 | **skipped: 无 CI 配置**（本次不引入 CI；留给 `bootstrap-monorepo`） | — | — | — |
 | 9 部署验证 | **skipped: 无部署面**（纯文档变更） | — | — | — |
 | 10 用户确认 | pending | — | — | — |
@@ -64,12 +64,14 @@ related_changes: []
 | 2026-05-16 | Stage 3 就地修订两份支援型 SKILL（标题对齐 + 加失败回退章节）而非回退 stage 1/2 | Generator 在编码阶段修小漏洞是 stage 3 合理工作范围；回退过度。同时侧面消解 spec AC-10/AC-2 grep alternation OR 弱化 NICE TO HAVE | [coding_report_v1.md §偏离 spec / trade-off #1](coding/coding_report_v1.md) |
 | 2026-05-16 | 不在本 change 内修 AC-10 验证命令（OR → AND） | 修验证命令会引起 spec 二次修订；根因修在独立 `harness-tighten-ac-grep-<yyyymmdd>` 变更 | coding_report §偏离 #1 |
 | 2026-05-16 | check_harness.sh 放本 change 内（A vs B 选 B） | A 选项（顶层 `scripts/`）需要 spec §非范围微调 + 触发 spec_v2 重走 stage 2，与"用 bootstrap dry run 验证流程"目标冲突；B 选项保持 spec 不变、本变更内 self-contained，follow-up `harness-script-productize-<yyyymmdd>` 单独走流程提升到 `scripts/` 反而是又一次正向 dry run | [test_report_v1.md §偏离 #3](unit_test/test_report_v1.md)；用户 stage 4 末通过 AskUserQuestion 显式选择 |
+| 2026-05-16 | Stage 7 选 A 路径：git init + 本地 commit，不 push（无远端） | 远端仓库尚未建立，强行配置 origin 会引入运维步骤超出 spec 范围；本地 commit 已实现 stage 7 "代码已提交到版本控制" 的本意；远端 push 留给 `harness-remote-push-*` 或 `bootstrap-monorepo` | 用户 stage 6 末通过 AskUserQuestion 显式选择 A；commit `9f4b484` 在 main |
+| 2026-05-16 | 精确 `git add CLAUDE.md .harness wiki`（不全量 `git add .`）| 全量 add 会带入 `.claude/settings.local.json`（stage 4 SHOULD FIX #1 警告的入库风险）；用户全局 `~/.config/git/ignore:73` 虽已兜底 `**/.claude/settings.local.json` 但**隐式且不可移植**——仓库本地 `.gitignore` 显式约束仍待 bootstrap-monorepo 补；本变更通过精确 add 在 stage 7 内提前落实 deferred 决策的精神 | commit `9f4b484` 实测：`.claude/` 标记 `!!`（ignored），未入 commit |
 
 ## 当前阻塞
 
-- Stage 6 单测评审 APPROVED。SHOULD FIX #1/#2 + NICE #3/#4 已就地修：test_report 补 3 条 §已知问题（AC-8/AC-10 OR、AC-5 硬编码 9、AC-9 spec 内部 7vs8 术语不一致）+ §偏离 #3 反向引用 stage 4 B 路径决策；脚本头注 bash ≥ 3.2 兼容要求。
-- 下一动作（决策点）：**Stage 7 代码推送**——但仓库尚未 `git init`，P-push.blocked_by 一直挂着。需要在本 change 内执行 `git init` 并做首个 commit，还是开独立 `harness-git-init-<yyyymmdd>` 子变更？
-- Stage 8 / 9 仍 skipped（无 CI / 无部署面）。
+- Stage 7 代码推送（A 路径本地 commit）已落地：commit `9f4b484` 在 main 分支，48 files / 5860 insertions；精确 add 跳过 `.claude/settings.local.json`；远端 push skipped 留给 follow-up。
+- 下一动作：**Stage 10 用户确认**（stage 8 / 9 skipped）。需要用户对本变更整体交付做最终确认；然后做本变更的 stage 10 closure commit（含本次 summary 的 stage 7 元信息回填）。
+- Stage 7 落地过程中暴露**新流程缺陷**：dev-process.md §阶段 7 没显式规范 "commit 后回填 SHA 到 summary 需要二次 commit" 这条节奏——本变更将通过 stage 10 的 closure commit 顺手做这件事，并把规则建议反哺 `harness-tighten-dev-process-<yyyymmdd>` follow-up。
 
 ## Deferred 项
 
