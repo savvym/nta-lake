@@ -1,0 +1,19 @@
+{
+  "name": "dataplat-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LLM 训练数据管理平台（dataplat）的 pnpm workspace 根",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "build": "turbo run build"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  }
+}

@@ -1,0 +1,120 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-lint-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Sync deps
+        run: uv sync --all-extras
+      - name: ruff
+        run: uv run ruff check apps/api packages worker
+      - name: mypy
+        run: uv run mypy apps/api/dataplat_api packages/core/src
+
+  python-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dataplat
+          POSTGRES_PASSWORD: dataplat
+          POSTGRES_DB: dataplat
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dataplat"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Sync deps
+        run: uv sync --all-extras
+      - name: pytest
+        working-directory: apps/api
+        run: uv run pytest -q --junitxml=../../junit-api.xml
+      - name: Upload junit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-api
+          path: junit-api.xml
+          retention-days: 7
+
+  web-lint-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+      - name: pnpm lint
+        run: pnpm --filter web lint
+      - name: pnpm typecheck
+        run: pnpm --filter web typecheck
+
+  web-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - run: pnpm install --frozen-lockfile
+      - name: vitest
+        run: pnpm --filter web exec vitest run --reporter=junit --outputFile=junit-web.xml
+      - name: Upload junit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-web
+          path: apps/web/junit-web.xml
+          retention-days: 7
+
+  codegen-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - run: uv sync --all-extras
+      - run: pnpm install --frozen-lockfile
+      - name: codegen
+        run: make codegen
+      - name: diff
+        run: git diff --exit-code

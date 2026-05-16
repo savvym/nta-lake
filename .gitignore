@@ -1,0 +1,70 @@
+# dataplat .gitignore
+# 见 .harness/changes/bootstrap-monorepo-20260516/request_analysis/spec.md AC-6
+
+# Python 虚拟环境
+.venv/
+venv/
+ENV/
+
+# Python 编译产物
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+
+# Python 工具缓存
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# JS / Node
+node_modules/
+dist/
+build/
+.vite/
+
+# TS composite-project 副产物（tsc -b 在 apps/web 落盘）
+*.tsbuildinfo
+apps/web/vite.config.js
+apps/web/vite.config.d.ts
+
+# Turborepo
+.turbo/
+
+# 编辑器 / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code 用户机器特定
+# （继承自 harness-bootstrap-20260516 stage 4 SHOULD FIX #1）
+.claude/settings.local.json
+
+# 本地环境变量
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+logs/
+
+# 临时
+*.tmp
+*.bak
+.cache/
+
+# uv lock 也入库；以下显式不忽略保留语义
+!uv.lock
+!pnpm-lock.yaml

@@ -1,0 +1,44 @@
+[project]
+name = "dataplat-workspace"
+version = "0.0.0"
+description = "LLM 训练数据管理平台（dataplat）的 uv workspace 根"
+requires-python = ">=3.11"
+
+[tool.uv.workspace]
+members = [
+    "apps/api",
+    "packages/core",
+    "packages/sdk-py",
+    "worker",
+]
+
+[tool.uv.sources]
+dataplat-core = { workspace = true }
+dataplat-sdk = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", "I", "B", "UP", "ASYNC",
+]
+ignore = [
+    "E501",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["apps/api/tests", "packages/core/tests", "worker/tests"]
+addopts = ["-ra", "--strict-markers"]
