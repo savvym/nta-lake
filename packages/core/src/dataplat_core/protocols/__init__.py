@@ -6,6 +6,7 @@ import 整个 `dataplat_core.domain`，避免循环 import（spec §风险表）
 
 from dataplat_core.protocols.adapter import IngestFileRef, IngestResult, SourceAdapter
 from dataplat_core.protocols.auth import AuthenticatedUser, AuthProvider
+from dataplat_core.protocols.llm import LLMClient, LLMMessage, LLMRequest, LLMResponse
 from dataplat_core.protocols.processor import (
     Processor,
     ProcessResult,
@@ -30,4 +31,8 @@ __all__ = [
     "BlobPutResult",
     "AuthProvider",
     "AuthenticatedUser",
+    "LLMClient",
+    "LLMMessage",
+    "LLMRequest",
+    "LLMResponse",
 ]

@@ -30,6 +30,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from dataplat_api.llm.factory import get_llm_gateway
 from dataplat_api.models import CommitORM, RefORM
 from dataplat_api.runner.processor_registry import get_processor_registry
 from dataplat_api.runner.repo_view import DbRepoView
@@ -94,7 +95,9 @@ class ProcessorRunner:
             resolved_parents = []
 
         workspace = Path(tempfile.mkdtemp(prefix="dataplat-process-"))
-        ctx = StandardRunContext(logger=_logger, blob_store=store)
+        ctx = StandardRunContext(
+            logger=_logger, blob_store=store, llm=get_llm_gateway()
+        )
         try:
             try:
                 # processor.run 是同步的；用 to_thread

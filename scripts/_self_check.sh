@@ -962,6 +962,48 @@ run_processor_framework() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+run_llm_gateway_mvp() {
+  echo "=== llm-gateway-mvp-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "LLMClient Protocol + LLMRequest/Response extra=forbid（test -f + import + 字段）" \
+    bash -c 'test -f packages/core/src/dataplat_core/protocols/llm.py && cd apps/api && uv run python -c "from dataplat_core.protocols.llm import LLMClient, LLMRequest, LLMResponse; assert LLMRequest.model_config.get(\"extra\")==\"forbid\" and LLMResponse.model_config.get(\"extra\")==\"forbid\""'
+
+  run_ac AC-2 "AnthropicProvider 类存在 + 有 call 方法" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.llm.providers.anthropic import AnthropicProvider; assert hasattr(AnthropicProvider, \"call\")"'
+
+  run_ac AC-3 "FakeLLMProvider deterministic（同 req → 同 response.text）" \
+    bash -c 'cd apps/api && uv run python -c "import asyncio; from dataplat_api.llm.providers.fake import FakeLLMProvider; from dataplat_core.protocols.llm import LLMRequest, LLMMessage; p=FakeLLMProvider(); r=LLMRequest(model_id=\"x\", messages=[LLMMessage(role=\"user\", content=\"hi\")], max_tokens=10); a=asyncio.run(p.call(r)); b=asyncio.run(p.call(r)); assert a.text==b.text"'
+
+  run_ac AC-4 "RedisLLMCache 类 + get/set 方法" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.llm.cache import RedisLLMCache; assert all(hasattr(RedisLLMCache, m) for m in [\"get\",\"set\"])"'
+
+  run_ac AC-5 "LLMGateway.call 是 coroutine" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.llm.gateway import LLMGateway; import inspect; assert inspect.iscoroutinefunction(LLMGateway.call)"'
+
+  run_ac AC-6 "LLMGateway 构造接受 max_retries 参数" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.llm.gateway import LLMGateway; import inspect; assert \"max_retries\" in inspect.signature(LLMGateway.__init__).parameters"'
+
+  run_ac AC-7 "get_llm_gateway 单例（同 process 同对象）" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.llm.factory import get_llm_gateway; assert get_llm_gateway() is get_llm_gateway()"'
+
+  run_ac AC-8 "ProcessorRunner 构 ctx 注入 llm（test -f + 正向 grep + 反向拦 llm=None）" \
+    bash -c 'test -f apps/api/dataplat_api/runner/processor_runner.py && grep -q "llm=" apps/api/dataplat_api/runner/processor_runner.py && ! grep -E "llm[[:space:]]*=[[:space:]]*None" apps/api/dataplat_api/runner/processor_runner.py'
+
+  run_ac AC-9 "LLMSummarizeProcessor 实现 Processor Protocol" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_core.protocols.processor import Processor; from dataplat_api.processors.llm_summarize import LLMSummarizeProcessor; assert isinstance(LLMSummarizeProcessor(), Processor)"'
+
+  run_ac_skipif_no_pg_minio_redis AC-10 "tests/test_llm.py ≥ 6 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && (cd apps/api && uv run pytest -q --tb=no tests/test_llm.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_llm.py 2>&1 | grep -cE "test_llm\.py::")" -ge 6 ]'
+
+  run_ac AC-11 "ruff + mypy 全 PASS（含 worker/src）" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-12 "factory 无 DATAPLAT_LLM_PROVIDER env 时默认 fake 启动不报错" \
+    bash -c 'cd apps/api && uv run python -c "import os; os.environ.pop(\"DATAPLAT_LLM_PROVIDER\",None); from dataplat_api.llm.factory import get_llm_gateway, reset_llm_gateway; reset_llm_gateway(); assert get_llm_gateway() is not None"'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -987,6 +1029,8 @@ case "$FILTER" in
     run_repo_files_tab
     echo
     run_processor_framework
+    echo
+    run_llm_gateway_mvp
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -1023,6 +1067,9 @@ case "$FILTER" in
     ;;
   processor-framework|processor-framework-20260517)
     run_processor_framework
+    ;;
+  llm-gateway-mvp|llm-gateway-mvp-20260517)
+    run_llm_gateway_mvp
     ;;
   *)
     echo "未知 change: $FILTER" >&2
