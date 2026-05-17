@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dataplat_api.auth.deps import get_optional_user, require_admin
 from dataplat_api.db import get_session
 from dataplat_api.models import RepositoryORM
+from dataplat_api.schemas.ref import RefRead
 from dataplat_api.schemas.repo import (
     RepositoryCreate,
     RepositoryListItem,
@@ -27,6 +28,7 @@ from dataplat_api.schemas.repo import (
     RepositoryRead,
     RepositoryUpdate,
 )
+from dataplat_api.services.ref import RefService
 from dataplat_api.services.repo import RepoService
 
 router = APIRouter(prefix="/repos", tags=["repos"])
@@ -133,3 +135,29 @@ async def delete_repo(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Repository {owner}/{name} 不存在",
         )
+
+
+@router.get(
+    "/{owner}/{name}/refs/{ref_name}", response_model=RefRead
+)
+async def get_ref(
+    owner: str,
+    name: str,
+    ref_name: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_user),
+    session: AsyncSession = Depends(get_session),
+) -> RefRead:
+    """visibility-aware：repo 不存在/不可见或 ref 不存在 → 统一 404 不泄露。"""
+    repo = await RepoService.get_by_owner_name(session, owner, name, current_user)
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Repository {owner}/{name} 不存在",
+        )
+    ref = await RefService.get_by_name(session, repo.id, ref_name)
+    if ref is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ref {ref_name} 在 {owner}/{name} 不存在",
+        )
+    return RefRead(name=ref.name, commit_hash=ref.commit_hash)

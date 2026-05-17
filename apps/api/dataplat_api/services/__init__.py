@@ -6,6 +6,7 @@
 
 from dataplat_api.services.blob import BlobService
 from dataplat_api.services.commit import CommitService
+from dataplat_api.services.ref import RefService
 from dataplat_api.services.repo import RepoService
 
-__all__ = ["BlobService", "CommitService", "RepoService"]
+__all__ = ["BlobService", "CommitService", "RefService", "RepoService"]

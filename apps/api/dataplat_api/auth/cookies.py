@@ -5,12 +5,19 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import Response
 
 from dataplat_api.auth.tokens import ACCESS_TTL_SECONDS, REFRESH_TTL_SECONDS
 
 ACCESS_COOKIE_NAME = "access_token"
 REFRESH_COOKIE_NAME = "refresh_token"
+
+
+def _cookie_secure() -> bool:
+    """生产默认 True；dev 用 HTTP 访问时设 env `DATAPLAT_COOKIE_SECURE=false`。"""
+    return os.environ.get("DATAPLAT_COOKIE_SECURE", "true").lower() != "false"
 
 
 def _set(response: Response, name: str, value: str, max_age: int) -> None:
@@ -20,7 +27,7 @@ def _set(response: Response, name: str, value: str, max_age: int) -> None:
         max_age=max_age,
         path="/",
         httponly=True,
-        secure=True,
+        secure=_cookie_secure(),
         samesite="lax",
     )
 

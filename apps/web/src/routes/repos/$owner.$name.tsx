@@ -12,9 +12,11 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import {
+  useCommit,
   useDeleteRepo,
   useEnqueueIngest,
   useMe,
+  useRepoRef,
   useRepo,
   useUpdateRepo,
   useUploadBlob,
@@ -141,8 +143,115 @@ function RepoDetailPage() {
         </CardContent>
       </Card>
 
+      <FilesSection owner={owner} name={name} />
+
       {isAdmin && <IngestSection owner={owner} name={name} />}
     </div>
+  );
+}
+
+function FilesSection({ owner, name }: { owner: string; name: string }) {
+  const refQuery = useRepoRef(owner, name, "main");
+  const commitHash = refQuery.data?.commit_hash ?? "";
+  const commitQuery = useCommit(owner, name, commitHash);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-3">
+          <span>Files</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+            main
+          </span>
+          {commitQuery.data && (
+            <span className="text-sm text-gray-500 font-normal">
+              {commitQuery.data.tree.entries.length} files
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {refQuery.isLoading || commitQuery.isLoading ? (
+          <div className="text-gray-500 text-sm">加载中…</div>
+        ) : !refQuery.data ? (
+          <div className="text-gray-500 text-sm">
+            暂无 commit
+            <span className="text-gray-400">（admin 可在 Ingest 区上传文件创建第一个 commit）</span>
+          </div>
+        ) : !commitQuery.data ? (
+          <div className="text-red-600 text-sm">
+            commit {refQuery.data.commit_hash.slice(0, 12)}… 加载失败
+          </div>
+        ) : commitQuery.data.tree.entries.length === 0 ? (
+          <div className="text-gray-500 text-sm">commit 为空 tree</div>
+        ) : (
+          <>
+            <div className="mb-3 text-sm text-gray-600 flex items-center gap-2">
+              <Link
+                to="/commits/$owner/$name/$hash"
+                params={{
+                  owner,
+                  name,
+                  hash: commitQuery.data.hash,
+                }}
+                className="font-mono text-xs text-blue-700 hover:underline"
+              >
+                {commitQuery.data.hash.slice(0, 8)}
+              </Link>
+              <span className="text-gray-700">
+                {commitQuery.data.message ?? "(no message)"}
+              </span>
+              <span className="text-gray-400">·</span>
+              <span className="text-gray-500 text-xs">
+                {new Date(commitQuery.data.created_at).toLocaleString()}
+              </span>
+              <span className="text-gray-400">·</span>
+              <span className="text-gray-500 text-xs">
+                by {commitQuery.data.author_id}
+              </span>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left border-b border-gray-200">
+                  <th className="py-2 pr-4 font-medium text-gray-600">path</th>
+                  <th className="py-2 pr-4 font-medium text-gray-600">type</th>
+                  <th className="py-2 pr-4 font-medium text-gray-600 font-mono">
+                    sha256
+                  </th>
+                  <th className="py-2 font-medium text-gray-600 text-right">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {commitQuery.data.tree.entries.map((e) => (
+                  <tr
+                    key={e.name}
+                    className="border-b border-gray-100 hover:bg-gray-50"
+                  >
+                    <td className="py-2 pr-4 break-all">{e.name}</td>
+                    <td className="py-2 pr-4 text-gray-500">{e.entry_type}</td>
+                    <td className="py-2 pr-4 font-mono text-xs text-gray-500">
+                      {e.target_hash.slice(0, 12)}…
+                    </td>
+                    <td className="py-2 text-right">
+                      <a
+                        href={`/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(e.target_hash)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-700 hover:underline text-xs"
+                      >
+                        下载
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

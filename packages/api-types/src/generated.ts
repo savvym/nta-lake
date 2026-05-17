@@ -279,6 +279,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/repos/{owner}/{name}/refs/{ref_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ref
+         * @description visibility-aware：repo 不存在/不可见或 ref 不存在 → 统一 404 不泄露。
+         */
+        get: operations["get_ref_repos__owner___name__refs__ref_name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/repos/{owner}/{name}/tree/{commit_hash}": {
         parameters: {
             query?: never;
@@ -519,6 +539,13 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+        };
+        /** RefRead */
+        RefRead: {
+            /** Commit Hash */
+            commit_hash: string;
+            /** Name */
+            name: string;
         };
         /** RepositoryCreate */
         RepositoryCreate: {
@@ -1267,6 +1294,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ref_repos__owner___name__refs__ref_name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                ref_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefRead"];
                 };
             };
             /** @description Validation Error */

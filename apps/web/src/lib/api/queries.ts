@@ -59,6 +59,11 @@ export interface CommitRead {
   deduplicated: boolean;
 }
 
+export interface RefRead {
+  name: string;
+  commit_hash: string;
+}
+
 export interface JobRead {
   id: string;
   type: string;
@@ -139,6 +144,17 @@ export function useCommit(owner: string, name: string, hash: string) {
         `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/commits/${encodeURIComponent(hash)}`,
       ),
     enabled: !!hash && /^[0-9a-f]{64}$/.test(hash),
+  });
+}
+
+export function useRepoRef(owner: string, name: string, refName: string) {
+  return useQuery({
+    queryKey: ["ref", owner, name, refName],
+    queryFn: () =>
+      fetchJson<RefRead>(
+        `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/refs/${encodeURIComponent(refName)}`,
+      ),
+    enabled: !!refName,
   });
 }
 

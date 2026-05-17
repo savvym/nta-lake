@@ -872,6 +872,54 @@ run_web_write_flows() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+# =============================================================================
+# Block: repo-files-tab-20260517
+# 13 条 AC（详见 .harness/changes/repo-files-tab-20260517/request_analysis/spec.md）
+# AC-10 依赖 PG + MinIO 双探针
+# =============================================================================
+
+run_repo_files_tab() {
+  echo "=== repo-files-tab-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "RefRead schema + extra=forbid" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.schemas.ref import RefRead; assert RefRead.model_config.get(\"extra\")==\"forbid\""'
+
+  run_ac AC-2 "RefService.get_by_name 存在" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.services.ref import RefService; assert hasattr(RefService, \"get_by_name\")"'
+
+  run_ac AC-3 "GET /repos/{o}/{n}/refs/{ref_name} 路由" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.routers.repos import router; paths={r.path for r in router.routes}; assert \"/repos/{owner}/{name}/refs/{ref_name}\" in paths"'
+
+  run_ac AC-4 "OpenAPI 含 /refs 路径" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.main import app; s=app.openapi(); assert \"/repos/{owner}/{name}/refs/{ref_name}\" in s[\"paths\"]"'
+
+  run_ac AC-5 "RefService 不重复实现 _visibility_visible（test -f 前置 + 反向 grep）" \
+    bash -c 'test -f apps/api/dataplat_api/services/ref.py && test -f apps/api/dataplat_api/routers/repos.py && ! grep -E "_visibility_visible" apps/api/dataplat_api/services/ref.py'
+
+  run_ac AC-6 "queries.ts 加 useRepoRef + RefRead" \
+    bash -c 'grep -q "useRepoRef" apps/web/src/lib/api/queries.ts && grep -qE "RefRead|/refs/" apps/web/src/lib/api/queries.ts'
+
+  run_ac AC-7 "详情页加 FilesSection + useRepoRef" \
+    bash -c 'grep -qE "FilesSection|useRepoRef" "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+
+  run_ac AC-8 "FilesSection 含 main/files/下载/链" \
+    bash -c 'grep -qE "main|files|下载" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "/api/repos/" "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+
+  run_ac AC-9 "前端 ≥ 8 测试 + 全 PASS" \
+    bash -c '[ "$(find apps/web/src -name "*.test.tsx" -o -name "*.test.ts" | wc -l)" -ge 8 ] && cd apps/web && pnpm test 2>&1 | tail -5 | grep -qE "Test Files.*passed|Tests.*passed"'
+
+  run_ac_skipif_no_pg_or_minio AC-10 "后端 tests/test_refs.py ≥ 3 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && (cd apps/api && uv run pytest -q --tb=no tests/test_refs.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_refs.py 2>&1 | grep -cE "test_refs\.py::")" -ge 3 ]'
+
+  run_ac AC-11 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-12 "apps/web typecheck + build + dist/index.html" \
+    bash -c 'cd apps/web && pnpm typecheck && pnpm build && test -f dist/index.html'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -893,6 +941,8 @@ case "$FILTER" in
     run_rq_worker_skeleton
     echo
     run_web_write_flows
+    echo
+    run_repo_files_tab
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -924,9 +974,12 @@ case "$FILTER" in
   web-write-flows|web-write-flows-20260517)
     run_web_write_flows
     ;;
+  repo-files-tab|repo-files-tab-20260517)
+    run_repo_files_tab
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp / adapter-framework / web-mvp-pages / rq-worker-skeleton / web-write-flows" >&2
+    echo "已知 change: bootstrap-monorepo / ... / web-write-flows / repo-files-tab" >&2
     exit 2
     ;;
 esac
