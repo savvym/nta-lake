@@ -4,7 +4,7 @@
 import 整个 `dataplat_core.domain`，避免循环 import（spec §风险表）。
 """
 
-from dataplat_core.protocols.adapter import IngestResult, SourceAdapter
+from dataplat_core.protocols.adapter import IngestFileRef, IngestResult, SourceAdapter
 from dataplat_core.protocols.auth import AuthenticatedUser, AuthProvider
 from dataplat_core.protocols.processor import (
     Processor,
@@ -19,6 +19,7 @@ from dataplat_core.protocols.storage import BlobPutResult, BlobStore
 __all__ = [
     "SourceAdapter",
     "IngestResult",
+    "IngestFileRef",
     "Processor",
     "ProcessResult",
     "RepoView",

@@ -289,6 +289,116 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "IngestRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_name": {
+            "title": "Adapter Name",
+            "type": "string"
+          },
+          "adapter_version": {
+            "title": "Adapter Version",
+            "type": "string"
+          },
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "parents": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "title": "Parents",
+            "type": "array"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "title": "Spec",
+            "type": "object"
+          }
+        },
+        "required": [
+          "adapter_name",
+          "adapter_version",
+          "spec",
+          "author_id"
+        ],
+        "title": "IngestRequest",
+        "type": "object"
+      },
+      "IngestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "commit": {
+            "$ref": "#/components/schemas/CommitRead"
+          },
+          "ingest_summary": {
+            "$ref": "#/components/schemas/IngestSummary"
+          }
+        },
+        "required": [
+          "commit",
+          "ingest_summary"
+        ],
+        "title": "IngestResponse",
+        "type": "object"
+      },
+      "IngestSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_count": {
+            "default": 0,
+            "title": "Asset Count",
+            "type": "integer"
+          },
+          "bytes_written": {
+            "default": 0,
+            "title": "Bytes Written",
+            "type": "integer"
+          },
+          "file_count": {
+            "default": 0,
+            "title": "File Count",
+            "type": "integer"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "title": "IngestSummary",
+        "type": "object"
+      },
       "InputRef": {
         "additionalProperties": false,
         "properties": {
@@ -1644,6 +1754,67 @@
         "summary": "Get Commit",
         "tags": [
           "commits"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/ingest": {
+      "post": {
+        "operationId": "ingest_repos__owner___name__ingest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest",
+        "tags": [
+          "ingest"
         ]
       }
     },

@@ -8,15 +8,30 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from dataplat_core.domain.types import SHA256
 from dataplat_core.protocols.runcontext import RunContext
 
 
-class IngestResult(BaseModel):
-    """adapter.ingest() 的产出元信息。
+class IngestFileRef(BaseModel):
+    """adapter.ingest() 产出的 (path → blob_sha256) 映射。
 
-    实际文件由 adapter 写入 workspace，平台据此 commit；本对象只回传统计。
+    Runner 用此构造 Tree entries 调 CommitService（spec adapter-framework AC-1）。
+    """
+
+    model_config = ConfigDict(frozen=False, extra="forbid")
+
+    path: str
+    sha256: SHA256
+    mode: int = 33188  # 0o100644 unix regular file
+
+
+class IngestResult(BaseModel):
+    """adapter.ingest() 的产出元信息 + 文件清单。
+
+    `files` 是 runner commit 的 ground truth（路径 + blob sha256）；
+    其他字段是统计 / notes。
     """
 
     model_config = ConfigDict(frozen=False, extra="forbid")
@@ -25,6 +40,7 @@ class IngestResult(BaseModel):
     file_count: int = 0
     bytes_written: int = 0
     notes: str | None = None
+    files: list[IngestFileRef] = Field(default_factory=list)
 
 
 @runtime_checkable

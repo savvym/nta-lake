@@ -7,9 +7,12 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+# 触发 adapters/__init__.py 自动注册内置 adapter 到 registry
+from dataplat_api import adapters as _adapters  # noqa: F401
 from dataplat_api.routers.admin import router as admin_router
 from dataplat_api.routers.auth import router as auth_router
 from dataplat_api.routers.commits import router as commits_router
+from dataplat_api.routers.ingest import router as ingest_router
 from dataplat_api.routers.repos import router as repos_router
 
 app = FastAPI(
@@ -34,3 +37,4 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(repos_router)
 app.include_router(commits_router)
+app.include_router(ingest_router)

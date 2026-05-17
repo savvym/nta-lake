@@ -98,13 +98,13 @@ tasks.md 任务条数 > 0
 - 任务直接写"实现整个系统"，没有粒度拆分。
 - spec 偷偷加入 design.md 里已有的设计内容当背景，让评审分不清是已决策还是新提案。
 
-## 跨 AC 一致性自审清单（commit-api-mvp-20260517 stage 2 反哺）
+## 跨 AC 一致性自审清单（commit-api-mvp 反哺 + adapter-framework 扩充）
 
-generator 提交 spec v1 前必须自查的四链路一致性。该变更 v1 出现 `created_at` 进入 hash 但 schema 不含、AC-8 vs 风险 #3 事务边界措辞相反——典型的跨 AC 自相矛盾，stage 2 reviewer 才能发现：
+generator 提交 spec v1 前必须自查的一致性链路。原 commit-api-mvp v1 出现 `created_at` 进 hash 但 schema 不含、AC-8 vs 风险 #3 事务边界措辞相反 → checklist 第 1~4 条。adapter-framework v1 又暴露 orphan commit + 反向 grep 沉默通过两个新模式 → 扩充第 5~6 条 + 第 7 条 process_tasks 完整性。
 
 1. **schema 字段 ↔ canonical hash 输入 ↔ idempotency key ↔ test fixture 四链路必须一致**：
-   - 若某字段进入 hash 公式，要么它在 Create schema 里 client 可控，要么 hash 公式不含它（任选一致即可）。
-   - 端到端幂等测试 payload 字段集合必须 = hash 公式输入集合——否则二次 POST 必产生新 hash，幂等永远不成立。
+   - 若某字段进入 hash 公式，要么它在 Create schema 里 client 可控，要么 hash 公式不含它。
+   - 端到端幂等测试 payload 字段集合必须 = hash 公式输入集合。
    - 测试 fixture 不能引入参与 hash 计算的不确定字段（如服务端 `utcnow()`）。
 
 2. **事务边界声明在 AC + 风险 + tasks 三处必须一字不差**：若 AC 写"事务内校验"而 风险 / tasks 写"事务前校验"，coding 阶段实现者会困惑——generator 必须 grep 自查。
@@ -112,6 +112,25 @@ generator 提交 spec v1 前必须自查的四链路一致性。该变更 v1 出
 3. **AC 验证命令一行式可执行**：每条 AC 必须能放进 `scripts/_self_check.sh` 跑（`uv run python -c "..."` / `bash -c "..."` / `test -f ...`）。一行无法表达的复杂 assertion，应归并到集成测试 AC by 引用——不在 AC 本体堆段落。
 
 4. **风险缓解 ↔ AC 测试列表**：每条风险若声称有"测试覆盖"作为缓解，必须在 AC 测试列表里列出对应测试编号；否则缓解措施未落地。
+
+5. **commit 历史链连续性**（adapter-framework v1 反哺）：任何"自动产 commit"路径若涉及更新 ref，必须明示 `parents` 怎么算（client 显式 / ref-current-commit 自动接 / orphan 显式 accept）。**写死 `parents=[]` + 更新 ref = orphan commit + 历史链断裂**，违反 design.md §4.4 类 Git 语义；spec 必须有"二次写形成父子链"测试。Generator 自查 `grep -nE "parents=\[\]" spec.md` 命中处必须每处都有 accept 或 follow-up 说明。
+
+6. **反向 grep 必须配 `test -f` 前置 + 正向断言 + 不吞 stderr**（[project-followup-harness-lint] 第 6 次证据 / adapter-framework v1 反哺）：AC 验证里出现 `! grep ...` 形式时，若目标文件 / 目录在 T-* 实现前不存在，grep 退码 2 被 `!` 反转 → AC 在零代码状态下"通过"。**修复模板**：
+   ```bash
+   test -f <target_file> \
+     && grep -q "<positive assertion>" <target_file> \
+     && ! grep -rE "<negative pattern>" <target_dir>
+   ```
+   要求：(a) `test -f` 前置确保目标文件存在；(b) 正向 grep 证明真复用/真实现了预期；(c) 不写 `2>/dev/null` 吞 stderr——让路径错误暴露。
+
+7. **process_tasks 6 条必填**（adapter-framework stage 2 反哺，系统性遗漏；既有 7/8 change 仅 commit-api-mvp 有 1 个）：tasks.md 不仅列实现任务 T-*，还必须列 6 个 process 节点对应 stage-2/4/6/7/9/10：
+   - stage-2 spec/tasks review
+   - stage-4 coding review
+   - stage-6 test_report + unit-test review
+   - stage-7 CI 验证
+   - stage-9 deploy verify（即便 noop 也要显式 task）
+   - stage-10 close + 反哺 SKILL（如有）
+   - Generator 自查：`grep -cE "estimated_stage: stage-(2|4|6|7|9|10)" tasks.md` 期望 ≥ 6。
 
 generator 提交前 grep 自查（按需扩充）：
 
@@ -124,6 +143,13 @@ grep -nE "created_at|canonical|hash" spec.md
 grep -cE "uv run python -c|test -f|bash scripts" spec.md  # 期望 ≥ AC 总数 × 0.5
 # 4. 风险缓解 ↔ AC 测试
 grep -A1 "缓解" spec.md | grep -E "AC-|测试 \([a-z]\)"
+# 5. commit parents 写死检查
+grep -nE "parents=\[\]" spec.md     # 命中处必须每处有 accept/follow-up 说明
+# 6. 反向 grep 沉默通过检查
+grep -nE "! *grep" spec.md          # 命中处必须配 `test -f` 前置 + 不吞 stderr
+grep -nE "2>/dev/null" spec.md      # AC 验证命令不许吞 stderr
+# 7. process_tasks 6 条必填
+grep -cE "estimated_stage: stage-(2|4|6|7|9|10)" tasks.md  # 期望 ≥ 6
 ```
 
-跨 AC 矛盾是 spec generator 最高频的失败模式，**比"没写测试" 更隐蔽 + 更致命**——它通过了语法检查但在 stage 3 实现期才暴露，回退成本最高。
+跨 AC 矛盾是 spec generator 最高频的失败模式，**比"没写测试" 更隐蔽 + 更致命**——它通过了语法检查但在 stage 3 实现期才暴露，回退成本最高。第 5~7 条来自 adapter-framework v1 stage 2 review 实证；其中第 6 条是 [project-followup-harness-lint] 累积 5 次预警后的第 6 次同型 bug，必须重视。

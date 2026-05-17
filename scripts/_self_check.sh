@@ -587,6 +587,106 @@ assert pks == [\"hash\"]
 }
 
 # =============================================================================
+# Block: adapter-framework-20260517
+# 13 条 AC（详见 .harness/changes/adapter-framework-20260517/request_analysis/spec.md）
+# =============================================================================
+
+run_adapter_framework() {
+  echo "=== adapter-framework-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "IngestResult.files + IngestFileRef 字段（保留既有字段）" \
+    bash -c 'cd packages/core && uv run python -c "
+from dataplat_core.protocols import IngestFileRef
+from dataplat_core.protocols.adapter import IngestResult
+r = IngestResult(files=[IngestFileRef(path=\"a.md\", sha256=\"a\"*64)])
+assert r.files[0].mode == 33188
+assert r.asset_count == 0  # 既有字段保留
+"'
+
+  run_ac AC-2 "AdapterRegistry + get_registry 单例 + 内置注册" \
+    bash -c 'cd apps/api && uv run python -c "
+import dataplat_api.adapters
+from dataplat_api.runner import get_registry
+reg = get_registry()
+assert reg.get(\"raw-file-upload\", \"0.1\") is not None
+assert (\"raw-file-upload\",\"0.1\") in reg.list_all()
+"'
+
+  run_ac AC-3 "StandardRunContext 实现 RunContext Protocol" \
+    bash -c 'cd apps/api && uv run python -c "
+import logging
+from dataplat_core.protocols.runcontext import RunContext
+from dataplat_api.runner.runcontext import StandardRunContext
+ctx = StandardRunContext(logger=logging.getLogger(\"t\"))
+assert isinstance(ctx, RunContext)
+ctx.logger.info(\"ok\")
+"'
+
+  run_ac AC-4 "AdapterRunner.run 是 coroutine + 3-tuple 返回" \
+    bash -c 'cd apps/api && uv run python -c "
+import inspect
+from dataplat_api.runner.adapter_runner import AdapterRunner
+assert inspect.iscoroutinefunction(AdapterRunner.run)
+sig = inspect.signature(AdapterRunner.run)
+assert \"tuple\" in str(sig.return_annotation)
+"'
+
+  run_ac AC-5 "RawFileUploadAdapter 实现 SourceAdapter + ingest pass-through" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_core.protocols.adapter import SourceAdapter
+from dataplat_api.adapters.raw_upload import RawFileUploadAdapter
+a = RawFileUploadAdapter()
+assert isinstance(a, SourceAdapter)
+r = a.ingest({\"files\":[{\"path\":\"a.md\",\"sha256\":\"a\"*64}]}, None, None)
+assert r.file_count == 1
+assert r.files[0].path == \"a.md\"
+"'
+
+  run_ac AC-6 "IngestRequest + IngestResponse schemas（extra=forbid + parents 字段）" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.schemas.ingest import IngestRequest, IngestSummary, IngestResponse
+assert IngestRequest.model_config.get(\"extra\") == \"forbid\"
+assert \"parents\" in IngestRequest.model_fields
+assert \"ingest_summary\" in IngestResponse.model_fields
+"'
+
+  run_ac AC-7 "ingest router 含 POST /ingest 路由 + prefix=/repos" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.routers.ingest import router
+paths = {r.path for r in router.routes}
+assert \"/repos/{owner}/{name}/ingest\" in paths
+"'
+
+  run_ac AC-8 "main 集成 ingest_router + OpenAPI 含 /ingest" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.main import app
+s = app.openapi()
+assert \"/repos/{owner}/{name}/ingest\" in s[\"paths\"]
+"'
+
+  run_ac AC-9 "router 不重复实现 _visibility_visible（test -f 前置 + 正向断言）" \
+    bash -c 'test -f apps/api/dataplat_api/routers/ingest.py && test -f apps/api/dataplat_api/runner/adapter_runner.py && grep -qE "_resolve_repo|RepoService.get_by_owner_name" apps/api/dataplat_api/routers/ingest.py && ! grep -rE "_visibility_visible" apps/api/dataplat_api/runner apps/api/dataplat_api/routers/ingest.py apps/api/dataplat_api/adapters'
+
+  run_ac AC-10 "AdapterRunner 含 404/400 错误翻译 + parent 自动接链" \
+    bash -c 'cd apps/api && uv run python -c "
+import inspect
+from dataplat_api.runner.adapter_runner import AdapterRunner
+src = inspect.getsource(AdapterRunner.run)
+assert \"HTTPException\" in src and \"available\" in src  # 404 翻译
+assert \"HTTP_400_BAD_REQUEST\" in src                    # 400 翻译
+assert \"resolved_parents\" in src and \"RefORM\" in src   # parent 接链
+"'
+
+  run_ac_skipif_no_pg_or_minio AC-11 "apps/api ingest 集成 ≥ 13 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && (cd apps/api && uv run pytest -q --tb=no tests/test_ingest.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_ingest.py 2>&1 | grep -cE "test_ingest\.py::")" -ge 13 ]'
+
+  run_ac AC-12 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core && uv run mypy apps/api/dataplat_api packages/core/src'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
+# =============================================================================
 # 主控
 # =============================================================================
 
@@ -603,6 +703,8 @@ case "$FILTER" in
     run_repo_api_mvp
     echo
     run_commit_api_mvp
+    echo
+    run_adapter_framework
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -622,9 +724,12 @@ case "$FILTER" in
   commit-api-mvp|commit-api-mvp-20260517)
     run_commit_api_mvp
     ;;
+  adapter-framework|adapter-framework-20260517)
+    run_adapter_framework
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp / adapter-framework" >&2
     exit 2
     ;;
 esac
