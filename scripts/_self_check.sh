@@ -185,7 +185,7 @@ run_core_domain_model() {
     python3 -c "import tomllib; d=tomllib.load(open('apps/api/pyproject.toml','rb')); deps=d['project']['dependencies']; assert any('sqlalchemy' in x for x in deps) and any('alembic' in x for x in deps) and any('asyncpg' in x for x in deps)"
 
   run_ac_skipif_no_pg AC-13 "alembic upgrade head + 0001 head" \
-    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && cd apps/api && uv run alembic upgrade head && uv run alembic current 2>&1 | grep -q "0001"'
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && cd apps/api && uv run alembic upgrade head && uv run alembic history 2>&1 | grep -q "0001"'
 
   run_ac AC-14 "packages/core 单测 ≥ 6 + 全 PASS" \
     bash -c '(cd packages/core && uv run pytest -q --tb=no tests/) && [ "$(cd packages/core && uv run pytest --collect-only -q tests/ 2>&1 | grep -cE "::")" -ge 6 ]'
@@ -289,6 +289,60 @@ run_cas_storage() {
 # 主控
 # =============================================================================
 
+run_auth_scaffold() {
+  echo "=== auth-scaffold-20260517 :: 17 AC ==="
+
+  run_ac AC-1 "UserORM 模块 + class UserORM" \
+    bash -c 'test -f apps/api/dataplat_api/models/user.py && grep -q "class UserORM" apps/api/dataplat_api/models/user.py'
+
+  run_ac_skipif_no_pg AC-2 "0002 migration head" \
+    bash -c 'ls apps/api/alembic/versions/0002_*.py >/dev/null && export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && cd apps/api && uv run alembic upgrade head && uv run alembic current 2>&1 | grep -q "0002"'
+
+  run_ac AC-3 "AuthProvider runtime_checkable Protocol + AuthenticatedUser BaseModel" \
+    bash -c 'cd packages/core && uv run python -c "from typing import Protocol; from pydantic import BaseModel; from dataplat_core.protocols.auth import AuthProvider, AuthenticatedUser; assert issubclass(AuthProvider, Protocol); assert getattr(AuthProvider, \"_is_runtime_protocol\", False) is True; assert issubclass(AuthenticatedUser, BaseModel)"'
+
+  run_ac AC-4 "protocols __init__ 暴露" \
+    bash -c 'cd packages/core && uv run python -c "from dataplat_core.protocols import AuthProvider, AuthenticatedUser"'
+
+  run_ac AC-5 "password hash/verify + 随机 salt" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.auth.password import hash_password, verify_password; h1=hash_password(\"x\"); h2=hash_password(\"x\"); assert h1!=h2; assert verify_password(\"x\",h1) and verify_password(\"x\",h2) and not verify_password(\"y\",h1)"'
+
+  run_ac AC-6 "JWT encode/decode + lazy os.getenv" \
+    bash -c 'cd apps/api && DATAPLAT_JWT_SECRET=test-secret-32-bytes-long-xxxxx uv run python -c "from dataplat_api.auth.tokens import encode_access_token, decode_token; t=encode_access_token(\"u1\",\"user\"); d=decode_token(t); assert d[\"sub\"]==\"u1\" and d[\"role\"]==\"user\""'
+
+  run_ac AC-7 "cookies httponly+secure+samesite=lax" \
+    bash -c 'cd apps/api && uv run python -c "from fastapi import Response; from dataplat_api.auth.cookies import set_auth_cookies; r=Response(); set_auth_cookies(r,\"a\",\"b\"); hdrs=[h for h in r.raw_headers if b\"set-cookie\" in h[0].lower()]; raw=b\"\\n\".join(h[1] for h in hdrs).lower(); assert b\"httponly\" in raw and b\"secure\" in raw and b\"samesite=lax\" in raw"'
+
+  run_ac AC-8 "LocalAuthProvider 实现 AuthProvider Protocol" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.auth.local_provider import LocalAuthProvider; from dataplat_core.protocols.auth import AuthProvider; p=LocalAuthProvider.__new__(LocalAuthProvider); assert isinstance(p, AuthProvider)"'
+
+  run_ac AC-9 "get_current_user is coroutine" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.auth.deps import get_current_user; import inspect; assert inspect.iscoroutinefunction(get_current_user)"'
+
+  run_ac AC-10 "auth router 4 路由（prefix 钉死）" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.routers.auth import router; paths={r.path for r in router.routes}; assert {\"/auth/login\",\"/auth/logout\",\"/auth/refresh\",\"/auth/me\"} <= paths"'
+
+  run_ac AC-11 "admin router 含 /admin/users" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.routers.admin import router; paths={r.path for r in router.routes}; assert any(\"/admin/users\" in p for p in paths)"'
+
+  run_ac AC-12 "main 集成 + OpenAPI 含 /auth/login + /auth/me" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.main import app; spec=app.openapi(); assert \"/auth/login\" in spec[\"paths\"] and \"/auth/me\" in spec[\"paths\"]"'
+
+  run_ac AC-13 "argon2-cffi + PyJWT 依赖" \
+    python3 -c "import tomllib; d=tomllib.load(open('apps/api/pyproject.toml','rb')); deps=d['project']['dependencies']; assert any('argon2-cffi' in x for x in deps) and any('pyjwt' in x.lower() for x in deps)"
+
+  run_ac AC-14 "packages/core auth 单测 ≥ 3 + 全 PASS" \
+    bash -c '(cd packages/core && uv run pytest -q --tb=no tests/test_auth_protocol.py) && [ "$(cd packages/core && uv run pytest --collect-only -q tests/test_auth_protocol.py 2>&1 | grep -cE "::")" -ge 3 ]'
+
+  run_ac_skipif_no_pg AC-15 "apps/api auth 集成 ≥ 10 + 全 PASS（含 user→403）" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && (cd apps/api && uv run pytest -q --tb=no tests/test_auth.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_auth.py 2>&1 | grep -cE "::")" -ge 10 ]'
+
+  run_ac AC-16 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core && uv run mypy apps/api/dataplat_api packages/core/src'
+
+  run_ac AC-17 "AC-17 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -296,6 +350,8 @@ case "$FILTER" in
     run_core_domain_model
     echo
     run_cas_storage
+    echo
+    run_auth_scaffold
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -306,9 +362,12 @@ case "$FILTER" in
   cas-storage|cas-storage-20260517)
     run_cas_storage
     ;;
+  auth-scaffold|auth-scaffold-20260517)
+    run_auth_scaffold
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold" >&2
     exit 2
     ;;
 esac

@@ -12,6 +12,7 @@ from dataplat_api.models.commit import CommitORM
 from dataplat_api.models.refs import RefORM
 from dataplat_api.models.repository import RepositoryORM
 from dataplat_api.models.tree import TreeEntryORM, TreeORM
+from dataplat_api.models.user import UserORM
 
 __all__ = [
     "Base",
@@ -22,4 +23,5 @@ __all__ = [
     "TreeEntryORM",
     "RefORM",
     "BlobORM",
+    "UserORM",
 ]

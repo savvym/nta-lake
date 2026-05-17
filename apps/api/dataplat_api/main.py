@@ -7,6 +7,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from dataplat_api.routers.admin import router as admin_router
+from dataplat_api.routers.auth import router as auth_router
+
 app = FastAPI(
     title="dataplat API",
     version="0.0.0",
@@ -21,3 +24,9 @@ class HealthResponse(BaseModel):
 @app.get("/healthz", response_model=HealthResponse, tags=["meta"])
 async def healthz() -> HealthResponse:
     return HealthResponse(status="ok")
+
+
+# 注：router 已自带 prefix（/auth、/admin），include_router 不再传 prefix
+# 见 cas-storage spec MUST FIX-1 与 stage 4 reviewer 钉死的唯一组合
+app.include_router(auth_router)
+app.include_router(admin_router)

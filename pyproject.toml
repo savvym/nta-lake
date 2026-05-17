@@ -28,6 +28,10 @@ ignore = [
     "E501",
 ]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI 的依赖注入语法要求 Depends(...) 写在参数默认值里——是 B008 的官方例外
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body", "fastapi.Header"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

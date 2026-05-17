@@ -1,17 +1,20 @@
-"""pytest 配置：module-scoped event loop，避免 asyncpg 跨用例清理时序冲突。
+"""pytest 配置：JWT secret 早于任何 dataplat_api 模块 import。
 
-详见：
-- https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html#using-asyncio-scoped-session
-- pytest-asyncio v1+ 的 loop_scope。
+spec auth-scaffold-20260517 MUST FIX-2：tokens.py 每次调用都 os.getenv 读 secret，
+但 conftest 仍需保 secret 存在；以 setdefault 保 idempotent（用户可 export 覆盖）。
+
+注：本会话内之前用过 `loop_scope='module'` 试图绕 asyncpg event loop 关闭时序，
+但实测会与 function-scope fixture 冲突；改回默认 function scope，每个测试用 fresh
+engine 而不 dispose（test_models / test_auth 都遵循）。
 """
 
 from __future__ import annotations
 
-import pytest
+import os
 
-
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """所有 async test 用 module-scoped loop，避免 engine 重复打开/关闭。"""
-    for item in items:
-        if "asyncio" in (m.name for m in item.iter_markers()):
-            item.add_marker(pytest.mark.asyncio(loop_scope="module"))
+os.environ.setdefault(
+    "DATAPLAT_JWT_SECRET",
+    "test-secret-not-prod-x32-bytes-xxxxx",
+)
+# NullPool 避免 asyncpg+pytest-asyncio 跨 event-loop stale connection
+os.environ.setdefault("DATAPLAT_USE_NULL_POOL", "1")
