@@ -38,6 +38,11 @@ strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 
+[[tool.mypy.overrides]]
+# boto3 / botocore 无内置 type stubs；本变更不引入 boto3-stubs（额外 ~30 MB），后续 follow-up 可加
+module = ["boto3", "boto3.*", "botocore", "botocore.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["apps/api/tests", "packages/core/tests", "worker/tests"]

@@ -13,6 +13,7 @@ from dataplat_core.protocols.processor import (
     RepoView,
 )
 from dataplat_core.protocols.runcontext import RunContext
+from dataplat_core.protocols.storage import BlobPutResult, BlobStore
 
 __all__ = [
     "SourceAdapter",
@@ -23,4 +24,6 @@ __all__ = [
     "RepoSelector",
     "RepoSpec",
     "RunContext",
+    "BlobStore",
+    "BlobPutResult",
 ]

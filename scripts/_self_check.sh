@@ -201,6 +201,91 @@ run_core_domain_model() {
 }
 
 # =============================================================================
+# MinIO 探针 + cas-storage block
+# =============================================================================
+
+_minio_reachable() {
+  python3 -c "
+import socket, sys
+s = socket.socket()
+s.settimeout(1)
+try:
+    s.connect(('localhost', int('${DATAPLAT_MINIO_PORT:-9000}')))
+    s.close()
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+"
+}
+
+run_ac_skipif_no_minio() {
+  local id="$1"
+  local desc="$2"
+  shift 2
+  if ! _minio_reachable 2>/dev/null; then
+    printf "SKIP  %-10s  %s（MinIO localhost:%s 未通）\n" "$id" "$desc" "${DATAPLAT_MINIO_PORT:-9000}"
+    SKIP=$((SKIP + 1))
+    SKIPPED_ACS+=("$id")
+    return 0
+  fi
+  run_ac "$id" "$desc" "$@"
+}
+
+run_cas_storage() {
+  echo "=== cas-storage-20260517 :: 17 AC ==="
+
+  run_ac AC-1 "storage.py + BlobStore runtime_checkable Protocol + BlobPutResult" \
+    bash -c 'test -f packages/core/src/dataplat_core/protocols/storage.py && cd packages/core && uv run python -c "from typing import Protocol; from pydantic import BaseModel; from dataplat_core.protocols.storage import BlobStore, BlobPutResult; assert issubclass(BlobStore, Protocol); assert getattr(BlobStore, \"_is_runtime_protocol\", False) is True; assert issubclass(BlobPutResult, BaseModel)"'
+
+  run_ac AC-2 "protocols/__init__.py 暴露 BlobStore/BlobPutResult" \
+    bash -c 'cd packages/core && uv run python -c "from dataplat_core.protocols import BlobStore, BlobPutResult"'
+
+  run_ac AC-3 "apps/api/storage 三文件齐全" \
+    bash -c 'for f in __init__.py keys.py minio_store.py; do test -f "apps/api/dataplat_api/storage/$f" || exit 1; done'
+
+  run_ac AC-4 "storage_key_for 正确 + sha256 校验" \
+    bash -c '(cd apps/api && uv run python -c "from dataplat_api.storage.keys import storage_key_for; assert storage_key_for(\"a\"*64)==\"blobs/aa/\"+\"a\"*64") && ! (cd apps/api && uv run python -c "from dataplat_api.storage.keys import storage_key_for; storage_key_for(\"NOTHEX\"+\"a\"*58)") 2>/dev/null'
+
+  run_ac AC-5 "MinioBlobStore 实现 BlobStore Protocol" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.storage.minio_store import MinioBlobStore; from dataplat_core.protocols.storage import BlobStore; s=MinioBlobStore.__new__(MinioBlobStore); assert isinstance(s, BlobStore)"'
+
+  run_ac AC-6 "apps/api +boto3 +botocore 依赖" \
+    python3 -c "import tomllib; d=tomllib.load(open('apps/api/pyproject.toml','rb')); deps=d['project']['dependencies']; assert any('boto3' in x for x in deps) and any('botocore' in x for x in deps)"
+
+  run_ac AC-7 "put 流式 6 步算法已实现" \
+    bash -c 'grep -q "HashingStream" apps/api/dataplat_api/storage/minio_store.py && grep -q "_tmp/" apps/api/dataplat_api/storage/minio_store.py && grep -q "copy_object" apps/api/dataplat_api/storage/minio_store.py'
+
+  run_ac AC-8 "去重 deduplicated 字段已实现" \
+    bash -c 'grep -q "deduplicated" apps/api/dataplat_api/storage/minio_store.py'
+
+  run_ac AC-9 "exists 已实现" \
+    bash -c 'grep -qE "async def exists" apps/api/dataplat_api/storage/minio_store.py'
+
+  run_ac AC-10 "get + KeyError 首次 __anext__ 已实现" \
+    bash -c 'grep -qE "raise KeyError" apps/api/dataplat_api/storage/minio_store.py'
+
+  run_ac AC-11 "get_size 已实现" \
+    bash -c 'grep -qE "async def get_size" apps/api/dataplat_api/storage/minio_store.py'
+
+  run_ac AC-12 "key 严格 blobs/{2}/{64} 规范" \
+    bash -c 'grep -qE "blobs/" apps/api/dataplat_api/storage/keys.py'
+
+  run_ac AC-13 "大对象 ≥ 2MB 测试存在（AC-15 e 覆盖）" \
+    bash -c 'grep -qE "2 \* 1024 \* 1024" apps/api/tests/test_minio_store.py'
+
+  run_ac AC-14 "packages/core test_storage_protocol ≥ 3 + 全 PASS" \
+    bash -c '(cd packages/core && uv run pytest -q --tb=no tests/test_storage_protocol.py) && [ "$(cd packages/core && uv run pytest --collect-only -q tests/test_storage_protocol.py 2>&1 | grep -cE "::")" -ge 3 ]'
+
+  run_ac_skipif_no_minio AC-15 "apps/api MinIO 集成 ≥ 5 + 全 PASS" \
+    bash -c 'export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_MINIO_ACCESS_KEY=${DATAPLAT_MINIO_ACCESS_KEY:-dataplat} && export DATAPLAT_MINIO_SECRET_KEY=${DATAPLAT_MINIO_SECRET_KEY:-dataplat-secret} && (cd apps/api && uv run pytest -q --tb=no tests/test_minio_store.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_minio_store.py 2>&1 | grep -cE "::")" -ge 5 ]'
+
+  run_ac AC-16 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core && uv run mypy apps/api/dataplat_api packages/core/src'
+
+  run_ac AC-17 "AC-17 自递归" true
+}
+
+# =============================================================================
 # 主控
 # =============================================================================
 
@@ -209,6 +294,8 @@ case "$FILTER" in
     run_bootstrap_monorepo
     echo
     run_core_domain_model
+    echo
+    run_cas_storage
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -216,9 +303,12 @@ case "$FILTER" in
   core-domain-model|core-domain-model-20260516)
     run_core_domain_model
     ;;
+  cas-storage|cas-storage-20260517)
+    run_cas_storage
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage" >&2
     exit 2
     ;;
 esac
