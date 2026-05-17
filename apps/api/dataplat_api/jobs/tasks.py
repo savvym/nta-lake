@@ -19,6 +19,9 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+# 触发内置 adapter 注册（worker 进程不 import main.py；必须在 tasks 模块里
+# 显式 import adapters，否则 AdapterRegistry 空）
+from dataplat_api import adapters as _adapters  # noqa: F401
 from dataplat_api.jobs.service import JobsService
 from dataplat_api.models import RepositoryORM
 from dataplat_api.runner.adapter_runner import AdapterRunner

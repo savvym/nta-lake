@@ -824,6 +824,54 @@ assert need <= cols, cols
   run_ac AC-13 "AC-13 自递归" true
 }
 
+# =============================================================================
+# Block: web-write-flows-20260517
+# 13 条 AC（详见 .harness/changes/web-write-flows-20260517/request_analysis/spec.md）
+# 不依赖后端服务；依赖 pnpm + node
+# =============================================================================
+
+run_web_write_flows() {
+  echo "=== web-write-flows-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "repos.new.tsx 含 react-hook-form + /repos POST" \
+    bash -c 'test -f apps/web/src/routes/repos.new.tsx && grep -q "react-hook-form" apps/web/src/routes/repos.new.tsx && grep -q "/repos" apps/web/src/routes/repos.new.tsx'
+
+  run_ac AC-2 "jobs.\$job_id.tsx 存在 + useJob 轮询（refetchInterval in queries.ts）" \
+    bash -c 'test -f "apps/web/src/routes/jobs.\$job_id.tsx" && grep -q "useJob" "apps/web/src/routes/jobs.\$job_id.tsx" && grep -q "refetchInterval" apps/web/src/lib/api/queries.ts'
+
+  run_ac AC-3 "commits.\$owner.\$name.\$hash.tsx 显示 blob 下载链" \
+    bash -c 'test -f "apps/web/src/routes/commits.\$owner.\$name.\$hash.tsx" && grep -q "blobs" "apps/web/src/routes/commits.\$owner.\$name.\$hash.tsx"'
+
+  run_ac AC-4 "repo 详情页含 useUpdateRepo/useDeleteRepo/useEnqueueIngest + navigate /jobs" \
+    bash -c 'grep -qE "useUpdateRepo|useDeleteRepo" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "useEnqueueIngest" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "/jobs/" "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+
+  run_ac AC-5 "queries.ts 新增 7 个 hook" \
+    bash -c '[ "$(grep -cE "export function (useCreateRepo|useUpdateRepo|useDeleteRepo|useUploadBlob|useEnqueueIngest|useJob|useCommit)" apps/web/src/lib/api/queries.ts)" -ge 7 ]'
+
+  run_ac AC-6 "useUploadBlob 用 binary body（octet-stream）" \
+    bash -c 'grep -q "useUploadBlob" apps/web/src/lib/api/queries.ts && grep -qE "octet-stream|Blob|File" apps/web/src/lib/api/queries.ts'
+
+  run_ac AC-7 "invalidateQueries 至少 3 处" \
+    bash -c '[ "$(grep -c "invalidateQueries" apps/web/src/lib/api/queries.ts)" -ge 3 ]'
+
+  run_ac AC-8 "Textarea 组件存在" \
+    bash -c 'test -f apps/web/src/components/ui/textarea.tsx && grep -q "Textarea" apps/web/src/components/ui/textarea.tsx'
+
+  run_ac AC-9 "/repos 列表 admin-only + New Repository 按钮" \
+    bash -c 'grep -qE "New Repository|新建" apps/web/src/routes/repos/index.tsx && grep -q "/repos/new" apps/web/src/routes/repos/index.tsx'
+
+  run_ac AC-10 "详情页 Edit/Delete/Ingest + admin 条件" \
+    bash -c 'grep -qE "Edit|Delete|Ingest" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -qE "role|admin|isAdmin" "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+
+  run_ac AC-11 "vitest ≥ 7 测试 + 全 PASS" \
+    bash -c '[ "$(find apps/web/src -name "*.test.tsx" -o -name "*.test.ts" | wc -l)" -ge 7 ] && cd apps/web && pnpm test 2>&1 | tail -5 | grep -qE "Test Files.*passed|Tests.*passed"'
+
+  run_ac AC-12 "apps/web typecheck + build + dist/index.html" \
+    bash -c 'cd apps/web && pnpm typecheck && pnpm build && test -f dist/index.html'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -843,6 +891,8 @@ case "$FILTER" in
     run_web_mvp_pages
     echo
     run_rq_worker_skeleton
+    echo
+    run_web_write_flows
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -871,9 +921,12 @@ case "$FILTER" in
   rq-worker-skeleton|rq-worker-skeleton-20260517)
     run_rq_worker_skeleton
     ;;
+  web-write-flows|web-write-flows-20260517)
+    run_web_write_flows
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp / adapter-framework / web-mvp-pages / rq-worker-skeleton" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp / adapter-framework / web-mvp-pages / rq-worker-skeleton / web-write-flows" >&2
     exit 2
     ;;
 esac

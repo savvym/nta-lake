@@ -12,7 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReposIndexRouteImport } from './routes/repos/index'
+import { Route as ReposNewRouteImport } from './routes/repos.new'
+import { Route as JobsJob_idRouteImport } from './routes/jobs.$job_id'
 import { Route as ReposOwnerNameRouteImport } from './routes/repos/$owner.$name'
+import { Route as CommitsOwnerNameHashRouteImport } from './routes/commits.$owner.$name.$hash'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -29,44 +32,93 @@ const ReposIndexRoute = ReposIndexRouteImport.update({
   path: '/repos/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReposNewRoute = ReposNewRouteImport.update({
+  id: '/repos/new',
+  path: '/repos/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JobsJob_idRoute = JobsJob_idRouteImport.update({
+  id: '/jobs/$job_id',
+  path: '/jobs/$job_id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReposOwnerNameRoute = ReposOwnerNameRouteImport.update({
   id: '/repos/$owner/$name',
   path: '/repos/$owner/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommitsOwnerNameHashRoute = CommitsOwnerNameHashRouteImport.update({
+  id: '/commits/$owner/$name/$hash',
+  path: '/commits/$owner/$name/$hash',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/jobs/$job_id': typeof JobsJob_idRoute
+  '/repos/new': typeof ReposNewRoute
   '/repos/': typeof ReposIndexRoute
   '/repos/$owner/$name': typeof ReposOwnerNameRoute
+  '/commits/$owner/$name/$hash': typeof CommitsOwnerNameHashRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/jobs/$job_id': typeof JobsJob_idRoute
+  '/repos/new': typeof ReposNewRoute
   '/repos': typeof ReposIndexRoute
   '/repos/$owner/$name': typeof ReposOwnerNameRoute
+  '/commits/$owner/$name/$hash': typeof CommitsOwnerNameHashRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/jobs/$job_id': typeof JobsJob_idRoute
+  '/repos/new': typeof ReposNewRoute
   '/repos/': typeof ReposIndexRoute
   '/repos/$owner/$name': typeof ReposOwnerNameRoute
+  '/commits/$owner/$name/$hash': typeof CommitsOwnerNameHashRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/repos/' | '/repos/$owner/$name'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/jobs/$job_id'
+    | '/repos/new'
+    | '/repos/'
+    | '/repos/$owner/$name'
+    | '/commits/$owner/$name/$hash'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/repos' | '/repos/$owner/$name'
-  id: '__root__' | '/' | '/login' | '/repos/' | '/repos/$owner/$name'
+  to:
+    | '/'
+    | '/login'
+    | '/jobs/$job_id'
+    | '/repos/new'
+    | '/repos'
+    | '/repos/$owner/$name'
+    | '/commits/$owner/$name/$hash'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/jobs/$job_id'
+    | '/repos/new'
+    | '/repos/'
+    | '/repos/$owner/$name'
+    | '/commits/$owner/$name/$hash'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  JobsJob_idRoute: typeof JobsJob_idRoute
+  ReposNewRoute: typeof ReposNewRoute
   ReposIndexRoute: typeof ReposIndexRoute
   ReposOwnerNameRoute: typeof ReposOwnerNameRoute
+  CommitsOwnerNameHashRoute: typeof CommitsOwnerNameHashRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,11 +144,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReposIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/repos/new': {
+      id: '/repos/new'
+      path: '/repos/new'
+      fullPath: '/repos/new'
+      preLoaderRoute: typeof ReposNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jobs/$job_id': {
+      id: '/jobs/$job_id'
+      path: '/jobs/$job_id'
+      fullPath: '/jobs/$job_id'
+      preLoaderRoute: typeof JobsJob_idRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/repos/$owner/$name': {
       id: '/repos/$owner/$name'
       path: '/repos/$owner/$name'
       fullPath: '/repos/$owner/$name'
       preLoaderRoute: typeof ReposOwnerNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/commits/$owner/$name/$hash': {
+      id: '/commits/$owner/$name/$hash'
+      path: '/commits/$owner/$name/$hash'
+      fullPath: '/commits/$owner/$name/$hash'
+      preLoaderRoute: typeof CommitsOwnerNameHashRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -105,8 +178,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  JobsJob_idRoute: JobsJob_idRoute,
+  ReposNewRoute: ReposNewRoute,
   ReposIndexRoute: ReposIndexRoute,
   ReposOwnerNameRoute: ReposOwnerNameRoute,
+  CommitsOwnerNameHashRoute: CommitsOwnerNameHashRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
