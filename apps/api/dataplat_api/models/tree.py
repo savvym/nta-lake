@@ -7,7 +7,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from dataplat_api.models.base import Base
 
@@ -26,6 +26,12 @@ class TreeORM(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    entries: Mapped[list[TreeEntryORM]] = relationship(
+        back_populates="tree",
+        cascade="all, delete-orphan",
+        order_by="TreeEntryORM.position",
     )
 
 
@@ -47,3 +53,5 @@ class TreeEntryORM(Base):
     mode: Mapped[int] = mapped_column(Integer, nullable=False)
     entry_type: Mapped[str] = mapped_column(String(8), nullable=False)
     target_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    tree: Mapped[TreeORM] = relationship(back_populates="entries")

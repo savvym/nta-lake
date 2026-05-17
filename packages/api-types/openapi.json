@@ -42,6 +42,172 @@
         "title": "AuthenticatedUser",
         "type": "object"
       },
+      "BlobUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "deduplicated": {
+            "title": "Deduplicated",
+            "type": "boolean"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "storage_key": {
+            "title": "Storage Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "size",
+          "storage_key",
+          "deduplicated"
+        ],
+        "title": "BlobUploadResponse",
+        "type": "object"
+      },
+      "CommitCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "lineage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lineage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "parents": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "title": "Parents",
+            "type": "array"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "tree": {
+            "$ref": "#/components/schemas/TreeCreate"
+          }
+        },
+        "required": [
+          "tree",
+          "author_id"
+        ],
+        "title": "CommitCreate",
+        "type": "object"
+      },
+      "CommitRead": {
+        "additionalProperties": false,
+        "properties": {
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deduplicated": {
+            "title": "Deduplicated",
+            "type": "boolean"
+          },
+          "hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Hash",
+            "type": "string"
+          },
+          "lineage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lineage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "parents": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "title": "Parents",
+            "type": "array"
+          },
+          "repo_id": {
+            "title": "Repo Id",
+            "type": "string"
+          },
+          "tree": {
+            "$ref": "#/components/schemas/TreeRead"
+          },
+          "tree_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Tree Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash",
+          "repo_id",
+          "tree_hash",
+          "parents",
+          "author_id",
+          "created_at",
+          "message",
+          "lineage",
+          "tree",
+          "deduplicated"
+        ],
+        "title": "CommitRead",
+        "type": "object"
+      },
       "CreateUserRequest": {
         "properties": {
           "email": {
@@ -123,6 +289,59 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "InputRef": {
+        "additionalProperties": false,
+        "properties": {
+          "commit": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Commit",
+            "type": "string"
+          },
+          "repo": {
+            "description": "上游 repository 的 fully qualified id",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo",
+          "commit"
+        ],
+        "title": "InputRef",
+        "type": "object"
+      },
+      "Lineage": {
+        "additionalProperties": false,
+        "properties": {
+          "env": {
+            "additionalProperties": true,
+            "description": "运行环境：python 版本、model id（LLM）、依赖摘要等",
+            "title": "Env",
+            "type": "object"
+          },
+          "inputs": {
+            "description": "本 commit 的上游 commits；adapter 产出的 Bronze 通常为空",
+            "items": {
+              "$ref": "#/components/schemas/InputRef"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "produced_by": {
+            "$ref": "#/components/schemas/ProducedBy"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "produced_by",
+          "run_id"
+        ],
+        "title": "Lineage",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "password": {
@@ -139,6 +358,41 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "ProducedBy": {
+        "additionalProperties": false,
+        "properties": {
+          "config_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "adapter",
+              "processor",
+              "manual"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "version",
+          "config_hash"
+        ],
+        "title": "ProducedBy",
         "type": "object"
       },
       "RepositoryCreate": {
@@ -492,6 +746,108 @@
           }
         },
         "title": "RepositoryUpdate",
+        "type": "object"
+      },
+      "TreeCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TreeEntryCreate"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "TreeCreate",
+        "type": "object"
+      },
+      "TreeEntryCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_type": {
+            "const": "blob",
+            "default": "blob",
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "target_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Target Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "mode",
+          "target_hash"
+        ],
+        "title": "TreeEntryCreate",
+        "type": "object"
+      },
+      "TreeEntryRead": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_type": {
+            "const": "blob",
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "target_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Target Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "mode",
+          "entry_type",
+          "target_hash"
+        ],
+        "title": "TreeEntryRead",
+        "type": "object"
+      },
+      "TreeRead": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TreeEntryRead"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash",
+          "entries"
+        ],
+        "title": "TreeRead",
         "type": "object"
       },
       "UpdateUserRequest": {
@@ -1056,6 +1412,299 @@
         "summary": "Update Repo",
         "tags": [
           "repos"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/blobs": {
+      "post": {
+        "operationId": "upload_blob_repos__owner___name__blobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlobUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Blob",
+        "tags": [
+          "commits"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/blobs/{sha256}": {
+      "get": {
+        "operationId": "download_blob_repos__owner___name__blobs__sha256__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Sha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Blob",
+        "tags": [
+          "commits"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/commits": {
+      "post": {
+        "operationId": "create_commit_repos__owner___name__commits_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Commit",
+        "tags": [
+          "commits"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/commits/{hash}": {
+      "get": {
+        "operationId": "get_commit_repos__owner___name__commits__hash__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "hash",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Commit",
+        "tags": [
+          "commits"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/tree/{commit_hash}": {
+      "get": {
+        "operationId": "get_tree_repos__owner___name__tree__commit_hash__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "commit_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Commit Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TreeRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Tree",
+        "tags": [
+          "commits"
         ]
       }
     }

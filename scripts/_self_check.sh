@@ -463,6 +463,130 @@ assert \"items\" in props and \"total\" in props
 }
 
 # =============================================================================
+# Block: commit-api-mvp-20260517
+# 13 条 AC（详见 .harness/changes/commit-api-mvp-20260517/request_analysis/spec.md）
+# AC-11 在 PG + MinIO 双探针任一不可达 SKIP
+# =============================================================================
+
+run_ac_skipif_no_pg_or_minio() {
+  local id="$1"
+  local desc="$2"
+  shift 2
+  if ! _pg_reachable 2>/dev/null; then
+    printf "SKIP  %-10s  %s（Postgres %s:%s 未通）\n" "$id" "$desc" "localhost" "${DATAPLAT_PG_PORT:-5432}"
+    SKIP=$((SKIP + 1))
+    SKIPPED_ACS+=("$id")
+    return 0
+  fi
+  if ! _minio_reachable 2>/dev/null; then
+    printf "SKIP  %-10s  %s（MinIO localhost:%s 未通）\n" "$id" "$desc" "${DATAPLAT_MINIO_PORT:-9000}"
+    SKIP=$((SKIP + 1))
+    SKIPPED_ACS+=("$id")
+    return 0
+  fi
+  run_ac "$id" "$desc" "$@"
+}
+
+run_commit_api_mvp() {
+  echo "=== commit-api-mvp-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "schemas/blob+tree+commit 7 类型 + extra=forbid + CommitCreate 不含 created_at" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.schemas.blob import BlobUploadResponse
+from dataplat_api.schemas.tree import TreeEntryCreate, TreeCreate, TreeEntryRead, TreeRead
+from dataplat_api.schemas.commit import CommitCreate, CommitRead
+assert \"created_at\" not in CommitCreate.model_fields
+assert CommitCreate.model_config.get(\"extra\")==\"forbid\"
+assert BlobUploadResponse.model_config.get(\"extra\")==\"forbid\"
+assert TreeEntryCreate.model_config.get(\"extra\")==\"forbid\"
+"'
+
+  run_ac AC-2 "BlobService 仅 stream 转发（不 import AsyncSession / 不查 role）" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.services.blob import BlobService
+import inspect
+assert inspect.iscoroutinefunction(BlobService.upload)
+src = inspect.getsource(BlobService)
+assert \"AsyncSession\" not in src and \"role\" not in src
+"'
+
+  run_ac AC-3 "CommitService 含 3 公共方法 + 5 私有 hash 函数" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.services.commit import CommitService
+for m in [\"create_commit\",\"get_with_tree\",\"get_tree_by_commit\"]: assert hasattr(CommitService, m), m
+for h in [\"_canonical_tree_bytes\",\"_tree_hash\",\"_canonical_commit_bytes\",\"_commit_hash\",\"_lineage_to_canonical\"]: assert hasattr(CommitService, h), h
+"'
+
+  run_ac AC-4 "commits router 5 路由 + prefix=/repos + tags=commits" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.routers.commits import router
+paths = {r.path for r in router.routes}
+need = {\"/repos/{owner}/{name}/blobs\",\"/repos/{owner}/{name}/blobs/{sha256}\",\"/repos/{owner}/{name}/commits\",\"/repos/{owner}/{name}/commits/{hash}\",\"/repos/{owner}/{name}/tree/{commit_hash}\"}
+assert need <= paths, paths
+"'
+
+  run_ac AC-5 "main 集成 commits_router + OpenAPI 含 5 paths" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.main import app
+s = app.openapi()
+need = {\"/repos/{owner}/{name}/blobs\",\"/repos/{owner}/{name}/blobs/{sha256}\",\"/repos/{owner}/{name}/commits\",\"/repos/{owner}/{name}/commits/{hash}\",\"/repos/{owner}/{name}/tree/{commit_hash}\"}
+assert need <= set(s[\"paths\"].keys())
+"'
+
+  run_ac AC-6 "router 不重复实现 _visibility_visible（复用 RepoService）" \
+    bash -c '! grep -rE "_visibility_visible" apps/api/dataplat_api/services/commit.py apps/api/dataplat_api/services/blob.py apps/api/dataplat_api/routers/commits.py 2>/dev/null'
+
+  run_ac AC-7 "BlobUploadResponse 字段与 BlobPutResult 字段对应" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.schemas.blob import BlobUploadResponse
+from dataplat_core.protocols.storage import BlobPutResult
+need = {\"sha256\",\"size\",\"storage_key\",\"deduplicated\"}
+assert need <= set(BlobUploadResponse.model_fields.keys())
+assert need <= set(BlobPutResult.model_fields.keys())
+"'
+
+  run_ac AC-8 "create_commit 事务边界：blob 存在性校验在事务前（grep）" \
+    bash -c 'cd apps/api && uv run python -c "
+import inspect
+from dataplat_api.services.commit import CommitService
+src = inspect.getsource(CommitService.create_commit)
+# 校验顺序：missing 检查 → session.commit 出现
+idx_missing = src.index(\"missing_hashes\")
+idx_commit = src.index(\"session.commit\")
+assert idx_missing < idx_commit
+"'
+
+  run_ac AC-9 "canonical hash 确定性：entries / parents 顺序不变" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.services.commit import CommitService
+from dataplat_api.schemas.tree import TreeEntryCreate
+e1 = TreeEntryCreate(name=\"b\", mode=33188, target_hash=\"a\"*64)
+e2 = TreeEntryCreate(name=\"a\", mode=33188, target_hash=\"b\"*64)
+assert CommitService._canonical_tree_bytes([e1,e2]) == CommitService._canonical_tree_bytes([e2,e1])
+th = CommitService._tree_hash([e1,e2])
+p1, p2 = \"c\"*64, \"d\"*64
+h1 = CommitService._commit_hash(th, [p1,p2], \"u\", None, None)
+h2 = CommitService._commit_hash(th, [p2,p1], \"u\", None, None)
+assert h1 == h2
+"'
+
+  run_ac AC-10 "commits.hash PK 唯一约束存在（DDL 反射）" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.models import CommitORM
+pks = [c.name for c in CommitORM.__table__.primary_key.columns]
+assert pks == [\"hash\"]
+"'
+
+  run_ac_skipif_no_pg_or_minio AC-11 "apps/api commits 集成 ≥ 16 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && (cd apps/api && uv run pytest -q --tb=no tests/test_commits.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_commits.py 2>&1 | grep -cE "test_commits\.py::")" -ge 16 ]'
+
+  run_ac AC-12 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core && uv run mypy apps/api/dataplat_api packages/core/src'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
+# =============================================================================
 # 主控
 # =============================================================================
 
@@ -477,6 +601,8 @@ case "$FILTER" in
     run_auth_scaffold
     echo
     run_repo_api_mvp
+    echo
+    run_commit_api_mvp
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -493,9 +619,12 @@ case "$FILTER" in
   repo-api-mvp|repo-api-mvp-20260517)
     run_repo_api_mvp
     ;;
+  commit-api-mvp|commit-api-mvp-20260517)
+    run_commit_api_mvp
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp" >&2
     exit 2
     ;;
 esac

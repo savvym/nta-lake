@@ -4,6 +4,8 @@
 （admin 权限由 router 的 Depends 守卫）。
 """
 
+from dataplat_api.services.blob import BlobService
+from dataplat_api.services.commit import CommitService
 from dataplat_api.services.repo import RepoService
 
-__all__ = ["RepoService"]
+__all__ = ["BlobService", "CommitService", "RepoService"]

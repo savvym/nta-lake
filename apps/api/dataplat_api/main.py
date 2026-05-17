@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from dataplat_api.routers.admin import router as admin_router
 from dataplat_api.routers.auth import router as auth_router
+from dataplat_api.routers.commits import router as commits_router
 from dataplat_api.routers.repos import router as repos_router
 
 app = FastAPI(
@@ -32,3 +33,4 @@ async def healthz() -> HealthResponse:
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(repos_router)
+app.include_router(commits_router)

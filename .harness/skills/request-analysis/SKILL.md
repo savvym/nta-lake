@@ -97,3 +97,33 @@ tasks.md 任务条数 > 0
 - 验收标准纯定性："性能更好"、"代码更清晰"、"用户体验提升"。
 - 任务直接写"实现整个系统"，没有粒度拆分。
 - spec 偷偷加入 design.md 里已有的设计内容当背景，让评审分不清是已决策还是新提案。
+
+## 跨 AC 一致性自审清单（commit-api-mvp-20260517 stage 2 反哺）
+
+generator 提交 spec v1 前必须自查的四链路一致性。该变更 v1 出现 `created_at` 进入 hash 但 schema 不含、AC-8 vs 风险 #3 事务边界措辞相反——典型的跨 AC 自相矛盾，stage 2 reviewer 才能发现：
+
+1. **schema 字段 ↔ canonical hash 输入 ↔ idempotency key ↔ test fixture 四链路必须一致**：
+   - 若某字段进入 hash 公式，要么它在 Create schema 里 client 可控，要么 hash 公式不含它（任选一致即可）。
+   - 端到端幂等测试 payload 字段集合必须 = hash 公式输入集合——否则二次 POST 必产生新 hash，幂等永远不成立。
+   - 测试 fixture 不能引入参与 hash 计算的不确定字段（如服务端 `utcnow()`）。
+
+2. **事务边界声明在 AC + 风险 + tasks 三处必须一字不差**：若 AC 写"事务内校验"而 风险 / tasks 写"事务前校验"，coding 阶段实现者会困惑——generator 必须 grep 自查。
+
+3. **AC 验证命令一行式可执行**：每条 AC 必须能放进 `scripts/_self_check.sh` 跑（`uv run python -c "..."` / `bash -c "..."` / `test -f ...`）。一行无法表达的复杂 assertion，应归并到集成测试 AC by 引用——不在 AC 本体堆段落。
+
+4. **风险缓解 ↔ AC 测试列表**：每条风险若声称有"测试覆盖"作为缓解，必须在 AC 测试列表里列出对应测试编号；否则缓解措施未落地。
+
+generator 提交前 grep 自查（按需扩充）：
+
+```bash
+# 1. 跨 AC 矛盾词
+grep -nE "事务内|事务前|事务外" spec.md
+# 2. hash 输入字段 vs schema 字段
+grep -nE "created_at|canonical|hash" spec.md
+# 3. 每条 AC 是否有一行式验证命令
+grep -cE "uv run python -c|test -f|bash scripts" spec.md  # 期望 ≥ AC 总数 × 0.5
+# 4. 风险缓解 ↔ AC 测试
+grep -A1 "缓解" spec.md | grep -E "AC-|测试 \([a-z]\)"
+```
+
+跨 AC 矛盾是 spec generator 最高频的失败模式，**比"没写测试" 更隐蔽 + 更致命**——它通过了语法检查但在 stage 3 实现期才暴露，回退成本最高。

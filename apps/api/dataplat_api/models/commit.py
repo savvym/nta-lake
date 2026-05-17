@@ -8,9 +8,10 @@ from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from dataplat_api.models.base import Base
+from dataplat_api.models.tree import TreeORM
 
 
 class CommitORM(Base):
@@ -44,3 +45,5 @@ class CommitORM(Base):
         JSONB,
         nullable=True,
     )
+
+    tree: Mapped[TreeORM] = relationship(lazy="select")
