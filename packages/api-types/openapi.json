@@ -141,6 +141,359 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "RepositoryCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "layer": {
+            "enum": [
+              "bronze",
+              "silver",
+              "gold"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pdf",
+                  "pdf-collection",
+                  "webpage",
+                  "webpage-collection",
+                  "book",
+                  "image-set"
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "text-corpus",
+                  "qa-records",
+                  "dialog-corpus",
+                  "image-text-pairs"
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "cpt",
+                  "sft",
+                  "dpo",
+                  "rlhf-pref",
+                  "eval"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "visibility": {
+            "default": "private",
+            "enum": [
+              "private",
+              "internal",
+              "public"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "name",
+          "layer",
+          "subtype"
+        ],
+        "title": "RepositoryCreate",
+        "type": "object"
+      },
+      "RepositoryListItem": {
+        "additionalProperties": false,
+        "description": "list 响应的简化条目（与 Read 字段相同，但单独类型便于后续演进）。",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "layer": {
+            "enum": [
+              "bronze",
+              "silver",
+              "gold"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pdf",
+                  "pdf-collection",
+                  "webpage",
+                  "webpage-collection",
+                  "book",
+                  "image-set"
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "text-corpus",
+                  "qa-records",
+                  "dialog-corpus",
+                  "image-text-pairs"
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "cpt",
+                  "sft",
+                  "dpo",
+                  "rlhf-pref",
+                  "eval"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "private",
+              "internal",
+              "public"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner",
+          "name",
+          "layer",
+          "subtype",
+          "visibility",
+          "description",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RepositoryListItem",
+        "type": "object"
+      },
+      "RepositoryListResponse": {
+        "additionalProperties": false,
+        "description": "GET /repos 响应。",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RepositoryListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "RepositoryListResponse",
+        "type": "object"
+      },
+      "RepositoryRead": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "layer": {
+            "enum": [
+              "bronze",
+              "silver",
+              "gold"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pdf",
+                  "pdf-collection",
+                  "webpage",
+                  "webpage-collection",
+                  "book",
+                  "image-set"
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "text-corpus",
+                  "qa-records",
+                  "dialog-corpus",
+                  "image-text-pairs"
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "cpt",
+                  "sft",
+                  "dpo",
+                  "rlhf-pref",
+                  "eval"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "private",
+              "internal",
+              "public"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner",
+          "name",
+          "layer",
+          "subtype",
+          "visibility",
+          "description",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RepositoryRead",
+        "type": "object"
+      },
+      "RepositoryUpdate": {
+        "additionalProperties": false,
+        "description": "PATCH partial update：全 Optional 默认 None；只更新非 None 字段。\n\nspec MUST FIX #4：避免误清——None 表示\"未传\"而非\"清空\"。",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "private",
+                  "internal",
+                  "public"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility"
+          }
+        },
+        "title": "RepositoryUpdate",
+        "type": "object"
+      },
       "UpdateUserRequest": {
         "properties": {
           "is_active": {
@@ -435,6 +788,274 @@
         "summary": "Healthz",
         "tags": [
           "meta"
+        ]
+      }
+    },
+    "/repos": {
+      "get": {
+        "operationId": "list_repos_repos_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "layer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "bronze",
+                    "silver",
+                    "gold"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Layer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Repos",
+        "tags": [
+          "repos"
+        ]
+      },
+      "post": {
+        "operationId": "create_repo_repos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Repo",
+        "tags": [
+          "repos"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}": {
+      "delete": {
+        "operationId": "delete_repo_repos__owner___name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Repo",
+        "tags": [
+          "repos"
+        ]
+      },
+      "get": {
+        "operationId": "get_repo_repos__owner___name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Repo",
+        "tags": [
+          "repos"
+        ]
+      },
+      "patch": {
+        "operationId": "update_repo_repos__owner___name__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Repo",
+        "tags": [
+          "repos"
         ]
       }
     }

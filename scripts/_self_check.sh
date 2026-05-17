@@ -286,7 +286,8 @@ run_cas_storage() {
 }
 
 # =============================================================================
-# 主控
+# Block: auth-scaffold-20260517
+# 17 条 AC（详见 .harness/changes/auth-scaffold-20260517/request_analysis/spec.md）
 # =============================================================================
 
 run_auth_scaffold() {
@@ -343,6 +344,128 @@ run_auth_scaffold() {
   run_ac AC-17 "AC-17 自递归" true
 }
 
+# =============================================================================
+# Block: repo-api-mvp-20260517
+# 13 条 AC（详见 .harness/changes/repo-api-mvp-20260517/request_analysis/spec.md）
+# AC-11 / AC-12 在 Postgres 不可用时 SKIP
+# =============================================================================
+
+run_repo_api_mvp() {
+  echo "=== repo-api-mvp-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "schemas/repo.py 5 类型 + extra=forbid 拒未知字段" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.schemas.repo import RepositoryCreate, RepositoryRead, RepositoryListItem, RepositoryUpdate, RepositoryListResponse
+from pydantic import ValidationError
+# extra=forbid 拒未知
+try:
+    RepositoryCreate(owner=\"o\", name=\"n\", layer=\"bronze\", subtype=\"pdf\", bogus=\"x\")
+    raise SystemExit(1)
+except ValidationError:
+    pass
+"'
+
+  run_ac AC-2 "services/repo.py 含 RepoService 5 方法" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.services.repo import RepoService; [getattr(RepoService, m) for m in [\"create\",\"get_by_owner_name\",\"list\",\"update\",\"delete\"]]"'
+
+  run_ac AC-3 "routers/repos.py 5 路由 + prefix=/repos" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.routers.repos import router; paths={r.path for r in router.routes}; assert \"/repos\" in paths and \"/repos/{owner}/{name}\" in paths"'
+
+  run_ac AC-4 "main 集成 repos router + OpenAPI 含 /repos" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.main import app; spec=app.openapi(); assert \"/repos\" in spec[\"paths\"] and \"/repos/{owner}/{name}\" in spec[\"paths\"]"'
+
+  run_ac AC-5 "get_optional_user 与 get_current_user 共享 _decode_user_from_cookie + GET 路由用 get_optional_user" \
+    bash -c 'cd apps/api && uv run python -c "
+import inspect
+from dataplat_api.auth.deps import _decode_user_from_cookie, get_current_user, get_optional_user
+from dataplat_api.routers.repos import router
+assert inspect.iscoroutinefunction(_decode_user_from_cookie)
+assert inspect.iscoroutinefunction(get_optional_user)
+src = inspect.getsource(get_optional_user)
+assert \"_decode_user_from_cookie\" in src
+# GET 路由必须用 get_optional_user 而非 get_current_user（避免 401 泄露存在性）
+for r in router.routes:
+    if \"GET\" in (r.methods or set()):
+        deps = [d.call for d in r.dependant.dependencies]
+        assert get_optional_user in deps, f\"{r.path} 未挂 get_optional_user\"
+        assert get_current_user not in deps, f\"{r.path} 错挂 get_current_user\"
+"'
+
+  run_ac AC-6 "RepoService._visibility_visible 矩阵正确" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.services.repo import RepoService
+from dataplat_core.protocols.auth import AuthenticatedUser
+import uuid
+admin = AuthenticatedUser(user_id=str(uuid.uuid4()), username=\"a\", role=\"admin\", is_active=True)
+user = AuthenticatedUser(user_id=str(uuid.uuid4()), username=\"u\", role=\"user\", is_active=True)
+# public：任何人
+assert RepoService._visibility_visible(\"public\", None) is True
+assert RepoService._visibility_visible(\"public\", user) is True
+assert RepoService._visibility_visible(\"public\", admin) is True
+# internal：仅已登录
+assert RepoService._visibility_visible(\"internal\", None) is False
+assert RepoService._visibility_visible(\"internal\", user) is True
+assert RepoService._visibility_visible(\"internal\", admin) is True
+# private：仅 admin
+assert RepoService._visibility_visible(\"private\", None) is False
+assert RepoService._visibility_visible(\"private\", user) is False
+assert RepoService._visibility_visible(\"private\", admin) is True
+"'
+
+  run_ac AC-7 "POST /repos 受 require_admin 保护" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.routers.repos import router
+from dataplat_api.auth.deps import require_admin
+post_route = next(r for r in router.routes if r.path==\"/repos\" and \"POST\" in r.methods)
+deps = [d.call for d in post_route.dependant.dependencies]
+assert require_admin in deps
+"'
+
+  run_ac AC-8 "PATCH /repos/{owner}/{name} 受 require_admin 保护（spec AC-8）" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.routers.repos import router
+from dataplat_api.auth.deps import require_admin
+patch_route = next(r for r in router.routes if \"PATCH\" in (r.methods or set()) and r.path==\"/repos/{owner}/{name}\")
+deps = [d.call for d in patch_route.dependant.dependencies]
+assert require_admin in deps
+"'
+
+  run_ac AC-9 "DELETE /repos/{owner}/{name} 受 require_admin 保护（spec AC-9）" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.routers.repos import router
+from dataplat_api.auth.deps import require_admin
+delete_route = next(r for r in router.routes if \"DELETE\" in (r.methods or set()) and r.path==\"/repos/{owner}/{name}\")
+deps = [d.call for d in delete_route.dependant.dependencies]
+assert require_admin in deps
+"'
+
+  run_ac AC-10 "GET /repos 支持 limit/offset/layer query + 返 {items, total}（spec AC-10）" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.main import app
+spec = app.openapi()
+get_op = spec[\"paths\"][\"/repos\"][\"get\"]
+params = {p[\"name\"] for p in get_op.get(\"parameters\", [])}
+assert {\"limit\",\"offset\",\"layer\"} <= params, f\"GET /repos 缺 query：实际 {params}\"
+# 200 响应 schema 必须含 items + total
+schema_ref = get_op[\"responses\"][\"200\"][\"content\"][\"application/json\"][\"schema\"][\"\$ref\"]
+schema_name = schema_ref.split(\"/\")[-1]
+props = spec[\"components\"][\"schemas\"][schema_name][\"properties\"]
+assert \"items\" in props and \"total\" in props
+"'
+
+  run_ac_skipif_no_pg AC-11 "apps/api repos 集成 ≥ 13 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && (cd apps/api && uv run pytest -q --tb=no tests/test_repos.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_repos.py 2>&1 | grep -cE "test_repos\.py::")" -ge 14 ]'
+
+  run_ac AC-12 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core && uv run mypy apps/api/dataplat_api packages/core/src'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
+# =============================================================================
+# 主控
+# =============================================================================
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -352,6 +475,8 @@ case "$FILTER" in
     run_cas_storage
     echo
     run_auth_scaffold
+    echo
+    run_repo_api_mvp
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -365,9 +490,12 @@ case "$FILTER" in
   auth-scaffold|auth-scaffold-20260517)
     run_auth_scaffold
     ;;
+  repo-api-mvp|repo-api-mvp-20260517)
+    run_repo_api_mvp
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp" >&2
     exit 2
     ;;
 esac

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from dataplat_api.routers.admin import router as admin_router
 from dataplat_api.routers.auth import router as auth_router
+from dataplat_api.routers.repos import router as repos_router
 
 app = FastAPI(
     title="dataplat API",
@@ -30,3 +31,4 @@ async def healthz() -> HealthResponse:
 # 见 cas-storage spec MUST FIX-1 与 stage 4 reviewer 钉死的唯一组合
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(repos_router)

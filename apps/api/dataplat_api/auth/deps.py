@@ -1,7 +1,11 @@
-"""get_current_user FastAPI 依赖。
+"""get_current_user + get_optional_user FastAPI 依赖。
 
-从 cookies['access_token'] 读 token → decode → 查 users 表 → 返 AuthenticatedUser。
-缺 / 非法 / 过期 / 用户不存在 / 已停用 → HTTPException 401。
+`_decode_user_from_cookie` 共享解码逻辑——七路径全返 None（无 cookie / token 解码失败 /
+typ != 'access' / sub 缺 / sub 非 UUID / user 不存在 / user inactive）。
+- `get_current_user`: None → raise 401
+- `get_optional_user`: None → 直接返 None（不 raise）
+
+repo-api-mvp-20260517 spec MUST FIX-1 / tasks MUST FIX-1 钉死：两依赖共享底层避免漂移。
 """
 
 from __future__ import annotations
@@ -24,38 +28,38 @@ _UNAUTHORIZED = HTTPException(
 )
 
 
-async def get_current_user(
+async def _decode_user_from_cookie(
     request: Request,
-    session: AsyncSession = Depends(get_session),
-) -> AuthenticatedUser:
+    session: AsyncSession,
+) -> AuthenticatedUser | None:
+    """七路径全返 None；get_current_user / get_optional_user 共享。"""
     token = request.cookies.get(ACCESS_COOKIE_NAME)
     if not token:
-        raise _UNAUTHORIZED
+        return None
 
     try:
         payload = decode_token(token)
-    except TokenError as exc:
-        raise _UNAUTHORIZED from exc
+    except TokenError:
+        return None
 
-    # 安全：必须验证 typ == 'access'，避免 refresh token 被当 access 用
-    # （stage 4 review MUST FIX #1）
+    # 安全：必须验证 typ == 'access'（防 refresh→access 重用，stage 4 MUST FIX #1）
     if payload.get("typ") != "access":
-        raise _UNAUTHORIZED
+        return None
 
     user_id = payload.get("sub")
     if not user_id:
-        raise _UNAUTHORIZED
+        return None
 
     try:
         user_uuid = uuid.UUID(user_id)
-    except (ValueError, TypeError) as exc:
-        raise _UNAUTHORIZED from exc
+    except (ValueError, TypeError):
+        return None
 
     stmt = select(UserORM).where(UserORM.id == user_uuid)
     user = (await session.execute(stmt)).scalar_one_or_none()
 
     if user is None or not user.is_active:
-        raise _UNAUTHORIZED
+        return None
 
     return AuthenticatedUser(
         user_id=str(user.id),
@@ -64,6 +68,32 @@ async def get_current_user(
         role=user.role,
         is_active=user.is_active,
     )
+
+
+async def get_current_user(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> AuthenticatedUser:
+    """认证必须通过；失败 raise 401。
+
+    硬契约（repo-api-mvp-20260517 tasks MUST FIX-1）：七路径全 raise 401，与 auth-scaffold
+    既有 11 个 test_a~test_k 回归断言一致。
+    """
+    user = await _decode_user_from_cookie(request, session)
+    if user is None:
+        raise _UNAUTHORIZED
+    return user
+
+
+async def get_optional_user(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> AuthenticatedUser | None:
+    """认证可选；无效 / 缺失返 None（**不 raise**），允许匿名路径继续。
+
+    用于 visibility=public 路径（spec AC-5 + AC-6）。
+    """
+    return await _decode_user_from_cookie(request, session)
 
 
 async def require_admin(

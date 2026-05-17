@@ -10,7 +10,7 @@ from dataplat_api.auth.cookies import (
     set_access_cookie,
     set_auth_cookies,
 )
-from dataplat_api.auth.deps import get_current_user, require_admin
+from dataplat_api.auth.deps import get_current_user, get_optional_user, require_admin
 from dataplat_api.auth.local_provider import LocalAuthProvider
 from dataplat_api.auth.password import hash_password, verify_password
 from dataplat_api.auth.tokens import (
@@ -38,5 +38,6 @@ __all__ = [
     "hash_password",
     "verify_password",
     "get_current_user",
+    "get_optional_user",
     "require_admin",
 ]
