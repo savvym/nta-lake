@@ -6,6 +6,9 @@
   "main": "./src/generated.ts",
   "types": "./src/generated.ts",
   "scripts": {
-    "generate": "echo 'TODO: 引入 openapi-typescript 后从 openapi.json 生成；当前占位'"
+    "generate": "openapi-typescript openapi.json -o src/generated.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
   }
 }

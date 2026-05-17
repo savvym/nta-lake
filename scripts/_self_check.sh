@@ -108,8 +108,8 @@ run_bootstrap_monorepo() {
   run_ac AC-7 "apps/api 文件齐全 + /healthz" \
     bash -c 'for f in pyproject.toml dataplat_api/__init__.py dataplat_api/main.py tests/__init__.py tests/test_health.py; do test -f "apps/api/$f" || exit 1; done && grep -q "healthz" apps/api/dataplat_api/main.py'
 
-  run_ac AC-8 "apps/web 文件齐全" \
-    bash -c 'for f in package.json vite.config.ts tsconfig.json tsconfig.node.json index.html src/main.tsx src/App.tsx; do test -f "apps/web/$f" || exit 1; done'
+  run_ac AC-8 "apps/web 文件齐全（web-mvp-pages 后 App.tsx 由 routes/ 取代）" \
+    bash -c 'for f in package.json vite.config.ts tsconfig.json tsconfig.node.json index.html src/main.tsx; do test -f "apps/web/$f" || exit 1; done && (test -f apps/web/src/App.tsx || test -d apps/web/src/routes)'
 
   run_ac AC-9 "packages/core / sdk-py + worker src layout" \
     bash -c 'test -f packages/core/pyproject.toml && test -f packages/core/src/dataplat_core/__init__.py && test -f packages/sdk-py/pyproject.toml && test -f packages/sdk-py/src/dataplat_sdk/__init__.py && test -f worker/pyproject.toml && test -f worker/src/dataplat_worker/__init__.py'
@@ -690,6 +690,54 @@ assert \"resolved_parents\" in src and \"RefORM\" in src   # parent 接链
 # 主控
 # =============================================================================
 
+# =============================================================================
+# Block: web-mvp-pages-20260517
+# 13 条 AC（详见 .harness/changes/web-mvp-pages-20260517/request_analysis/spec.md）
+# 不依赖 PG / MinIO；依赖 pnpm + node
+# =============================================================================
+
+run_web_mvp_pages() {
+  echo "=== web-mvp-pages-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "apps/web 依赖齐全（TanStack + Tailwind + clsx + openapi-typescript）" \
+    bash -c 'cd apps/web && node -e "const p=require(\"./package.json\"); for (const d of [\"@tanstack/react-router\",\"@tanstack/react-query\",\"tailwindcss\",\"clsx\",\"openapi-typescript\"]) { if (!(d in {...p.dependencies, ...p.devDependencies})) { console.error(\"missing \"+d); process.exit(1); } }"'
+
+  run_ac AC-2 "packages/api-types/src/generated.ts 真生成（含 /repos）" \
+    bash -c 'test -f packages/api-types/src/generated.ts && grep -q "/repos" packages/api-types/src/generated.ts'
+
+  run_ac AC-3 "tailwind.config + postcss.config + index.css 齐全" \
+    bash -c 'test -f apps/web/tailwind.config.ts && test -f apps/web/postcss.config.js && test -f apps/web/src/index.css && grep -q "@tailwind base" apps/web/src/index.css'
+
+  run_ac AC-4 "shadcn 4 组件齐全（button/card/input/label）" \
+    bash -c 'for f in button card input label; do test -f "apps/web/src/components/ui/$f.tsx" || exit 1; done'
+
+  run_ac AC-5 "api/client.ts 含 credentials/include + /auth/refresh + UnauthorizedError + allowAnon" \
+    bash -c 'test -f apps/web/src/lib/api/client.ts && grep -q "credentials: \"include\"" apps/web/src/lib/api/client.ts && grep -q "/auth/refresh" apps/web/src/lib/api/client.ts && grep -q "UnauthorizedError" apps/web/src/lib/api/client.ts && grep -q "allowAnon" apps/web/src/lib/api/client.ts'
+
+  run_ac AC-6 "5 routes 文件齐全（directory style for repos）" \
+    bash -c 'for f in __root.tsx index.tsx login.tsx repos/index.tsx; do test -f "apps/web/src/routes/$f" || exit 1; done && test -f "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+
+  run_ac AC-7 "__root.tsx 含 Outlet + logout/login 标识" \
+    bash -c 'grep -q "Outlet" apps/web/src/routes/__root.tsx && grep -qE "logout|login" apps/web/src/routes/__root.tsx'
+
+  run_ac AC-8 "login.tsx 含 react-hook-form + /auth/login + navigate" \
+    bash -c 'grep -q "react-hook-form" apps/web/src/routes/login.tsx && grep -q "/auth/login" apps/web/src/routes/login.tsx && grep -q "navigate" apps/web/src/routes/login.tsx'
+
+  run_ac AC-9 "repos/index.tsx 用 useRepos + queries.ts 指向 /api/repos" \
+    bash -c 'grep -qE "useQuery|useRepos" apps/web/src/routes/repos/index.tsx && grep -q "/api/repos" apps/web/src/lib/api/queries.ts'
+
+  run_ac AC-10 "repos/\$owner.\$name.tsx 含 layer/subtype metadata" \
+    bash -c 'test -f "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -qE "layer|subtype" "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+
+  run_ac AC-11 "apps/web 测试 ≥ 4 + 全 PASS" \
+    bash -c '[ "$(find apps/web/src -name "*.test.tsx" -o -name "*.test.ts" | wc -l)" -ge 4 ] && cd apps/web && pnpm test 2>&1 | tail -5 | grep -qE "Test Files.*passed|Tests.*passed"'
+
+  run_ac AC-12 "apps/web typecheck + build 成功 + dist/index.html 存在" \
+    bash -c 'cd apps/web && pnpm typecheck && pnpm build && test -f dist/index.html'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -705,6 +753,8 @@ case "$FILTER" in
     run_commit_api_mvp
     echo
     run_adapter_framework
+    echo
+    run_web_mvp_pages
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -727,9 +777,12 @@ case "$FILTER" in
   adapter-framework|adapter-framework-20260517)
     run_adapter_framework
     ;;
+  web-mvp-pages|web-mvp-pages-20260517)
+    run_web_mvp_pages
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp / adapter-framework" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp / adapter-framework / web-mvp-pages" >&2
     exit 2
     ;;
 esac
