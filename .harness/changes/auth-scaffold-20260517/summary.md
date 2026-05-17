@@ -3,9 +3,9 @@ change_id: auth-scaffold-20260517
 title: users 表 + argon2 password hash + JWT httpOnly cookie + AuthProvider Protocol
 owner: zhhdzhang
 started_at: 2026-05-17T05:00:00Z
-stage: request_analysis
-status: in_progress
-last_updated: 2026-05-17T05:00:00Z
+stage: user_confirmation
+status: done
+last_updated: 2026-05-17T06:30:00Z
 related_changes:
   - core-domain-model-20260516
 ---
@@ -39,16 +39,16 @@ related_changes:
 
 | 阶段 | 状态 |
 |---|---|
-| 1 需求分析 | in_progress |
-| 2 需求评审 | pending（独立 reviewer 子会话）|
-| 3 编码实现 | pending |
-| 4 编码评审 | pending（**恢复完整 Generator/Reviewer 分离**——按 [[session-handoff-20260517]] 规则，连续 self-attest 上限已到）|
-| 5 单测编写 | pending |
-| 6 单测评审 | pending（独立 reviewer 子会话）|
-| 7 代码推送 | pending |
-| 8 CI 验证 | 本地等价 |
-| 9 部署验证 | skipped: 无运行时部署面 |
-| 10 用户确认 | 用户会话级授权 Generator 自我确认 |
+| 1 需求分析 | done（v1→v2 两轮就地修：5 spec MUST + 2 tasks MUST 全消化）| v2 |
+| 2 需求评审 | **done** | v1+v2 **APPROVED** |
+| 3 编码实现 | done（15 new + 8 mod = 23 项）| v1 |
+| 4 编码评审 | **done**（独立 reviewer v1→v2）| **APPROVED**（3 真 MUST FIX 全闭环+PoC：typ=='access' / refresh 实时 DB role / openapi.json codegen）|
+| 5 单测编写 | done（11 集成 + 4 单测 + 17 self_check）| v1 |
+| 6 单测评审 | **done**（独立 reviewer）| **APPROVED**（按 SHOULD #1/#2 补 3 个常驻安全回归测试 test_i/j/k）|
+| 7 代码推送 | **done** | commit `8e3cfe8`（38 files / 3143 insertions） |
+| 8 CI 验证 | done（本地等价：self_check 69/69 + ruff + mypy + 11 auth 测） | 等价证据 |
+| 9 部署验证 | skipped: 无运行时部署面 | — |
+| 10 用户确认 | **done**（用户会话级授权代为自我确认）| **APPROVED** |
 
 ## 关键决策
 
@@ -60,9 +60,59 @@ related_changes:
 | 2026-05-17 | 不用 `fastapi-users` 库 | 自己写 80 行更可控；design.md §11.6 明示 |
 | 2026-05-17 | 恢复 Generator/Reviewer 分离 | 前次连续 self-attest 已到上限（按记忆规则）|
 
+## 交付
+
+- **Branch**: `main`
+- **PR**: N/A
+- **Commits**: 
+  - `8e3cfe8` feat(auth): users 表 + argon2 + JWT cookie + AuthProvider Protocol（38 files / 3143 insertions）
+  - 本 closure commit 将作为第 2 个
+- **用户确认**: 会话级授权（2026-05-16）；Generator 代表确认（2026-05-17T06:30Z）
+- **关闭时间**: 2026-05-17T06:30Z
+
+## 复盘
+
+### 关键成果
+
+1. **认证基础设施全栈落地**：users 表 + 0002 migration + 5 个 auth 子模块 + 2 个 router + 11 集成测试 + 4 单测 + 17 self_check
+2. **3 个真实 stage 4 安全 MUST FIX 全闭环 + PoC 实证 + 常驻回归测试**：
+   - typ 校验防 refresh→access 重用攻击
+   - refresh 实时查 DB role 防 admin 静默降权
+   - openapi.json codegen 闭环
+3. **2 轮独立 reviewer + 11 集成测试**：覆盖 spec AC-15 (a)~(h) + 3 个 stage 4 MUST FIX 回归
+4. **52→69 cas+auth = 全仓 69/69 AC PASS**
+
+### 流程关键节点
+
+- Stage 2 reviewer 抓到 prefix 钉死、JWT lazy os.getenv、SKIP 通道、Literal Subtype 等 5+2 MUST FIX
+- Stage 4 reviewer 抓到 3 真实安全 MUST FIX（典型工程价值——避免生产事故）
+- Stage 6 reviewer 抓到"stage 4 MUST FIX 缺常驻测试"——补 3 个回归断言
+- Generator/Reviewer 完整分离恢复，连续 self-attest 上限规则成功落地
+
+### Deferred 项（stage 4 + stage 6 SHOULD/NICE 已 defer）
+
+| 类型 | 描述 | follow-up |
+|---|---|---|
+| stage 4 SHOULD | fixture 不 dispose engine connection leak 风险 | `harness-test-fixture-cleanup-*` |
+| stage 4 SHOULD | cookies secure flag 在 dev http 失效 | `cookies-secure-env-controlled-*` |
+| stage 4 SHOULD | refresh 每次 DB 查 vs cache 性能权衡 | 接受 MVP；高 QPS 时缓存 |
+| stage 4 NICE | JWT secret 弱密钥长度校验 | tokens.py 加 `len(secret) >= 32` |
+| stage 4 NICE | CreateUserRequest 不校验 password 强度 | admin 自检 |
+| stage 6 SHOULD #3 | CreateUserRequest Literal 校验无单测 | follow-up：补 `test_l_create_user_invalid_role_rejected` |
+| reviewer 提议 | self_check SKIP 通道仅探端口未探凭证 | `harness-tighten-skip-channel-credentials-*` |
+
+### Follow-up 清单（累积）
+
+- `repo-api-mvp-<yyyymmdd>`：repo / commit CRUD 用 require_admin / get_current_user 守卫
+- `lineage-query-graph-<yyyymmdd>` / `card-schema-<yyyymmdd>` / `retention-and-gc-<yyyymmdd>`
+- `harness-tighten-ac-grep-<yyyymmdd>`：三层 AC 校验 + harness-lint 演化（5 次实证）
+- `harness-tighten-dev-process-<yyyymmdd>`：self-attest 路径规则化
+- `harness-test-fixture-cleanup-<yyyymmdd>` / `cookies-secure-env-controlled-<yyyymmdd>`
+- `harness-tighten-skip-channel-credentials-<yyyymmdd>`
+
 ## 当前阻塞
 
-- 无。Stage 2 已 **APPROVED**（spec v2 + tasks v2 双通过，0 MUST 残留）。下一步进入 Stage 3 编码。
+无。变更已关闭。下一变更建议：`repo-api-mvp-<yyyymmdd>`（repo / commit CRUD + 用 require_admin 守卫）。
 
 ## Stage 2 评审记录
 
