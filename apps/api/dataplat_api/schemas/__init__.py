@@ -3,6 +3,7 @@
 from dataplat_api.schemas.blob import BlobUploadResponse
 from dataplat_api.schemas.commit import CommitCreate, CommitRead
 from dataplat_api.schemas.ingest import IngestRequest, IngestResponse, IngestSummary
+from dataplat_api.schemas.job import JobIngestRequest, JobRead
 from dataplat_api.schemas.repo import (
     RepositoryCreate,
     RepositoryListItem,
@@ -24,6 +25,8 @@ __all__ = [
     "IngestRequest",
     "IngestResponse",
     "IngestSummary",
+    "JobIngestRequest",
+    "JobRead",
     "RepositoryCreate",
     "RepositoryRead",
     "RepositoryListItem",

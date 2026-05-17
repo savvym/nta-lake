@@ -1,16 +1,11 @@
-"""`python -m dataplat_worker` 入口。
+"""`python -m dataplat_worker` 入口（spec rq-worker-skeleton-20260517 AC-10）。
 
-当前为 bootstrap-monorepo 占位：仅打印一行存活信号便退出。后续变更会引入真正的 RQ
-worker.work() loop。
+委托给 `main.main()`：连 Redis + 启 RQ Worker.work() 阻塞循环。
 """
 
 from __future__ import annotations
 
-
-def main() -> int:
-    print("dataplat-worker placeholder: no jobs configured (bootstrap-monorepo skeleton).")
-    return 0
-
+from dataplat_worker.main import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -13,6 +13,7 @@ from dataplat_api.routers.admin import router as admin_router
 from dataplat_api.routers.auth import router as auth_router
 from dataplat_api.routers.commits import router as commits_router
 from dataplat_api.routers.ingest import router as ingest_router
+from dataplat_api.routers.jobs import router as jobs_router
 from dataplat_api.routers.repos import router as repos_router
 
 app = FastAPI(
@@ -38,3 +39,4 @@ app.include_router(admin_router)
 app.include_router(repos_router)
 app.include_router(commits_router)
 app.include_router(ingest_router)
+app.include_router(jobs_router)

@@ -296,8 +296,8 @@ run_auth_scaffold() {
   run_ac AC-1 "UserORM 模块 + class UserORM" \
     bash -c 'test -f apps/api/dataplat_api/models/user.py && grep -q "class UserORM" apps/api/dataplat_api/models/user.py'
 
-  run_ac_skipif_no_pg AC-2 "0002 migration head" \
-    bash -c 'ls apps/api/alembic/versions/0002_*.py >/dev/null && export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && cd apps/api && uv run alembic upgrade head && uv run alembic current 2>&1 | grep -q "0002"'
+  run_ac_skipif_no_pg AC-2 "0002 migration applied（rq-worker 后 head 演进到 0003）" \
+    bash -c 'ls apps/api/alembic/versions/0002_*.py >/dev/null && export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && cd apps/api && uv run alembic upgrade head && uv run alembic history 2>&1 | grep -q "0002"'
 
   run_ac AC-3 "AuthProvider runtime_checkable Protocol + AuthenticatedUser BaseModel" \
     bash -c 'cd packages/core && uv run python -c "from typing import Protocol; from pydantic import BaseModel; from dataplat_core.protocols.auth import AuthProvider, AuthenticatedUser; assert issubclass(AuthProvider, Protocol); assert getattr(AuthProvider, \"_is_runtime_protocol\", False) is True; assert issubclass(AuthenticatedUser, BaseModel)"'
@@ -738,6 +738,92 @@ run_web_mvp_pages() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+# =============================================================================
+# Block: rq-worker-skeleton-20260517
+# 13 条 AC（详见 .harness/changes/rq-worker-skeleton-20260517/request_analysis/spec.md）
+# AC-11 依赖 PG + MinIO + Redis 三探针
+# =============================================================================
+
+_redis_reachable() {
+  python3 -c "
+import socket, sys
+s = socket.socket()
+s.settimeout(1)
+try:
+    s.connect(('localhost', int('${DATAPLAT_REDIS_PORT:-6379}')))
+    s.close()
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+"
+}
+
+run_ac_skipif_no_pg_minio_redis() {
+  local id="$1"
+  local desc="$2"
+  shift 2
+  if ! _pg_reachable 2>/dev/null; then
+    printf "SKIP  %-10s  %s（Postgres 未通）\n" "$id" "$desc"
+    SKIP=$((SKIP + 1)); SKIPPED_ACS+=("$id"); return 0
+  fi
+  if ! _minio_reachable 2>/dev/null; then
+    printf "SKIP  %-10s  %s（MinIO 未通）\n" "$id" "$desc"
+    SKIP=$((SKIP + 1)); SKIPPED_ACS+=("$id"); return 0
+  fi
+  if ! _redis_reachable 2>/dev/null; then
+    printf "SKIP  %-10s  %s（Redis :%s 未通）\n" "$id" "$desc" "${DATAPLAT_REDIS_PORT:-6379}"
+    SKIP=$((SKIP + 1)); SKIPPED_ACS+=("$id"); return 0
+  fi
+  run_ac "$id" "$desc" "$@"
+}
+
+run_rq_worker_skeleton() {
+  echo "=== rq-worker-skeleton-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "JobORM 9 字段齐全" \
+    bash -c 'cd apps/api && uv run python -c "
+from dataplat_api.models import JobORM
+cols={c.name for c in JobORM.__table__.columns}
+need={\"id\",\"type\",\"status\",\"payload\",\"result\",\"error\",\"created_at\",\"started_at\",\"completed_at\"}
+assert need <= cols, cols
+"'
+
+  run_ac AC-2 "alembic 0003_jobs 文件 + 引用 jobs 表" \
+    bash -c 'ls apps/api/alembic/versions/0003_*.py >/dev/null && grep -q "jobs" apps/api/alembic/versions/0003_*.py'
+
+  run_ac AC-3 "redis_client.py 提供 get_redis + get_queue" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.jobs.redis_client import get_redis, get_queue; assert callable(get_redis) and callable(get_queue)"'
+
+  run_ac AC-4 "JobsService 5 方法（enqueue/get_by_id/mark_running/mark_succeeded/mark_failed）" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.jobs.service import JobsService; assert all(hasattr(JobsService, m) for m in [\"enqueue\",\"get_by_id\",\"mark_running\",\"mark_succeeded\",\"mark_failed\"])"'
+
+  run_ac AC-5 "run_ingest_job 签名含 job_id" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.jobs.tasks import run_ingest_job; import inspect; sig=inspect.signature(run_ingest_job); assert \"job_id\" in sig.parameters"'
+
+  run_ac AC-6 "JobIngestRequest + JobRead extra=forbid" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.schemas.job import JobIngestRequest, JobRead; assert JobIngestRequest.model_config.get(\"extra\")==\"forbid\" and JobRead.model_config.get(\"extra\")==\"forbid\""'
+
+  run_ac AC-7 "jobs router 2 路由（/jobs/ingest + /jobs/{job_id}）+ prefix=/jobs" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.routers.jobs import router; paths={r.path for r in router.routes}; assert \"/jobs/ingest\" in paths and \"/jobs/{job_id}\" in paths"'
+
+  run_ac AC-8 "main 集成 jobs_router + OpenAPI 含 /jobs 2 paths" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.main import app; s=app.openapi(); assert \"/jobs/ingest\" in s[\"paths\"] and \"/jobs/{job_id}\" in s[\"paths\"]"'
+
+  run_ac AC-9 "router 复用 RepoService.get_by_owner_name + 不重复 _visibility_visible（test -f 前置 + 正向 + 反向）" \
+    bash -c 'test -f apps/api/dataplat_api/routers/jobs.py && test -f apps/api/dataplat_api/jobs/service.py && grep -qE "_resolve_repo|RepoService.get_by_owner_name" apps/api/dataplat_api/routers/jobs.py && ! grep -rE "_visibility_visible" apps/api/dataplat_api/jobs apps/api/dataplat_api/routers/jobs.py'
+
+  run_ac AC-10 "worker/main.py 含 Worker.work" \
+    bash -c 'test -f worker/src/dataplat_worker/main.py && grep -qE "Worker|work\(" worker/src/dataplat_worker/main.py'
+
+  run_ac_skipif_no_pg_minio_redis AC-11 "apps/api jobs 集成 ≥ 10 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && (cd apps/api && uv run pytest -q --tb=no tests/test_jobs.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_jobs.py 2>&1 | grep -cE "test_jobs\.py::")" -ge 10 ]'
+
+  run_ac AC-12 "ruff + mypy 全 PASS（含 worker/src）" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -755,6 +841,8 @@ case "$FILTER" in
     run_adapter_framework
     echo
     run_web_mvp_pages
+    echo
+    run_rq_worker_skeleton
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -780,9 +868,12 @@ case "$FILTER" in
   web-mvp-pages|web-mvp-pages-20260517)
     run_web_mvp_pages
     ;;
+  rq-worker-skeleton|rq-worker-skeleton-20260517)
+    run_rq_worker_skeleton
+    ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp / adapter-framework / web-mvp-pages" >&2
+    echo "已知 change: bootstrap-monorepo / core-domain-model / cas-storage / auth-scaffold / repo-api-mvp / commit-api-mvp / adapter-framework / web-mvp-pages / rq-worker-skeleton" >&2
     exit 2
     ;;
 esac

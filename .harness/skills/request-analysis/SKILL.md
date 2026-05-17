@@ -132,6 +132,14 @@ generator 提交 spec v1 前必须自查的一致性链路。原 commit-api-mvp 
    - stage-10 close + 反哺 SKILL（如有）
    - Generator 自查：`grep -cE "estimated_stage: stage-(2|4|6|7|9|10)" tasks.md` 期望 ≥ 6。
 
+8. **AC 验证命令必须真跑过 dry-parse**（rq-worker-skeleton stage 2 反哺；checklist 第 3 条的执行加强）：第 3 条"AC 验证命令一行式"只是 grep 形态匹配；但**形态合法不代表语法合法**——典型陷阱：
+   - Python 复合语句嵌 `;`：`python -c "import x; for m in [...]: assert ..."` 会 SyntaxError，因为 `for` 不能跟在 `;` 后（compound statement 必须独立行 / 用 `exec()`）
+   - 改用 generator：`assert all(hasattr(X, m) for m in [...])`
+   - 或用 `\n` 真换行：`python -c "import x$(printf '\nfor m in [...]:\n    assert ...')"`（更丑）
+   - 验证：每条新写的 AC 验证命令，generator 必须把命令复制到本地 shell 真跑一次（即便目标文件还不存在——`ModuleNotFoundError` 是预期的；SyntaxError 不是）；或至少用 `python -c "<cmd>"; echo $?` 看是否 syntax-valid。
+   - 类似坑还有：未转义引号（spec 用 `"..."` 嵌 `"..."`）；未引用的 shell glob；未 quote 的 `$` 变量。
+   - Generator 自查：把所有 `uv run python -c` / `bash -c` 命令收集 → 用 `bash -n -c "$cmd"` 或 `python -c "compile($cmd, '', 'exec')"` 做 dry-parse；命令报 SyntaxError → spec MUST FIX。
+
 generator 提交前 grep 自查（按需扩充）：
 
 ```bash
@@ -150,6 +158,12 @@ grep -nE "! *grep" spec.md          # 命中处必须配 `test -f` 前置 + 不�
 grep -nE "2>/dev/null" spec.md      # AC 验证命令不许吞 stderr
 # 7. process_tasks 6 条必填
 grep -cE "estimated_stage: stage-(2|4|6|7|9|10)" tasks.md  # 期望 ≥ 6
+# 8. AC 验证命令 dry-parse（rq-worker-skeleton 反哺）
+# 抽出所有 python -c 命令，逐一 compile dry-parse；语法非法 → MUST FIX
+grep -oE 'python -c "[^"]+"' spec.md | while read cmd; do
+  payload=$(echo "$cmd" | sed -E 's|^python -c "||; s|"$||')
+  python -c "compile(r'''$payload''', '<ac>', 'exec')" || echo "SyntaxError: $cmd"
+done
 ```
 
-跨 AC 矛盾是 spec generator 最高频的失败模式，**比"没写测试" 更隐蔽 + 更致命**——它通过了语法检查但在 stage 3 实现期才暴露，回退成本最高。第 5~7 条来自 adapter-framework v1 stage 2 review 实证；其中第 6 条是 [project-followup-harness-lint] 累积 5 次预警后的第 6 次同型 bug，必须重视。
+跨 AC 矛盾是 spec generator 最高频的失败模式，**比"没写测试" 更隐蔽 + 更致命**——它通过了语法检查但在 stage 3 实现期才暴露，回退成本最高。第 5~7 条来自 adapter-framework v1 stage 2 review 实证；其中第 6 条是 [project-followup-harness-lint] 累积 5 次预警后的第 6 次同型 bug，必须重视。第 8 条来自 rq-worker-skeleton v1 stage 2 反哺（AC-4 Python 复合语句 SyntaxError）——形态合法 ≠ 语法合法，generator 必须真跑 dry-parse。
