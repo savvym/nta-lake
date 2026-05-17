@@ -10,8 +10,9 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from dataplat_core.protocols.adapter import IngestFileRef
 from dataplat_core.protocols.runcontext import RunContext
 
 
@@ -54,7 +55,11 @@ class RepoSpec(BaseModel):
 
 
 class ProcessResult(BaseModel):
-    """processor.run() 的产出元信息。"""
+    """processor.run() 的产出元信息 + 文件清单。
+
+    `files` 是 runner commit 的 ground truth（path + blob sha256）；与
+    IngestResult.files 同形态。
+    """
 
     model_config = ConfigDict(frozen=False, extra="forbid")
 
@@ -62,6 +67,7 @@ class ProcessResult(BaseModel):
     file_count: int = 0
     bytes_written: int = 0
     notes: str | None = None
+    files: list[IngestFileRef] = Field(default_factory=list)
 
 
 @runtime_checkable

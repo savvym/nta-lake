@@ -18,6 +18,8 @@ class StandardRunContext:
 
     runtime_checkable 通过；结构等价于 Protocol 声明的 5 个 @property
     （logger / metrics / secrets / cancel_event / llm）。
+    blob_store 是 processor-framework 引入的额外字段（processor 用 ctx.blob_store
+    上传新 blob；不在 RunContext Protocol 上但 processor 实现可访问）。
     """
 
     logger: logging.Logger
@@ -25,3 +27,4 @@ class StandardRunContext:
     secrets: Any = None
     cancel_event: Any = None
     llm: Any = None
+    blob_store: Any = None

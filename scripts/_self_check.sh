@@ -920,6 +920,48 @@ run_repo_files_tab() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+run_processor_framework() {
+  echo "=== processor-framework-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "DbRepoView 类存在（test -f + grep）" \
+    bash -c 'test -f apps/api/dataplat_api/runner/repo_view.py && grep -q "class DbRepoView" apps/api/dataplat_api/runner/repo_view.py'
+
+  run_ac AC-2 "ProcessorRegistry 单例 + markdown-normalize 注册" \
+    bash -c 'cd apps/api && uv run python -c "import dataplat_api.processors; from dataplat_api.runner.processor_registry import get_processor_registry; assert get_processor_registry().get(\"markdown-normalize\",\"0.1\") is not None"'
+
+  run_ac AC-3 "ProcessorRunner.run 是 coroutine" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.runner.processor_runner import ProcessorRunner; import inspect; assert inspect.iscoroutinefunction(ProcessorRunner.run)"'
+
+  run_ac AC-4 "MarkdownNormalizeProcessor 实现 Processor Protocol" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_core.protocols.processor import Processor; from dataplat_api.processors.markdown_normalize import MarkdownNormalizeProcessor; assert isinstance(MarkdownNormalizeProcessor(), Processor)"'
+
+  run_ac AC-5 "ProcessRequest extra=forbid" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.schemas.process import ProcessRequest; assert ProcessRequest.model_config.get(\"extra\")==\"forbid\""'
+
+  run_ac AC-6 "POST /process 路由 + main include + OpenAPI" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.main import app; s=app.openapi(); assert \"/process\" in s[\"paths\"]"'
+
+  run_ac AC-7 "run_process_job 签名含 job_id" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.jobs.tasks import run_process_job; import inspect; assert \"job_id\" in inspect.signature(run_process_job).parameters"'
+
+  run_ac AC-8 "JobsService.enqueue 按 job_type dispatch run_process_job/run_ingest_job（test -f + 正向双 grep）" \
+    bash -c 'test -f apps/api/dataplat_api/jobs/service.py && grep -q "run_process_job" apps/api/dataplat_api/jobs/service.py && grep -q "run_ingest_job" apps/api/dataplat_api/jobs/service.py'
+
+  run_ac AC-9 "StandardRunContext 含 blob_store 字段" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.runner.runcontext import StandardRunContext; import dataclasses; assert \"blob_store\" in {f.name for f in dataclasses.fields(StandardRunContext)}"'
+
+  run_ac_skipif_no_pg_minio_redis AC-10 "tests/test_processor.py ≥ 8 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && (cd apps/api && uv run pytest -q --tb=no tests/test_processor.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_processor.py 2>&1 | grep -cE "test_processor\.py::")" -ge 8 ]'
+
+  run_ac AC-11 "ruff + mypy 全 PASS（含 worker/src）" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-12 "openapi.json 含 /process" \
+    bash -c 'grep -q "/process" packages/api-types/openapi.json'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -943,6 +985,8 @@ case "$FILTER" in
     run_web_write_flows
     echo
     run_repo_files_tab
+    echo
+    run_processor_framework
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -976,6 +1020,9 @@ case "$FILTER" in
     ;;
   repo-files-tab|repo-files-tab-20260517)
     run_repo_files_tab
+    ;;
+  processor-framework|processor-framework-20260517)
+    run_processor_framework
     ;;
   *)
     echo "未知 change: $FILTER" >&2

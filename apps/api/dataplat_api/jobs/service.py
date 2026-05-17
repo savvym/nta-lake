@@ -20,6 +20,12 @@ from dataplat_api.models import JobORM
 class JobsService:
     """无 state；静态方法。"""
 
+    # job_type → worker task 函数路径
+    _TASK_DISPATCH = {
+        "ingest": "dataplat_api.jobs.tasks.run_ingest_job",
+        "process": "dataplat_api.jobs.tasks.run_process_job",
+    }
+
     @staticmethod
     async def enqueue(
         session: AsyncSession,
@@ -27,6 +33,10 @@ class JobsService:
         payload: dict[str, Any],
     ) -> JobORM:
         """INSERT JobORM(status=queued) + RQ enqueue；失败 → DELETE + raise。"""
+        task_path = JobsService._TASK_DISPATCH.get(job_type)
+        if task_path is None:
+            raise ValueError(f"未知 job_type: {job_type}")
+
         job = JobORM(
             id=uuid.uuid4(),
             type=job_type,
@@ -38,14 +48,8 @@ class JobsService:
         await session.refresh(job)
 
         try:
-            # RQ enqueue：传 callable 字符串路径让 worker import；
-            # 不传 callable 本身避免 pickle 跨进程
-            get_queue().enqueue(
-                "dataplat_api.jobs.tasks.run_ingest_job",
-                str(job.id),
-            )
+            get_queue().enqueue(task_path, str(job.id))
         except Exception:
-            # 一致性回滚：删 row
             await session.delete(job)
             await session.commit()
             raise

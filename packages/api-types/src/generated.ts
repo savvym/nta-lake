@@ -157,6 +157,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue Process Job */
+        post: operations["enqueue_process_job_process_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/repos": {
         parameters: {
             query?: never;
@@ -525,6 +542,38 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /** ProcessRequest */
+        ProcessRequest: {
+            /** Author Id */
+            author_id: string;
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+            /** Message */
+            message?: string | null;
+            /** Processor Name */
+            processor_name: string;
+            /** Processor Version */
+            processor_version: string;
+            /** Ref */
+            ref?: string | null;
+            /** Source Commit Hash */
+            source_commit_hash?: string | null;
+            /** Source Name */
+            source_name: string;
+            /** Source Owner */
+            source_owner: string;
+            /**
+             * Source Ref
+             * @default main
+             */
+            source_ref: string | null;
+            /** Target Name */
+            target_name: string;
+            /** Target Owner */
+            target_owner: string;
         };
         /** ProducedBy */
         ProducedBy: {
@@ -955,6 +1004,39 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_process_job_process_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

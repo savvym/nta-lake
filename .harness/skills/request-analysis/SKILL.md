@@ -140,6 +140,13 @@ generator 提交 spec v1 前必须自查的一致性链路。原 commit-api-mvp 
    - 类似坑还有：未转义引号（spec 用 `"..."` 嵌 `"..."`）；未引用的 shell glob；未 quote 的 `$` 变量。
    - Generator 自查：把所有 `uv run python -c` / `bash -c` 命令收集 → 用 `bash -n -c "$cmd"` 或 `python -c "compile($cmd, '', 'exec')"` 做 dry-parse；命令报 SyntaxError → spec MUST FIX。
 
+9. **summary.md frontmatter 必须在 stage 1 启动时就填好**（processor-framework stage 0 反哺）：典型陷阱——generator 把 spec.md / tasks.md 写好就直接进 stage 3 写代码，summary.md 一路停留在 `_template/summary.md` 模板（`change_id: <feature-slug>-<yyyymmdd>` / `stage: request_analysis` / `last_updated: <YYYY-MM-DDTHH:MM:SSZ>`），导致：
+   - SSoT 漂移：summary.md 名义上是 Single Source of Truth，但实际状态在 spec/coding/test 各文件零散
+   - stage 推进失序：reviewer 无法从 summary 表知道当前应该看哪个产物
+   - close 时一次性补 9 个文件（tasks_review / coding_report / code_review / test_report / test_review / ci / deploy / summary），评审品质打折
+   - 防复发：进入 change 目录的**第一动作**是改 summary.md frontmatter（change_id / title / owner / started_at / stage=request_analysis / status=in_progress / last_updated），然后才开始写 spec.md。每完成一个阶段，**同一次编辑**里更新 summary.md 阶段进度表 + last_updated。
+   - Generator 自查：`grep -c "<feature-slug>\|<YYYY-MM-DDTHH:MM:SSZ>\|<复述\|<bullet list>" summary.md` → 必须为 0（即没有任何模板占位符残留）；spec_review reviewer 必须先 cat summary.md frontmatter 才能开始评审。
+
 generator 提交前 grep 自查（按需扩充）：
 
 ```bash
@@ -164,6 +171,8 @@ grep -oE 'python -c "[^"]+"' spec.md | while read cmd; do
   payload=$(echo "$cmd" | sed -E 's|^python -c "||; s|"$||')
   python -c "compile(r'''$payload''', '<ac>', 'exec')" || echo "SyntaxError: $cmd"
 done
+# 9. summary.md 模板占位符残留检查（processor-framework 反哺）
+grep -cE "<feature-slug>|<YYYY-MM-DDTHH:MM:SSZ>|<复述|<bullet list>" summary.md  # 期望 = 0
 ```
 
 跨 AC 矛盾是 spec generator 最高频的失败模式，**比"没写测试" 更隐蔽 + 更致命**——它通过了语法检查但在 stage 3 实现期才暴露，回退成本最高。第 5~7 条来自 adapter-framework v1 stage 2 review 实证；其中第 6 条是 [project-followup-harness-lint] 累积 5 次预警后的第 6 次同型 bug，必须重视。第 8 条来自 rq-worker-skeleton v1 stage 2 反哺（AC-4 Python 复合语句 SyntaxError）——形态合法 ≠ 语法合法，generator 必须真跑 dry-parse。

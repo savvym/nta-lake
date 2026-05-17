@@ -580,6 +580,101 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "ProcessRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "processor_name": {
+            "title": "Processor Name",
+            "type": "string"
+          },
+          "processor_version": {
+            "title": "Processor Version",
+            "type": "string"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "source_commit_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Commit Hash"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_owner": {
+            "title": "Source Owner",
+            "type": "string"
+          },
+          "source_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "main",
+            "title": "Source Ref"
+          },
+          "target_name": {
+            "title": "Target Name",
+            "type": "string"
+          },
+          "target_owner": {
+            "title": "Target Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_owner",
+          "source_name",
+          "target_owner",
+          "target_name",
+          "processor_name",
+          "processor_version",
+          "author_id"
+        ],
+        "title": "ProcessRequest",
+        "type": "object"
+      },
       "ProducedBy": {
         "additionalProperties": false,
         "properties": {
@@ -1467,6 +1562,47 @@
         "summary": "Get Job",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/process": {
+      "post": {
+        "operationId": "enqueue_process_job_process_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Process Job",
+        "tags": [
+          "process"
         ]
       }
     },
