@@ -3,9 +3,9 @@ change_id: pipeline-orchestrator-mvp-20260518
 title: Pipeline 编排引擎 MVP：Recipe YAML + DAG 调度 + cache_key + REST API + 端到端 demo
 owner: application-owner-agent
 started_at: 2026-05-18T06:01:20Z
-stage: push
-status: done
-last_updated: 2026-05-18T09:40:00Z
+stage: done
+status: closed
+last_updated: 2026-05-18T08:10:00Z
 related_changes:
   - processor-framework-20260517
   - rq-worker-skeleton-20260517
@@ -56,8 +56,8 @@ related_changes:
 | 6 单测评审 | done | v1 | APPROVED | [test_review_v1.md](unit_test/review/test_review_v1.md) |
 | 7 代码推送 | done（仅本地 commit） | v1 | — | main @ `a6ce8d6` feat(pipeline)；41 files / +4779 -20。**push 未做**：git remote 未配置 |
 | 8 CI 验证 | deferred | — | — | ci.yml 在 .github/workflows 但本仓库无 remote；待 push 才能跑 GHA |
-| 9 部署验证 | pending | — | — | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
-| 10 用户确认 | pending | — | — | 确认人 / 时间 |
+| 9 部署验证 | done | v1 | PASS | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) — 本地 dev 环境（PG 5433 / MinIO 9100 / Redis 6379 / API 8080 / Web 5174 / LLM fake）；DEP-1..5 + AC-1..6 全通过；过程中发现并修复 1 个 MUST FIX（demo recipe 字段名），新增 2 条 follow-up |
+| 10 用户确认 | done | v1 | PASS | zhhdzhang @ 2026-05-18T08:10:00Z；浏览器访问 `http://9.134.60.24:5174/` 登录 admin/admin123，确认 3 个 demo repo（bronze/silver/gold）+ Files + 下载 sft.jsonl 均可见 |
 
 ## 关键决策
 
@@ -72,11 +72,7 @@ related_changes:
 
 ## 当前阻塞
 
-- stage 1-7 全完成（本地 commit `a6ce8d6`）；stage 8/9/10 推后续会话。
-- 阻塞原因：
-  - **stage 8**：git remote 未配置 → 无法 push 触发 GitHub Actions。待项目配 remote。
-  - **stage 9**：需要 dev 环境（PG + MinIO + Redis 正确凭证）+ 重启 API/worker + 跑 demo recipe。本会话无环境，下次会话或在本机 docker-compose 跑通。
-  - **stage 10**：用户验收。等 stage 9 数据齐备后给用户跑一次端到端 demo。
+无。本变更已 closed。stage 8（CI 验证）显式 deferred —— 项目无 remote，无法触发 GHA，作为长期未决项（影响所有 change，需要项目级别配 remote 后回填）。
 
 ## Deferred 项（stage 2 v2 review APPROVED 后未在本阶段修，进 stage 3 前同步处理）
 
@@ -94,17 +90,21 @@ related_changes:
 | 后续 follow-up | `pipeline-ui-tab-*`：Pipeline 列表 + run 详情前端 | 单独 change |
 | 后续 follow-up | `core-processors-mvp-*`：pdf-to-text / html-to-md / dedup / chunker / corpus-merge 等核心 Processor | 单独 change |
 | 后续 follow-up | `backend-test-baseline-*`：补全 repo / commit / blob / auth / adapter / processor / llm 既有模块的 backend test | 单独 change |
+| 后续 follow-up（stage 9 发现） | `pipeline-cache-fk-cascade-*`：`pipeline_cache.output_commit_hash` FK 缺 `ON DELETE CASCADE`，删 repo/commit 时 FK violation 500（不影响 pipeline 主路径） | 单独 change |
+| 后续 follow-up（stage 9 发现） | `harness-lint-ac-yaml-load-test-*`：AC-11 grep-only 漏过 demo recipe 字段名误用（`model` 应为 `model_id` 等）；建议演进为 `load_recipe(yaml)` 调用以触发 Pydantic schema 校验 | 单独 change |
+| 后续 follow-up（stage 9 发现） | `test-fixture-isolation-*`：集成测试用 hardcoded byte content（如 `b"x\n"`）创建 commit，stage 9 跑 demo 后 fixture 撞 commit hash unique。改用 per-test uuid 前缀 byte。优先级 SHOULD。 | 单独 change |
+| stage 9 即时修 | `recipes/examples/demo-bronze-to-gold.yaml` qa_gen.config 字段名：`model`→`model_id`、`samples_per_doc`→`records_per_doc`（本变更 deliverable，stage 9 发现并修复，复跑 PASS） | 本变更内已修 |
 
 ## 交付
 
 > 关闭本变更时填写。
 
-- Branch：`application-owner/pipeline-orchestrator-mvp-20260518`
-- PR：TBD
-- Merge commit：`a6ce8d6`（main 直接 commit；无 PR；本会话本地完成 stage 1-7，push 推后续会话）
-- 部署版本：TBD
-- 用户确认：TBD
-- 关闭时间：TBD
+- Branch：main（无 remote；workshop-style 直接落 main）
+- PR：N/A（无 remote）
+- Merge commit：`a6ce8d6` feat(pipeline) + `c5bea34` chore(pipeline) + stage 9 收尾 commit（含 demo recipe 字段名修复 + deploy_verify_v1.md + summary.md close）
+- 部署版本：local dev `http://127.0.0.1:8080` (API) + `http://9.134.60.24:5174/` (Web)；env 配置 `/tmp/dataplat-env.sh`；commit `c5bea34`+收尾 commit；alembic head=0004
+- 用户确认：zhhdzhang @ 2026-05-18T08:10:00Z（浏览器登录 admin/admin123，3 个 demo repo + Files + sft.jsonl 下载均可见）
+- 关闭时间：2026-05-18T08:10:00Z
 
 ## 复盘（可选）
 

@@ -18,6 +18,6 @@ nodes:
     inputs:
       - "@normalize"
     config:
-      model: claude-opus-4-7
-      samples_per_doc: 2
+      model_id: claude-opus-4-7
+      records_per_doc: 2
     output: gold/demo/sft@auto
