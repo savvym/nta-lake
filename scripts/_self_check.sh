@@ -1088,6 +1088,48 @@ run_llm_qa_gen() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+run_sdk_cli_mvp() {
+  echo "=== sdk-cli-mvp-20260518 :: 13 AC ==="
+
+  run_ac AC-1 "SDK Client 类存在 + 持有 httpx.Client（test -f + isinstance）" \
+    bash -c 'test -f packages/sdk-py/src/dataplat_sdk/client.py && uv run python -c "from dataplat_sdk import Client; import httpx; c=Client(base_url=\"http://x\"); assert isinstance(c._http, httpx.Client)"'
+
+  run_ac AC-2 "Client 8 方法齐全" \
+    bash -c 'uv run python -c "from dataplat_sdk.client import Client; assert all(hasattr(Client, m) for m in [\"login\",\"create_repo\",\"get_repo\",\"upload_blob\",\"create_commit\",\"enqueue_ingest\",\"enqueue_process\",\"get_job\"])"'
+
+  run_ac AC-3 "Client.login 签名含 username + password" \
+    bash -c 'uv run python -c "from dataplat_sdk.client import Client; import inspect; s=inspect.signature(Client.login); assert \"username\" in s.parameters and \"password\" in s.parameters"'
+
+  run_ac AC-4 "Client.upload_blob content 类型为 bytes" \
+    bash -c 'uv run python -c "from dataplat_sdk.client import Client; import inspect; sig=inspect.signature(Client.upload_blob); ann=sig.parameters[\"content\"].annotation; assert ann in (bytes, \"bytes\")"'
+
+  run_ac AC-5 "Client.create_commit 签名含 entries + parents + author_id" \
+    bash -c 'uv run python -c "from dataplat_sdk.client import Client; import inspect; s=inspect.signature(Client.create_commit); assert set([\"entries\",\"parents\",\"author_id\"]).issubset(set(s.parameters))"'
+
+  run_ac AC-6 "Client.enqueue_process 签名含 source/target/processor 字段" \
+    bash -c 'uv run python -c "from dataplat_sdk.client import Client; import inspect; s=inspect.signature(Client.enqueue_process); assert set([\"source_owner\",\"source_name\",\"target_owner\",\"target_name\",\"processor_name\",\"processor_version\"]).issubset(set(s.parameters))"'
+
+  run_ac AC-7 "CLI app 是 typer.Typer 实例（test -f + isinstance）" \
+    bash -c 'test -f packages/sdk-py/src/dataplat_sdk/cli.py && uv run python -c "from dataplat_sdk.cli import app; import typer; assert isinstance(app, typer.Typer)"'
+
+  run_ac AC-8 "pyproject.toml 声明 dataplat CLI script entry" \
+    bash -c 'grep -qE "^dataplat = \"dataplat_sdk\\.cli:app\"" packages/sdk-py/pyproject.toml'
+
+  run_ac AC-9 "CLI 含 7 个子命令 login/repo/blob/commit/ingest/process/jobs" \
+    bash -c 'uv run python -c "from dataplat_sdk.cli import app; from typer.main import get_command; cmd=get_command(app); names={c for c in cmd.commands.keys()}; assert {\"login\",\"repo\",\"blob\",\"commit\",\"ingest\",\"process\",\"jobs\"}.issubset(names)"'
+
+  run_ac AC-10 "SDK + CLI tests/ ≥ 6 + 全 PASS" \
+    bash -c '(cd packages/sdk-py && uv run pytest -q --tb=no tests/) && [ "$(cd packages/sdk-py && uv run pytest --collect-only -q tests/ 2>&1 | grep -cE "tests/test_sdk_(client|cli)\.py::")" -ge 6 ]'
+
+  run_ac AC-11 "ruff + mypy 含 packages/sdk-py 全 PASS" \
+    bash -c 'uv run ruff check packages/sdk-py && uv run mypy packages/sdk-py/src'
+
+  run_ac AC-12 "Client 用 sync httpx.Client（反向 grep 拦 AsyncClient）" \
+    bash -c 'test -f packages/sdk-py/src/dataplat_sdk/client.py && grep -q "httpx.Client" packages/sdk-py/src/dataplat_sdk/client.py && ! grep -q "httpx.AsyncClient" packages/sdk-py/src/dataplat_sdk/client.py'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -1119,6 +1161,8 @@ case "$FILTER" in
     run_adapter_firecrawl
     echo
     run_llm_qa_gen
+    echo
+    run_sdk_cli_mvp
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -1164,6 +1208,9 @@ case "$FILTER" in
     ;;
   llm-qa-gen|llm-qa-gen-20260518)
     run_llm_qa_gen
+    ;;
+  sdk-cli-mvp|sdk-cli-mvp-20260518)
+    run_sdk_cli_mvp
     ;;
   *)
     echo "未知 change: $FILTER" >&2

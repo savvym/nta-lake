@@ -47,6 +47,18 @@ warn_redundant_casts = true
 module = ["boto3", "boto3.*", "botocore", "botocore.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# typer 的 @app.command 装饰器在 strict 模式被判 "untyped decorator"。typer 0.12+ 类型
+# 提示完善，我们 trust 装饰器返 typer.models.CommandInfo；关掉这一项检查。
+module = ["dataplat_sdk.cli"]
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+# typer / click 在 strict 模式找不到 stub（实际 typer 0.12+ 自带 py.typed，但
+# mypy 在 workspace 模式下可能解析失败）；忽略 missing imports
+module = ["typer", "typer.*", "click", "click.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["apps/api/tests", "packages/core/tests", "worker/tests"]
