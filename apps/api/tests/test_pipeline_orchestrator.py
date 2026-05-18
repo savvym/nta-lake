@@ -196,7 +196,19 @@ async def _delete_repo_cascade(owner: str, name: str) -> None:
         await session.execute(
             text("DELETE FROM refs WHERE repo_id=:r"), {"r": repo_id}
         )
-        # 先清 pipeline_cache 指向本 repo 的 commit
+        # stage9-followup-cleanup-20260518：cache hit 测试用 _preseed_cache 让
+        # silver ref 跨指向 bronze commit。删 bronze 时 silver ref 仍引用这些
+        # commits → refs FK violation。补：删本 repo commits 之前，先清掉
+        # 所有指向本 repo commits 的 refs（无论 ref 属哪个 repo）。
+        await session.execute(
+            text(
+                "DELETE FROM refs WHERE commit_hash IN "
+                "(SELECT hash FROM commits WHERE repo_id=:r)"
+            ),
+            {"r": repo_id},
+        )
+        # 先清 pipeline_cache 指向本 repo 的 commit（model 已 CASCADE，
+        # 但显式清理保持向后兼容 + downgrade 路径正常）
         await session.execute(
             text(
                 "DELETE FROM pipeline_cache WHERE output_commit_hash IN "
@@ -261,9 +273,17 @@ def _override_blob_store(monkeypatch):  # type: ignore[no-untyped-def]
 async def _seed_bronze(
     owner: str, name: str, content: bytes
 ) -> tuple[uuid.UUID, str]:
-    """通过 HTTP 路径 seed 一个 bronze repo + 一条 commit；返 (repo_id, commit_hash)。"""
+    """通过 HTTP 路径 seed 一个 bronze repo + 一条 commit；返 (repo_id, commit_hash).
+
+    stage9-followup-cleanup-20260518 T-4：给 content 加 HTML 注释 uuid 前缀，
+    让全局 commits.hash 唯一。原本 hardcoded byte content 跟 stage 9 demo
+    同 content 撞 hash。HTML 注释（非 markdown H1）：防御性写法。
+    """
     info = await _make_admin()
     transport = ASGITransport(app=app)
+    unique_content = (
+        f"<!-- fixture-uuid {uuid.uuid4().hex} -->\n".encode() + content
+    )
     try:
         async with AsyncClient(
             transport=transport, base_url="https://test"
@@ -286,7 +306,7 @@ async def _seed_bronze(
                 },
             )
             r_blob = await c.post(
-                f"/repos/{owner}/{name}/blobs", content=content
+                f"/repos/{owner}/{name}/blobs", content=unique_content
             )
             sha = r_blob.json()["sha256"]
             r_commit = await c.post(

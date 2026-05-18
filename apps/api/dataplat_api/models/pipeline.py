@@ -85,7 +85,7 @@ class PipelineCacheORM(Base):
     cache_key: Mapped[str] = mapped_column(String(64), primary_key=True)
     output_commit_hash: Mapped[str] = mapped_column(
         String(64),
-        ForeignKey("commits.hash", ondelete="RESTRICT"),
+        ForeignKey("commits.hash", ondelete="CASCADE"),
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(

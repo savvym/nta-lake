@@ -1311,6 +1311,27 @@ EOF
 export -f _ac_kind_lint_exempt_changes_inline
 
 # =============================================================================
+# Block: stage9-followup-cleanup-20260518
+# 4 条 AC（含 2 条 behavioral：AC-2 alembic 三连 + delete_rule 断言、AC-4 pytest 10/10）
+# =============================================================================
+
+run_stage9_followup_cleanup() {
+  echo "=== stage9-followup-cleanup-20260518 :: 4 AC ==="
+
+  run_ac AC-1 "model + 0005 migration FK CASCADE；0004 保留 ondelete=RESTRICT" \
+    bash -c 'test -f apps/api/dataplat_api/models/pipeline.py && awk "/^class PipelineCacheORM/{p=1;next} p && /^class /{exit} p" apps/api/dataplat_api/models/pipeline.py | grep -q '\''ondelete="CASCADE"'\'' && ls apps/api/alembic/versions/0005_*.py >/dev/null 2>&1 && grep -q "CASCADE" apps/api/alembic/versions/0005_*.py && grep -q '\''ondelete="RESTRICT"'\'' apps/api/alembic/versions/0004_pipeline_orchestrator.py'
+
+  run_ac_skipif_no_pg AC-2 "alembic head=0005 + information_schema delete_rule=CASCADE" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && (cd apps/api && uv run alembic current 2>&1 | grep -q "0005") && docker exec dataplat-pg-test psql -U dataplat -d dataplat -tA -c "SELECT delete_rule FROM information_schema.referential_constraints WHERE constraint_name='\''pipeline_cache_output_commit_hash_fkey'\'';" | grep -q "CASCADE"'
+
+  run_ac AC-3 "_seed_bronze 含 uuid 前缀注入（awk 状态机锚定函数体）" \
+    bash -c 'test -f apps/api/tests/test_pipeline_orchestrator.py && awk "/^async def _seed_bronze/{p=1;next} p && /^async def |^def /{exit} p" apps/api/tests/test_pipeline_orchestrator.py | grep -qE "uuid\.uuid4\(\)\.hex.*content|unique_content.*=.*uuid"'
+
+  run_ac_skipif_no_pg_minio_redis AC-4 "test_pipeline_orchestrator.py 10/10 PASS（含 cache_hit 3）" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_MINIO_ACCESS_KEY=${DATAPLAT_MINIO_ACCESS_KEY:-minioadmin} && export DATAPLAT_MINIO_SECRET_KEY=${DATAPLAT_MINIO_SECRET_KEY:-minioadmin} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && export DATAPLAT_LLM_PROVIDER=fake && (cd apps/api && uv run pytest -q --tb=no tests/test_pipeline_orchestrator.py 2>&1 | tail -3 | grep -qE "10 passed")'
+}
+
+# =============================================================================
 # Block: harness-ac-behavioral-tier-20260518
 # 8 条 AC + 引用 global ac-kind-lint
 # =============================================================================
@@ -1425,6 +1446,8 @@ case "$FILTER" in
     echo
     run_pipeline_orchestrator_mvp
     echo
+    run_stage9_followup_cleanup
+    echo
     run_harness_ac_behavioral_tier
     echo
     run_ac_kind_lint
@@ -1482,6 +1505,9 @@ case "$FILTER" in
     ;;
   reviewer-lint)
     run_reviewer_lint
+    ;;
+  stage9-followup-cleanup|stage9-followup-cleanup-20260518)
+    run_stage9_followup_cleanup
     ;;
   harness-ac-behavioral-tier|harness-ac-behavioral-tier-20260518)
     run_harness_ac_behavioral_tier
