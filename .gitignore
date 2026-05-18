@@ -49,7 +49,8 @@ Thumbs.db
 
 # Claude Code 用户机器特定
 # （继承自 harness-bootstrap-20260516 stage 4 SHOULD FIX #1）
-.claude/settings.local.json
+# harness-remote-push-onboarding-20260518：扩展到整个 .claude/（含 worktrees / scoped cache / jobs）
+.claude/
 
 # 本地环境变量
 .env

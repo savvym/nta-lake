@@ -286,7 +286,7 @@ git diff --stat origin/main..HEAD | awk '{print $1}'
 
 任一文件不满足 → reviewer MUST FIX（"声明 exempt 但有非豁免范围改动"）。reviewer 必须把 `git diff --stat` 输出**粘贴到 review 文件**。
 
-无 remote 项目（本仓库当前情况）：用 `git log --stat <baseline-commit>..HEAD` 等价。
+首选 `git diff --stat origin/main..HEAD`（本仓库 origin 已配置：`git@github.com:savvym/nta-lake.git`）。离线 / 异常 / 早期未 push 的本地 baseline 场景，降级 `git log --stat <baseline-commit>..HEAD` 等价。
 
 ### 混合型 AC 拆分示例（伪代码）
 

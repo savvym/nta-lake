@@ -113,19 +113,25 @@
 - **Skill Injection**：无（直接 git 操作）。
 - **产出物**：
   - 一次或多次 commit；推送到远端分支。
+  - `git push origin main`（本仓库策略允许单作者直 push main；非单作者项目可改用 feature branch + PR 流程，需在项目 README 显式声明）。
   - `summary.md` 更新 commit SHA、分支名。
 - **Quality Gate**：
   - commit message 遵循约定（详见 `coding-style.md` §git）。
-  - 不在 `main` / `master` 上直接 push（除非项目策略允许且明示）。
-- **Rollback Route**：推送失败 → 解决冲突、回到对应改动阶段。
+  - 本仓库策略：允许直 push main（单作者项目；新协作者加入需重审此策略）。
+  - `git status` 显示 `up to date with 'origin/main'`（验证本地与 remote 同步）。
+- **Rollback Route**：
+  - 推送失败（鉴权 / 网络）→ 检查 ssh-agent / remote URL，重试；不解决前不进入下一阶段。
+  - 推送被拒（remote 有新 commit 未 pull）→ `git pull --rebase` 解决冲突后重试。
 
 ## 阶段 8 · CI 验证（ci_result）
 
-- **Entry Criteria**：阶段 7 完成且远端 CI 已触发。
-- **Skill Injection**：`skills/unit-test-ci/SKILL.md`。
-- **产出物**：
+- **Entry Criteria**：阶段 7 完成。
+- **本项目策略（self-attest 默认）**：**本地 pytest + `bash scripts/_self_check.sh` 等价 CI**；**不引入 GitHub Actions / GitLab CI 等远程 CI**（理由：等价覆盖 + 反馈快 + 单作者无 PR review 摩擦）。新 change 标 stage 8 = `self-attest` 时**必须**引用本节理由文案（"本项目策略：本地 pytest + self_check.sh 等价 CI..."）；**禁用**早期"无远程"系列旧理由（详 `harness-remote-push-onboarding-20260518` 撤销说明）。
+- **Skill Injection**：`skills/unit-test-ci/SKILL.md`（仅当未来引入远程 CI 时启用）。
+- **产出物**（仅在引入远程 CI 时）：
   - `ci_result/ci_result_v{N}.md`：CI 运行链接、status、total_tests、passed_tests、failed_tests、coverage（如有）。
-- **Quality Gate**（**机械化**）：
+  - self-attest 路径：在 `summary.md` 阶段 8 行填 `self-attest`，notes 引用本节策略。
+- **Quality Gate**（**机械化**，仅远程 CI 路径）：
   ```text
   status == SUCCESS
   total_tests > 0

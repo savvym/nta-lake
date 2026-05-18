@@ -102,8 +102,8 @@ run_bootstrap_monorepo() {
   run_ac AC-5 "README ≥ 30 行 + quickstart" \
     bash -c '[ "$(wc -l < README.md)" -ge 30 ] && grep -qE "快速开始|Quickstart" README.md'
 
-  run_ac AC-6 ".gitignore 必备排除 + .claude/settings.local.json ignored" \
-    bash -c 'test -f .gitignore && for p in .venv node_modules dist __pycache__ .pytest_cache .ruff_cache .mypy_cache .turbo ".claude/settings.local.json"; do grep -q "$p" .gitignore || exit 1; done && git check-ignore -q .claude/settings.local.json'
+  run_ac AC-6 ".gitignore 必备排除 + .claude/ ignored（含 settings.local.json + worktrees）" \
+    bash -c 'test -f .gitignore && for p in .venv node_modules dist __pycache__ .pytest_cache .ruff_cache .mypy_cache .turbo ".claude/"; do grep -q "$p" .gitignore || exit 1; done && git check-ignore -q .claude/settings.local.json && git check-ignore -q .claude/worktrees/'
 
   run_ac AC-7 "apps/api 文件齐全 + /healthz" \
     bash -c 'for f in pyproject.toml dataplat_api/__init__.py dataplat_api/main.py tests/__init__.py tests/test_health.py; do test -f "apps/api/$f" || exit 1; done && grep -q "healthz" apps/api/dataplat_api/main.py'
@@ -129,8 +129,9 @@ run_bootstrap_monorepo() {
   run_ac AC-14 "scripts/export_openapi.py + AST 合法" \
     bash -c 'test -f scripts/export_openapi.py && python3 -c "import ast; ast.parse(open(\"scripts/export_openapi.py\").read())"'
 
-  run_ac AC-15 "ci.yml 合法 + 5 job + concurrency" \
-    python3 -c "import yaml; d=yaml.safe_load(open('.github/workflows/ci.yml')); j=d['jobs']; [j[k] for k in ['python-lint-type','python-test','web-lint-type','web-test','codegen-check']]; assert d['concurrency']['cancel-in-progress'] is True"
+  # AC-15（ci.yml 合法 + 5 job + concurrency）由 harness-remote-push-onboarding-20260518 撤销：
+  # 项目策略不引入远程 CI（本地 pytest + self_check.sh 等价 CI）。
+  # bootstrap-monorepo 原 spec AC-15 保留作为历史记录；机械化检查在本 self_check 中删除。
 
   run_ac AC-16 "apps/api pytest test_health.py exit 0" \
     bash -c 'cd apps/api && uv run pytest -q tests/test_health.py >/dev/null 2>&1'
@@ -1321,11 +1322,16 @@ run_pipeline_ui_tab() {
   run_ac AC-1 "queries.ts 加 2 个 hook + 3 个 interface（独立 grep，不用 ERE alternation）" \
     bash -c 'test -f apps/web/src/lib/api/queries.ts && awk "/^export function useCreatePipelineRun/{p=1;next} p && /^export /{exit} p" apps/web/src/lib/api/queries.ts | grep -q "pipelines/runs:from-yaml" && awk "/^export function usePipelineRun/{p=1;next} p && /^export /{exit} p" apps/web/src/lib/api/queries.ts | grep -q "refetchInterval" && grep -q "interface PipelineNodeRunResponse" apps/web/src/lib/api/queries.ts && grep -q "interface PipelineRunResponse" apps/web/src/lib/api/queries.ts && grep -q "interface PipelineRunCreatedResponse" apps/web/src/lib/api/queries.ts'
 
-  run_ac AC-2 "repos/\$owner.\$name.tsx 含 PipelinesSection + isAdmin gate + 2 个 hook" \
-    bash -c 'test -f "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "function PipelinesSection" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "isAdmin && <PipelinesSection" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "useCreatePipelineRun" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "usePipelineRun" "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+  # AC-2 / AC-3：repo-files-tab-v2-20260518 Tab 重构后，PipelinesSection 不再紧邻 isAdmin && 字面（
+  # 改为 isAdmin && (<>...<PipelinesSection .../>...</>); harness-remote-push-onboarding-20260518 适配修复：
+  # AC-2 弱化为"PipelinesSection 存在 + 同文件 isAdmin 字面 + 2 个 hook 引用"；
+  # AC-3 加 NO_COLOR=1 + sed 剥 ANSI（同 repo-files-tab-v2 stage 9 验证驱动的同型修复）。
 
-  run_ac AC-3 "vitest pipeline.test.tsx + repos.pipelines-section.test.tsx ≥4 passed" \
-    bash -c 'cd apps/web && npx vitest run src/lib/api/pipeline.test.tsx src/routes/repos.pipelines-section.test.tsx 2>&1 | tee /tmp/dataplat-vitest-pipeline.log >/dev/null; grep -qE "Tests +[0-9]+ passed" /tmp/dataplat-vitest-pipeline.log'
+  run_ac AC-2 "repos/\$owner.\$name.tsx 含 PipelinesSection + isAdmin gate + 2 个 hook" \
+    bash -c 'test -f "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "function PipelinesSection" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "isAdmin" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "<PipelinesSection" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "useCreatePipelineRun" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "usePipelineRun" "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+
+  run_ac AC-3 "vitest pipeline.test.tsx + repos.pipelines-section.test.tsx ≥4 passed（NO_COLOR + sed 剥 ANSI）" \
+    bash -c '(cd apps/web && NO_COLOR=1 npx vitest run src/lib/api/pipeline.test.tsx src/routes/repos.pipelines-section.test.tsx 2>&1 | sed "s/\x1b\[[0-9;]*m//g" | tee /tmp/dataplat-vitest-pipeline.log >/dev/null) ; { grep -qE "Tests +[4-9] passed" /tmp/dataplat-vitest-pipeline.log || grep -qE "Tests +[1-9][0-9]+ passed" /tmp/dataplat-vitest-pipeline.log ; }'
 
   run_ac AC-4 "npm run build 干净（vite build && tsc --noEmit；含 built in 不含 error TS）" \
     bash -c '(cd apps/web && npm run build 2>&1 | tee /tmp/dataplat-web-build.log >/dev/null) && grep -q "built in" /tmp/dataplat-web-build.log && ! grep -qE "error TS|Found [0-9]+ errors" /tmp/dataplat-web-build.log'

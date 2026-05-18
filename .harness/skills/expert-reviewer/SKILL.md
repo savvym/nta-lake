@@ -169,7 +169,7 @@ reviewer 评 stage 2 spec.md 时**必须**核对以下 3 项；任一不满足 �
 
 1. **AC 表存在 `kind` 列**：用 `awk '/^## 验收标准/{p=1;next} p && /^## /{exit} p' spec.md | grep -qE '^\|[^|]*\|[[:space:]]*kind[[:space:]]*\|'`。
 2. **至少 1 行 AC 的 kind 单元格真值为 `behavioral`**：用 `awk ... | grep -qE '^\|[[:space:]]*AC-[0-9]+[a-z]?[[:space:]]*\|[[:space:]]*(\*\*)?behavioral(\*\*)?[[:space:]]*\|'`。**不接受裸字串 `grep -q behavioral`**——会被描述里 "behavioral 三层" 等字串误命中，机械化保护失效。
-3. **若 spec frontmatter 声明 `ac_kind_lint: exempt`**：reviewer **必跑** `git diff --stat origin/main..HEAD`（或 `git log --stat <baseline>..HEAD` 无 remote 时）并**把结果粘贴到 review 文件**，验证所有改动文件 path 仅在 `.harness/*` / `wiki/*` / `scripts/*` / `*.md` 范围内。任一文件不满足 → MUST FIX（"声明 exempt 但有非豁免范围改动"）。
+3. **若 spec frontmatter 声明 `ac_kind_lint: exempt`**：reviewer **必跑** `git diff --stat origin/main..HEAD` 并**把结果粘贴到 review 文件**，验证所有改动文件 path 仅在 `.harness/*` / `wiki/*` / `scripts/*` / `*.md` 范围内。任一文件不满足 → MUST FIX（"声明 exempt 但有非豁免范围改动"）。
 
 详细规约见 `.harness/skills/request-analysis/SKILL.md` § "AC 分层规约"。
 
