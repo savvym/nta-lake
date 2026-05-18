@@ -46,12 +46,16 @@ function RepoDetailPage() {
   const { owner, name } = Route.useParams();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const activeTab = search.tab;
   const onTabChange = (t: TabKey) => navigate({ search: { tab: t } });
   const router = useRouter();
   const { data: me } = useMe();
   const { data: repo, isLoading, isError, refetch } = useRepo(owner, name);
   const isAdmin = me?.role === "admin";
+
+  // 非 admin 直接访问 ?tab=ingest|pipelines URL 时，强制回退到 files
+  // 防止 Tab Trigger 被 admin gate 隐藏 + Tab 面板被 hidden 后内容空白。
+  const activeTab: TabKey =
+    !isAdmin && search.tab !== "files" ? "files" : search.tab;
 
   const [editing, setEditing] = useState(false);
 
