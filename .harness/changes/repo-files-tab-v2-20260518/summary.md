@@ -4,8 +4,8 @@ title: Repo 详情页 Files 独立 Tab + 文件预览页（独立路由 + 5MB + 
 owner: application-owner-agent
 started_at: 2026-05-18T20:30:00Z
 stage: deployment
-status: waiting_review
-last_updated: 2026-05-18T22:55:00Z
+status: in_progress
+last_updated: 2026-05-18T23:15:00Z
 related_changes:
   - repo-files-tab-20260517
   - pipeline-ui-tab-20260518
@@ -25,72 +25,90 @@ related_changes:
 ## 范围摘要
 
 - **In scope**：
-  - AC-1：后端新增 `GET /repos/{o}/{n}/blobs/{sha}/meta` 返 `{sha256, size}`（与 GET /blobs/{sha} 同权限模型：`get_optional_user`；blob 不存在返 404）
-  - AC-2：`apps/web/src/lib/api/queries.ts` 加 `useBlobMeta(owner, name, sha)` query + `BlobMetaResponse` TS 类型
-  - AC-3：`apps/web/src/routes/repos/$owner.$name.tsx` 重构为 **Metadata 卡片 + Tabs**：Tab 由 URL `?tab=files|ingest|pipelines` 控制（默认 `files`；Tab 切换更新 search params，浏览器前进/后退可用）；非 admin 不渲染 Ingest / Pipelines Tab Trigger
-  - AC-4：新路由 `apps/web/src/routes/blob.$owner.$name.$hash.tsx`（path 平铺，与既有 `commits.$owner.$name.$hash.tsx` 一致命名）；查询参数 `?path=...` 显示文件路径面包屑；按扩展名走 4 渲染策略（text / markdown rendered / image / binary fallback）+ 5 MB size guard；提供"返回 Files"链接
-  - AC-5：Files Tab 的 entries 表 path 列变为 Link → `/blob/$owner/$name/$hash?path=<encoded path>`（保留既有"下载"链接不变）
-  - AC-6：vitest 单测（**behavioral**）≥ 5 PASS，覆盖：(a) `useBlobMeta` 成功路径；(b) Tab URL state 切换；(c) BlobPage 文本预览渲染；(d) BlobPage 二进制 fallback 渲染；(e) BlobPage size > 5 MB 守门
-  - AC-7：后端 pytest（**behavioral**）`test_blob_meta` ≥ 3 测试（200 + size 正确 / 404 / public repo 匿名可读）
-  - AC-8：`scripts/_self_check.sh` 加 `run_repo_files_tab_v2` block；全仓 self_check 本 block 全 PASS；`apps/web && npm run build` 含 `built in` 且无 `error TS`（**behavioral**）
+  - AC-1：后端新增 `GET /repos/{o}/{n}/blobs/{sha}/meta` 返 `{sha256, size}`
+  - AC-2：`useBlobMeta` query hook + `BlobMetaResponse` TS 类型
+  - AC-3：RepoDetailPage 重构 Metadata 卡 + Tabs（URL `?tab=` 控制）
+  - AC-4：新路由 `/blob/$owner/$name/$hash`（4 渲染策略 + 5MB 守门 + minimal markdown）
+  - AC-5：FilesSection entries 表 path 列改 Link
+  - AC-6：vitest 5 测试（**behavioral**）
+  - AC-7：pytest 3 测试（**behavioral**）
+  - AC-8：self_check block + npm run build 干净（**behavioral**）
 
-- **Out of scope**（明列以防范围爆炸）：
-  - 嵌套目录 / tree 展开（仓库 commit-api-mvp 阶段决定 MVP 只支持单层 entry_type='blob'；嵌套树是另开 change `tree-nested-*` 的范畴）
-  - 完整 Markdown 渲染（本 change 仅支持 headings / paragraph / unordered list / fenced code 4 类语法；inline emphasis / table / link / image inline 等 → follow-up `web-markdown-renderer-full-*`）
-  - 引入第三方 markdown / 语法高亮库（保持零新依赖）
-  - 文件内容编辑 / 删除（→ follow-up `web-blob-edit-*`，与既有写流程一致需经 commit）
-  - 文件历史 / blame / diff 视图（→ Phase 2 lineage 可视化）
-  - 分支切换器（main 已 hardcoded；ref 列表 / 切换 UI 是 follow-up `web-ref-switcher-*`）
-  - SSE 推送大文件预览进度（5 MB 一次性 fetch 足够）
+- **Out of scope**：嵌套目录 / 完整 Markdown 渲染 / 第三方依赖 / 编辑删除 / 历史 blame / 分支切换器 / SSE 推送（详 spec.md §非范围）
 
 ## 阶段进度
 
 | 阶段 | 状态 | 最新版本 | verdict | 产物 / 报告 |
 |---|---|---|---|---|
 | 1 需求分析 | done | v2 | — | [spec.md](request_analysis/spec.md) v2 · [tasks.md](request_analysis/tasks.md) v2（闭 v1 review 5 MUST FIX + 3 SHOULD + 2 NICE） |
-| 2 需求评审 | done | v2 | **APPROVED**（v1 REVISION REQUIRED → v2 闭环） | v1：[spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md)；v2：[spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v2.md](request_analysis/review/tasks_review_v2.md)（11/11 CLOSED）|
-| 3 编码实现 | done | v1 | — | [coding_report_v1.md](coding/coding_report_v1.md)（16 文件改动；T-1..T-10 全 done；2 处偏离 spec 文档化）|
-| 4 编码评审 | waiting_review | v1 待评 | — | 待 sonnet reviewer spawn 写 coding/review/code_review_v1.md |
-| 5 单测编写 | done | v1 | — | [test_report_v1.md](unit_test/test_report_v1.md)（5 vitest + 3 pytest = 8 测试全 PASS）|
-| 6 单测评审 | waiting_review | v1 待评 | — | 待 sonnet reviewer spawn 写 unit_test/review/test_review_v1.md |
-| 7 代码推送 | pending | — | — | worktree commit + cherry-pick main（无 remote）|
+| 2 需求评审 | done | v2 | **APPROVED** | v1：[spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md)；v2：[spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v2.md](request_analysis/review/tasks_review_v2.md)（11/11 CLOSED） |
+| 3 编码实现 | done | v1 | — | [coding_report_v1.md](coding/coding_report_v1.md) |
+| 4 编码评审 | done | v1 | **APPROVED**（0 MUST · 2 SHOULD · 2 NICE；self_check 8/8 实跑） | [code_review_v1.md](coding/review/code_review_v1.md) |
+| 5 单测编写 | done | v1 | — | [test_report_v1.md](unit_test/test_report_v1.md)（5 vitest + 3 pytest 全 PASS） |
+| 6 单测评审 | done | v1 | **APPROVED**（0 MUST · 2 SHOULD · 2 NICE） | [test_review_v1.md](unit_test/review/test_review_v1.md)（vitest 5/5 + pytest 3/3 实跑确认） |
+| 7 代码推送 | done | — | — | main 3 commit：`33d791e` spec v2 → `49b28bd` stage 3 实现 → SHOULD-1 fix（待 cherry-pick） |
 | 8 CI 验证 | self-attest | — | — | 项目无 remote 长期未决（沿用既往）|
-| 9 部署验证 | done | v1 | **PASS** | [deploy_verify_v1.md](deployment/deploy_verify_v1.md)（self_check 8/8 + reviewer-lint + ac-kind-lint 全 PASS；vitest 5/5 + pytest 3/3 + npm build 干净）|
-| 10 用户确认 | pending | — | — | 用户浏览器实测（dev server 8080 + web 5174）|
+| 9 部署验证 | done | v1 | **PASS** | [deploy_verify_v1.md](deployment/deploy_verify_v1.md)（self_check 8/8 + reviewer-lint + ac-kind-lint 全 PASS；SHOULD-1 fix 后再次 8/8） |
+| 10 用户确认 | pending | — | — | 用户浏览器实测（dev 8080 + web 5174 → Tab 切换 + 文件预览 4 种渲染）|
 
 ## 关键决策
 
-| 时间 | 决策 | 理由 / 取舍 | 关联文件 |
-|---|---|---|---|
-| 2026-05-18 | Tab 状态用 URL `?tab=` 而非 React state | 可分享 URL；浏览器前进/后退；与 GitHub/HF 一致 | spec.md §架构 |
-| 2026-05-18 | 文件预览用独立路由 `/blob/$owner/$name/$hash` 而非 Drawer/模态 | 用户问卷明示需要可分享 URL | spec.md §架构 |
-| 2026-05-18 | 用 sha256 作为 URL path、path 作为 query string | sha256 是 CAS 一等公民；path 仅展示用（commit 内可重名→sha 不能） | spec.md §架构 |
-| 2026-05-18 | 加后端 `/blobs/{sha}/meta` 端点而非前端流式累计 bytes | 一次轻量调用得 size；避免浪费 5MB 带宽 + 中断 fetch 体验差 | spec.md §架构 |
-| 2026-05-18 | Markdown rendered 仅支持 4 类语法 + 内置 renderer（不引入 marked/react-markdown） | 零新依赖；本 change 完成 80% 用户价值；剩余语法 follow-up | spec.md §架构 |
-| 2026-05-18 | 不动既有 commit 详情页的 entries 表 | 范围隔离；commit 页是历史快照视图，与 Files Tab 的"工作目录"视图职责不同 | spec.md §非范围 |
+| 时间 | 决策 | 理由 / 取舍 |
+|---|---|---|
+| 2026-05-18 | Tab 状态用 URL `?tab=` 而非 React state | 可分享 URL；前进/后退；与 GitHub/HF 一致 |
+| 2026-05-18 | 文件预览独立路由 `/blob/$owner/$name/$hash` | 用户明示要可分享 URL |
+| 2026-05-18 | sha256 做 URL path、path 做 query | sha 是 CAS 一等公民；commit 内同 path 可能不同 sha |
+| 2026-05-18 | 加后端 `/blobs/{sha}/meta` 端点而非前端流式累计 | 一次轻量调用得 size；避免浪费 5MB 带宽 |
+| 2026-05-18 | Markdown 仅 4 类语法 + 内置 renderer | 零新依赖；80% 价值；剩余 follow-up |
+| 2026-05-18 | 不动 commit 详情页 entries 表 | 范围隔离；commit 页是历史快照视图 |
+| 2026-05-18 | stage 4 SHOULD-1 在本 change 修复（不推 follow-up） | 真 UX bug（非 admin 访问 URL 空白），3 行修，PR 完整度 |
 
 ## 当前阻塞
 
-- stage 3 编码 + 单测 + self_check 全 PASS（8/8 AC）；stage 4/6 reviewer 待 spawn（建议 sonnet 并行）；stage 10 用户实测待启动。
+- 无。stage 1-9 全 PASS（含 stage 4 SHOULD-1 修复后 self_check 8/8 二次确认），等 stage 10 用户实测。
 
 ## Deferred 项（已 review 通过但未在本 change 内修）
 
-> 评审/实施过程产生的非 MUST FIX 项，关闭本 change 时回填。
-
 | 类型 | 描述 | 跟进位置 |
 |---|---|---|
+| SHOULD FIX (stage 4 SHOULD-1) | 非 admin 访问 `?tab=ingest\|pipelines` URL 空白 | **已在本 change 修复**（worktree commit `e66e560`；RepoDetailPage activeTab 加非 admin 回退守门） |
+| SHOULD FIX (stage 4 SHOULD-2) | `queries.ts` L325 任务追踪注释违 coding-style §2.6 | follow-up `web-purge-task-marker-comments-*`（前驱 pipeline-ui-tab 已有同问题）|
+| NICE (stage 4 NICE-1) | ARIA tabs 不完整（缺 `role="tabpanel"` + 键盘导航）| follow-up `web-tabs-a11y-*` |
+| NICE (stage 4 NICE-2) | `renderMinimalMarkdown` 应抽到 `src/lib/markdown.ts` | follow-up `web-markdown-renderer-extract-*` |
+| SHOULD FIX (stage 6 SHOULD-1) | bulk mock queries 模块脆性 | follow-up `web-test-import-actual-*` |
+| SHOULD FIX (stage 6 SHOULD-2) | `repos.tabs.test.tsx` 无 `beforeEach` mock reset | 同 `web-test-import-actual-*` |
+| NICE (stage 6 NICE-1) | `renderMinimalMarkdown` 无直接单测 | follow-up `web-markdown-renderer-direct-test-*` |
+| NICE (stage 6 NICE-2) | jsdom `window.scrollTo` stderr noise | follow-up `web-test-jsdom-scrollTo-shim-*` |
+
+## 流程级 follow-up（harness 演进）
+
+| follow-up | 触发现象 | 建议改 |
+|---|---|---|
+| `harness-route-schema-callsite-audit-*` | validateSearch 收敛触发 5 处既有调用编译错 | code-review SKILL 加"路由 schema 变更必须 grep 所有 to= 调用点" |
+| `harness-test-grep-strip-ansi-*` | vitest ANSI escape 干扰 spec grep | unit-test-write SKILL 加"spec AC 测试 grep 默认 NO_COLOR=1 + sed 剥 ANSI" |
+| `harness-reviewer-no-summary-edit-*` | reviewer subagent 改 summary.md | reviewer-agent.md §2 加 "summary.md 也是 Owner 产物，reviewer 不改" |
 
 ## 交付
 
-> 关闭本变更时填写。
-
 - Branch：main（无 remote）
 - PR：N/A
-- Merge commit：—
-- 部署版本（如有）：—
-- 用户确认：—
+- Merge commits：`33d791e` / `49b28bd` / SHOULD-1 fix commit（待 cherry-pick 后回填 sha）
+- 部署版本：dev 本机（API 8080 + Web 5174，stage 10 用户实测时启动）
+- 用户确认：待 stage 10
 - 关闭时间：—
 
-## 复盘（可选）
+## 复盘
 
-> 关闭时填写。
+### 哪些步骤超预期顺利
+
+- **stage 2 sonnet reviewer**：用 `harness-reviewer-model-sonnet-20260518` 落地的 sonnet 默认规约后，2 轮 review v1+v2 合计 ~18 分钟，比预期 opus 路径快 3-5x；review 质量未下降。
+- **stage 9 self_check 8/8**：spec_v2 拆 alternation + 去单引号策略真实降低假阴性；AC-3/AC-6 两次 FAIL 都是合理实质问题，修法清晰。
+- **stage 4/6 并行 reviewer**：两个 sonnet reviewer 后台并行，~9 分钟拿到 verdict + 真跑确认，节约 owner 等待时间。
+
+### 哪些步骤踩坑
+
+- **TanStack Router `validateSearch` 副作用**：加 validateSearch 后既有 5 处 `Link/navigate` 全部要求传 `search` prop（TS 收敛）。教训：**路由 schema 变更要做调用点 grep audit**。
+- **vitest ANSI escape 拦 grep**：spec AC-6 设计正确但 vitest 默认 ANSI 颜色导致 grep MISS。修法 `NO_COLOR=1 + sed`。教训：**spec 测试断言 grep 应统一剥 ANSI**。
+- **bg session worktree isolation guard 反复**：多次 EnterWorktree/ExitWorktree 后 guard 状态不稳；reviewer subagent 主动改 main checkout summary.md（违反"reviewer 不改被评审产物"硬约束的 summary 边界）。教训：**reviewer 角色边界应明示 summary.md 也不改**。
+
+3 个流程级 follow-up 已记入上方。当前会话不立即开新 harness change（避免无限套娃），下一轮 harness 维护合并处理。
