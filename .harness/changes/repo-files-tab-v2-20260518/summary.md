@@ -3,9 +3,9 @@ change_id: repo-files-tab-v2-20260518
 title: Repo 详情页 Files 独立 Tab + 文件预览页（独立路由 + 5MB + 4 格式）
 owner: application-owner-agent
 started_at: 2026-05-18T20:30:00Z
-stage: deployment
-status: in_progress
-last_updated: 2026-05-18T23:15:00Z
+stage: closed
+status: closed
+last_updated: 2026-05-18T23:30:00Z
 related_changes:
   - repo-files-tab-20260517
   - pipeline-ui-tab-20260518
@@ -49,7 +49,7 @@ related_changes:
 | 7 代码推送 | done | — | — | main 3 commit：`33d791e` spec v2 → `49b28bd` stage 3 实现 → SHOULD-1 fix（待 cherry-pick） |
 | 8 CI 验证 | self-attest | — | — | 项目无 remote 长期未决（沿用既往）|
 | 9 部署验证 | done | v1 | **PASS** | [deploy_verify_v1.md](deployment/deploy_verify_v1.md)（self_check 8/8 + reviewer-lint + ac-kind-lint 全 PASS；SHOULD-1 fix 后再次 8/8） |
-| 10 用户确认 | pending | — | — | 用户浏览器实测（dev 8080 + web 5174 → Tab 切换 + 文件预览 4 种渲染）|
+| 10 用户确认 | done | v1 | **PASS** | zhhdzhang @ 2026-05-18T23:30:00Z 浏览器实测通过：Tab 切换 / 4 种文件预览 / 5MB 守门 |
 
 ## 关键决策
 
@@ -65,7 +65,7 @@ related_changes:
 
 ## 当前阻塞
 
-- 无。stage 1-9 全 PASS（含 stage 4 SHOULD-1 修复后 self_check 8/8 二次确认），等 stage 10 用户实测。
+- 无。change 全流程关闭。
 
 ## Deferred 项（已 review 通过但未在本 change 内修）
 
@@ -94,8 +94,8 @@ related_changes:
 - PR：N/A
 - Merge commits：`33d791e` / `49b28bd` / SHOULD-1 fix commit（待 cherry-pick 后回填 sha）
 - 部署版本：dev 本机（API 8080 + Web 5174，stage 10 用户实测时启动）
-- 用户确认：待 stage 10
-- 关闭时间：—
+- 用户确认：zhhdzhang @ 2026-05-18T23:30:00Z 浏览器实测通过
+- 关闭时间：2026-05-18T23:30:00Z
 
 ## 复盘
 
