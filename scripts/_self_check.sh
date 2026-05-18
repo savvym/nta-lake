@@ -1311,6 +1311,27 @@ EOF
 export -f _ac_kind_lint_exempt_changes_inline
 
 # =============================================================================
+# Block: pipeline-ui-tab-20260518
+# 4 条 AC（含 2 条 behavioral：AC-3 vitest + AC-4 npm run build）
+# =============================================================================
+
+run_pipeline_ui_tab() {
+  echo "=== pipeline-ui-tab-20260518 :: 4 AC ==="
+
+  run_ac AC-1 "queries.ts 加 2 个 hook + 3 个 interface（独立 grep，不用 ERE alternation）" \
+    bash -c 'test -f apps/web/src/lib/api/queries.ts && awk "/^export function useCreatePipelineRun/{p=1;next} p && /^export /{exit} p" apps/web/src/lib/api/queries.ts | grep -q "pipelines/runs:from-yaml" && awk "/^export function usePipelineRun/{p=1;next} p && /^export /{exit} p" apps/web/src/lib/api/queries.ts | grep -q "refetchInterval" && grep -q "interface PipelineNodeRunResponse" apps/web/src/lib/api/queries.ts && grep -q "interface PipelineRunResponse" apps/web/src/lib/api/queries.ts && grep -q "interface PipelineRunCreatedResponse" apps/web/src/lib/api/queries.ts'
+
+  run_ac AC-2 "repos/\$owner.\$name.tsx 含 PipelinesSection + isAdmin gate + 2 个 hook" \
+    bash -c 'test -f "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "function PipelinesSection" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "isAdmin && <PipelinesSection" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "useCreatePipelineRun" "apps/web/src/routes/repos/\$owner.\$name.tsx" && grep -q "usePipelineRun" "apps/web/src/routes/repos/\$owner.\$name.tsx"'
+
+  run_ac AC-3 "vitest pipeline.test.tsx + repos.pipelines-section.test.tsx ≥4 passed" \
+    bash -c 'cd apps/web && npx vitest run src/lib/api/pipeline.test.tsx src/routes/repos.pipelines-section.test.tsx 2>&1 | tee /tmp/dataplat-vitest-pipeline.log >/dev/null; grep -qE "Tests +[0-9]+ passed" /tmp/dataplat-vitest-pipeline.log'
+
+  run_ac AC-4 "npm run build 干净（vite build && tsc --noEmit；含 built in 不含 error TS）" \
+    bash -c '(cd apps/web && npm run build 2>&1 | tee /tmp/dataplat-web-build.log >/dev/null) && grep -q "built in" /tmp/dataplat-web-build.log && ! grep -qE "error TS|Found [0-9]+ errors" /tmp/dataplat-web-build.log'
+}
+
+# =============================================================================
 # Block: stage9-followup-cleanup-20260518
 # 4 条 AC（含 2 条 behavioral：AC-2 alembic 三连 + delete_rule 断言、AC-4 pytest 10/10）
 # =============================================================================
@@ -1448,6 +1469,8 @@ case "$FILTER" in
     echo
     run_stage9_followup_cleanup
     echo
+    run_pipeline_ui_tab
+    echo
     run_harness_ac_behavioral_tier
     echo
     run_ac_kind_lint
@@ -1508,6 +1531,9 @@ case "$FILTER" in
     ;;
   stage9-followup-cleanup|stage9-followup-cleanup-20260518)
     run_stage9_followup_cleanup
+    ;;
+  pipeline-ui-tab|pipeline-ui-tab-20260518)
+    run_pipeline_ui_tab
     ;;
   harness-ac-behavioral-tier|harness-ac-behavioral-tier-20260518)
     run_harness_ac_behavioral_tier

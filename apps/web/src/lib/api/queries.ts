@@ -253,3 +253,71 @@ export function useEnqueueIngest() {
       }),
   });
 }
+
+// --- pipeline-ui-tab-20260518 ---
+
+export interface PipelineNodeRunResponse {
+  node_id: string;
+  processor_name: string;
+  processor_version: string;
+  config: Record<string, unknown>;
+  status: string;
+  cache_hit: boolean;
+  output_commit_hash: string | null;
+  input_commits: string[] | null;
+  cache_key: string | null;
+  error: string | null;
+}
+
+export interface PipelineRunResponse {
+  run_id: string;
+  recipe_name: string;
+  status: string;
+  error: string | null;
+  created_by: string;
+  node_runs: PipelineNodeRunResponse[];
+}
+
+export interface PipelineRunCreatedResponse {
+  run_id: string;
+  job_id: string;
+}
+
+export function useCreatePipelineRun() {
+  return useMutation({
+    mutationFn: async (
+      recipeYaml: string,
+    ): Promise<PipelineRunCreatedResponse> => {
+      // 不走 fetchJson 因为它默认 Content-Type: application/json；
+      // pipeline:from-yaml 路由需 Content-Type: text/yaml + raw body。
+      const resp = await fetch("/api/pipelines/runs:from-yaml", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "text/yaml" },
+        body: recipeYaml,
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`create pipeline run failed ${resp.status}: ${text}`);
+      }
+      return (await resp.json()) as PipelineRunCreatedResponse;
+    },
+  });
+}
+
+export function usePipelineRun(runId: string | null) {
+  return useQuery({
+    queryKey: ["pipeline-run", runId],
+    queryFn: () =>
+      fetchJson<PipelineRunResponse>(
+        `/api/pipelines/runs/${encodeURIComponent(runId ?? "")}`,
+      ),
+    enabled: !!runId,
+    refetchInterval: (query) => {
+      const data = query.state.data as PipelineRunResponse | null | undefined;
+      if (!data) return 1000;
+      if (data.status === "succeeded" || data.status === "failed") return false;
+      return 1000;
+    },
+  });
+}

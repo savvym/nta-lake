@@ -13,9 +13,11 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import {
   useCommit,
+  useCreatePipelineRun,
   useDeleteRepo,
   useEnqueueIngest,
   useMe,
+  usePipelineRun,
   useRepoRef,
   useRepo,
   useUpdateRepo,
@@ -146,6 +148,8 @@ function RepoDetailPage() {
       <FilesSection owner={owner} name={name} />
 
       {isAdmin && <IngestSection owner={owner} name={name} />}
+
+      {isAdmin && <PipelinesSection owner={owner} name={name} />}
     </div>
   );
 }
@@ -562,6 +566,181 @@ function IngestSection({ owner, name }: { owner: string; name: string }) {
               {busy ? "提交中…" : "上传 + Ingest"}
             </Button>
           </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- pipeline-ui-tab-20260518 ---
+
+const DEMO_RECIPE_YAML = `name: demo-bronze-to-gold
+
+nodes:
+  - id: normalize
+    processor: markdown-normalize@0.1
+    inputs:
+      - bronze/demo/raw-md@main
+    config: {}
+    output: silver/demo/normalized-md@auto
+
+  - id: qa_gen
+    processor: llm-qa-gen@0.1
+    inputs:
+      - "@normalize"
+    config:
+      model_id: claude-opus-4-7
+      records_per_doc: 2
+    output: gold/demo/sft@auto
+`;
+
+export function PipelinesSection({
+  owner,
+  name,
+}: {
+  owner: string;
+  name: string;
+}) {
+  void owner;
+  void name;
+  const [yamlText, setYamlText] = useState("");
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const createRun = useCreatePipelineRun();
+  const runQuery = usePipelineRun(activeRunId);
+
+  const submit = async () => {
+    setError(null);
+    try {
+      const res = await createRun.mutateAsync(yamlText);
+      setActiveRunId(res.run_id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "运行 pipeline 失败");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Pipelines</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="pipeline-yaml">Recipe YAML</Label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setYamlText(DEMO_RECIPE_YAML)}
+              disabled={createRun.isPending}
+            >
+              粘贴 demo recipe
+            </Button>
+          </div>
+          <Textarea
+            id="pipeline-yaml"
+            rows={12}
+            value={yamlText}
+            onChange={(e) => setYamlText(e.target.value)}
+            placeholder="name: my-pipeline\nnodes: ..."
+            className="font-mono text-xs"
+          />
+          {error && <div className="text-sm text-red-600">{error}</div>}
+          <div className="flex justify-end">
+            <Button
+              onClick={submit}
+              disabled={!yamlText.trim() || createRun.isPending}
+            >
+              {createRun.isPending ? "提交中…" : "运行 Pipeline"}
+            </Button>
+          </div>
+
+          {activeRunId && (
+            <div className="flex flex-col gap-2 border-t border-gray-200 pt-3 mt-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-500">Run:</span>
+                <span className="font-mono text-xs">
+                  {activeRunId.slice(0, 12)}…
+                </span>
+                {runQuery.data && (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      runQuery.data.status === "succeeded"
+                        ? "bg-green-100 text-green-800"
+                        : runQuery.data.status === "failed"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-blue-100 text-blue-800"
+                    }`}
+                  >
+                    {runQuery.data.status}
+                  </span>
+                )}
+              </div>
+              {runQuery.data?.error && (
+                <pre className="text-xs text-red-700 bg-red-50 p-2 rounded max-h-32 overflow-auto whitespace-pre-wrap">
+                  {runQuery.data.error}
+                </pre>
+              )}
+              {runQuery.data && runQuery.data.node_runs.length > 0 && (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left border-b border-gray-200">
+                      <th className="py-1 pr-2 font-medium text-gray-600">
+                        node
+                      </th>
+                      <th className="py-1 pr-2 font-medium text-gray-600">
+                        processor
+                      </th>
+                      <th className="py-1 pr-2 font-medium text-gray-600">
+                        status
+                      </th>
+                      <th className="py-1 pr-2 font-medium text-gray-600">
+                        cache
+                      </th>
+                      <th className="py-1 font-medium text-gray-600 font-mono">
+                        output_commit
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {runQuery.data.node_runs.map((n) => (
+                      <tr
+                        key={n.node_id}
+                        className="border-b border-gray-100 hover:bg-gray-50"
+                      >
+                        <td className="py-1 pr-2 font-medium">{n.node_id}</td>
+                        <td className="py-1 pr-2 text-gray-700">
+                          {n.processor_name}@{n.processor_version}
+                        </td>
+                        <td className="py-1 pr-2">
+                          <span
+                            className={
+                              n.status === "succeeded"
+                                ? "text-green-700"
+                                : n.status === "failed"
+                                  ? "text-red-700"
+                                  : "text-blue-700"
+                            }
+                          >
+                            {n.status}
+                          </span>
+                        </td>
+                        <td className="py-1 pr-2 text-gray-500">
+                          {n.cache_hit ? "hit" : "miss"}
+                        </td>
+                        <td className="py-1 font-mono text-gray-500">
+                          {n.output_commit_hash
+                            ? `${n.output_commit_hash.slice(0, 12)}…`
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
