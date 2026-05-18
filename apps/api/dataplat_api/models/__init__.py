@@ -10,6 +10,11 @@ from dataplat_api.models.base import Base, TimestampMixin
 from dataplat_api.models.blob import BlobORM
 from dataplat_api.models.commit import CommitORM
 from dataplat_api.models.job import JobORM
+from dataplat_api.models.pipeline import (
+    PipelineCacheORM,
+    PipelineNodeRunORM,
+    PipelineRunORM,
+)
 from dataplat_api.models.refs import RefORM
 from dataplat_api.models.repository import RepositoryORM
 from dataplat_api.models.tree import TreeEntryORM, TreeORM
@@ -26,4 +31,7 @@ __all__ = [
     "BlobORM",
     "UserORM",
     "JobORM",
+    "PipelineRunORM",
+    "PipelineNodeRunORM",
+    "PipelineCacheORM",
 ]

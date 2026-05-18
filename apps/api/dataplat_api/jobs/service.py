@@ -24,6 +24,7 @@ class JobsService:
     _TASK_DISPATCH = {
         "ingest": "dataplat_api.jobs.tasks.run_ingest_job",
         "process": "dataplat_api.jobs.tasks.run_process_job",
+        "pipeline": "dataplat_api.jobs.tasks.run_pipeline_job",
     }
 
     @staticmethod

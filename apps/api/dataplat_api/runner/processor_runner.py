@@ -23,6 +23,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from dataplat_core.domain.lineage import Lineage
 from dataplat_core.protocols.processor import ProcessResult
 from dataplat_core.protocols.storage import BlobStore
 from fastapi import HTTPException, status
@@ -59,6 +60,7 @@ class ProcessorRunner:
         message: str | None = None,
         ref: str | None = None,
         parents: list[str] | None = None,
+        lineage: Lineage | None = None,
     ) -> tuple[CommitORM, bool, ProcessResult]:
         registry = get_processor_registry()
         processor = registry.get(processor_name, processor_version)
@@ -127,7 +129,7 @@ class ProcessorRunner:
                 parents=resolved_parents,
                 author_id=author_id,
                 message=message,
-                lineage=None,
+                lineage=lineage,
                 ref=ref,
             )
             commit, dedup = await CommitService.create_commit(

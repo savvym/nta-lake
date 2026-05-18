@@ -15,6 +15,7 @@ from dataplat_api.routers.auth import router as auth_router
 from dataplat_api.routers.commits import router as commits_router
 from dataplat_api.routers.ingest import router as ingest_router
 from dataplat_api.routers.jobs import router as jobs_router
+from dataplat_api.routers.pipelines import router as pipelines_router
 from dataplat_api.routers.process import router as process_router
 from dataplat_api.routers.repos import router as repos_router
 
@@ -43,3 +44,4 @@ app.include_router(commits_router)
 app.include_router(ingest_router)
 app.include_router(jobs_router)
 app.include_router(process_router)
+app.include_router(pipelines_router)

@@ -1130,6 +1130,48 @@ run_sdk_cli_mvp() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+run_pipeline_orchestrator_mvp() {
+  echo "=== pipeline-orchestrator-mvp-20260518 :: 13 AC ==="
+
+  run_ac AC-1 "Recipe Pydantic schema 存在 + YAML/JSON load" \
+    bash -c 'test -f apps/api/dataplat_api/schemas/pipeline.py && cd apps/api && uv run python -c "from dataplat_api.schemas.pipeline import Recipe, RecipeNode; r=Recipe(name=\"demo\", nodes=[RecipeNode(id=\"n1\", processor=\"p@1\", inputs=[\"silver/foo/bar@main\"], config={}, output=\"silver/foo/baz@auto\")]); assert r.nodes[0].id == \"n1\""'
+
+  run_ac AC-2 "DAG topo_sort + 环检测" \
+    bash -c 'test -f apps/api/dataplat_api/runner/dag.py && cd apps/api && uv run python -c "from dataplat_api.runner.dag import topo_sort; assert topo_sort([{\"id\":\"a\",\"deps\":[]},{\"id\":\"b\",\"deps\":[\"a\"]}]) == [\"a\",\"b\"]; import pytest; pytest.raises(ValueError, lambda: topo_sort([{\"id\":\"a\",\"deps\":[\"b\"]},{\"id\":\"b\",\"deps\":[\"a\"]}]))"'
+
+  run_ac AC-3 "cache_key 函数确定性 + 顺序无关 + 长度 64" \
+    bash -c 'test -f apps/api/dataplat_api/runner/cache.py && cd apps/api && uv run python -c "from dataplat_api.runner.cache import compute_cache_key; k1=compute_cache_key([\"a\",\"b\"],\"p\",\"v\",{\"k\":1,\"j\":2}); k2=compute_cache_key([\"b\",\"a\"],\"p\",\"v\",{\"j\":2,\"k\":1}); assert k1==k2 and len(k1)==64"'
+
+  run_ac AC-4 "Alembic 0004 + 3 表名" \
+    bash -c 'test -f apps/api/alembic/versions/0004_pipeline_orchestrator.py && grep -q "pipeline_runs" apps/api/alembic/versions/0004_pipeline_orchestrator.py && grep -q "pipeline_node_runs" apps/api/alembic/versions/0004_pipeline_orchestrator.py && grep -q "pipeline_cache" apps/api/alembic/versions/0004_pipeline_orchestrator.py'
+
+  run_ac AC-5 "ProcessorRunner.run 含 lineage 参数（默认 None）" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.runner.processor_runner import ProcessorRunner; import inspect; p=inspect.signature(ProcessorRunner.run).parameters; assert \"lineage\" in p and p[\"lineage\"].default is None"'
+
+  run_ac AC-6 "PipelineOrchestrator.run_pipeline coroutine + 含 recipe/author_id/run_id 参数" \
+    bash -c 'test -f apps/api/dataplat_api/runner/orchestrator.py && cd apps/api && uv run python -c "from dataplat_api.runner.orchestrator import PipelineOrchestrator; import inspect; sig=inspect.signature(PipelineOrchestrator.run_pipeline); assert inspect.iscoroutinefunction(PipelineOrchestrator.run_pipeline); assert all(n in sig.parameters for n in (\"recipe\",\"author_id\",\"run_id\"))"'
+
+  run_ac_skipif_no_pg_minio_redis AC-7 "lineage 写入测试（test_lineage_written_on_cache_miss）" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && test -f apps/api/tests/test_pipeline_orchestrator.py && grep -q "test_lineage_written_on_cache_miss" apps/api/tests/test_pipeline_orchestrator.py && (cd apps/api && uv run pytest -q --tb=no tests/test_pipeline_orchestrator.py::test_lineage_written_on_cache_miss)'
+
+  run_ac_skipif_no_pg_minio_redis AC-8 "cache hit 跳过 + ref upsert + 审计字段（test_cache_hit_*）" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && test -f apps/api/tests/test_pipeline_orchestrator.py && grep -q "test_cache_hit_skips_processor" apps/api/tests/test_pipeline_orchestrator.py && grep -q "test_cache_hit_updates_ref" apps/api/tests/test_pipeline_orchestrator.py && grep -q "input_commits_json" apps/api/tests/test_pipeline_orchestrator.py && (cd apps/api && uv run pytest -q --tb=no tests/test_pipeline_orchestrator.py -k cache_hit)'
+
+  run_ac AC-9 "POST + GET /pipelines/runs OpenAPI 路径" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.main import app; s=app.openapi(); paths=set(s[\"paths\"].keys()); assert \"/pipelines/runs\" in paths and \"/pipelines/runs/{run_id}\" in paths"'
+
+  run_ac AC-10 "_TASK_DISPATCH 'pipeline' + run_pipeline_job 签名" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.jobs.service import JobsService; from dataplat_api.jobs.tasks import run_pipeline_job; import inspect; assert \"pipeline\" in JobsService._TASK_DISPATCH and \"job_id\" in inspect.signature(run_pipeline_job).parameters"'
+
+  run_ac AC-11 "demo recipe 文件存在 + 节点全 Processor（反向拦 raw-upload）" \
+    bash -c 'test -f recipes/examples/demo-bronze-to-gold.yaml && test -f recipes/examples/demo-bronze-to-silver.yaml && grep -q "markdown-normalize" recipes/examples/demo-bronze-to-gold.yaml && grep -q "llm-qa-gen" recipes/examples/demo-bronze-to-gold.yaml && grep -q "markdown-normalize" recipes/examples/demo-bronze-to-silver.yaml && grep -q "bronze/" recipes/examples/demo-bronze-to-silver.yaml && ! grep -qE "^[[:space:]]*processor:[[:space:]]*raw-upload" recipes/examples/demo-bronze-to-gold.yaml && ! grep -qE "^[[:space:]]*processor:[[:space:]]*raw-upload" recipes/examples/demo-bronze-to-silver.yaml'
+
+  run_ac AC-12 "ruff + mypy 全 PASS（含 worker/src）" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 # =============================================================================
 # Global lint: reviewer field separation（harness-reviewer-agent-separation-20260518）
 # 不属任何 change block；前置在所有 block 之前；FAIL 立 exit 1（fail-fast）
@@ -1212,6 +1254,8 @@ case "$FILTER" in
     run_llm_qa_gen
     echo
     run_sdk_cli_mvp
+    echo
+    run_pipeline_orchestrator_mvp
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -1260,6 +1304,9 @@ case "$FILTER" in
     ;;
   sdk-cli-mvp|sdk-cli-mvp-20260518)
     run_sdk_cli_mvp
+    ;;
+  pipeline-orchestrator-mvp|pipeline-orchestrator-mvp-20260518)
+    run_pipeline_orchestrator_mvp
     ;;
   reviewer-lint)
     run_reviewer_lint

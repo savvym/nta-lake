@@ -44,9 +44,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from dataplat_api.models import CommitORM, RefORM, TreeEntryORM, TreeORM
+from dataplat_api.models import CommitORM, TreeEntryORM, TreeORM
 from dataplat_api.schemas.commit import CommitCreate
 from dataplat_api.schemas.tree import TreeEntryCreate
+from dataplat_api.services.ref import RefService
 
 
 def _canonical_tree_bytes(entries: list[TreeEntryCreate]) -> bytes:
@@ -189,24 +190,11 @@ class CommitService:
             )
             session.add(commit)
 
-            # upsert ref
+            # upsert ref（pipeline-orchestrator-mvp-20260518 T-0：抽出 helper）
             if payload.ref:
-                ref_stmt = select(RefORM).where(
-                    RefORM.repo_id == repo_id,
-                    RefORM.name == payload.ref,
+                await RefService.upsert_ref(
+                    session, repo_id, payload.ref, commit_hash
                 )
-                ref_existing = (await session.execute(ref_stmt)).scalar_one_or_none()
-                if ref_existing is None:
-                    session.add(
-                        RefORM(
-                            id=uuid.uuid4(),
-                            repo_id=repo_id,
-                            name=payload.ref,
-                            commit_hash=commit_hash,
-                        )
-                    )
-                else:
-                    ref_existing.commit_hash = commit_hash
 
             await session.commit()
         except IntegrityError:

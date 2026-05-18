@@ -225,3 +225,58 @@ async def _run_process_job_async(job_id: str) -> None:
             await JobsService.mark_failed(session, job_id, str(exc))
 
 
+def run_pipeline_job(job_id: str) -> None:
+    """RQ worker 入口；pipeline 任务（spec pipeline-orchestrator-mvp-20260518 T-6c，AC-10）。"""
+    try:
+        asyncio.run(_run_pipeline_job_async(job_id))
+    except Exception as exc:  # noqa: BLE001
+        _logger.exception("run_pipeline_job %s 顶层未捕获异常", job_id)
+        try:
+            asyncio.run(_mark_failed_sync_wrapper(job_id, str(exc)))
+        except Exception:  # noqa: BLE001
+            _logger.exception("mark_failed 兜底也失败 job=%s", job_id)
+
+
+async def _run_pipeline_job_async(job_id: str) -> None:
+    import uuid as _uuid
+
+    from dataplat_api.runner.orchestrator import PipelineOrchestrator
+    from dataplat_api.schemas.pipeline import Recipe
+
+    factory = _make_engine_factory()
+    store = get_blob_store()
+
+    async with factory() as session:
+        job = await JobsService.get_by_id(session, job_id)
+        if job is None:
+            _logger.warning("run_pipeline_job %s 不存在", job_id)
+            return
+
+        await JobsService.mark_running(session, job_id)
+
+        try:
+            payload = job.payload
+            run_id = _uuid.UUID(payload["run_id"])
+            recipe = Recipe.model_validate(payload["recipe"])
+            author_id = str(payload["author_id"])
+
+            run = await PipelineOrchestrator.run_pipeline(
+                session=session,
+                store=store,
+                recipe=recipe,
+                author_id=author_id,
+                run_id=run_id,
+            )
+
+            await JobsService.mark_succeeded(
+                session,
+                job_id,
+                result={
+                    "run_id": str(run.id),
+                    "status": run.status,
+                    "error": run.error,
+                },
+            )
+        except Exception as exc:  # noqa: BLE001
+            _logger.exception("run_pipeline_job %s orchestrator 执行失败", job_id)
+            await JobsService.mark_failed(session, job_id, str(exc))

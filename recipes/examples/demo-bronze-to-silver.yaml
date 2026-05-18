@@ -1,0 +1,14 @@
+# Demo pipeline recipe（pipeline-orchestrator-mvp-20260518 T-8 / AC-11）。
+# 单节点：将一个 Bronze repo 的 main ref 经 markdown-normalize 处理产 Silver commit。
+# Bronze 数据必须由测试 fixture 通过 raw-upload Adapter 单独 POST /ingest 预 seed；
+# 本 recipe **不**包含 adapter as processor 节点（v2 MUST FIX #2 修订）。
+
+name: demo-bronze-to-silver
+
+nodes:
+  - id: normalize
+    processor: markdown-normalize@0.1
+    inputs:
+      - bronze/demo/raw-md@main
+    config: {}
+    output: silver/demo/normalized-md@auto

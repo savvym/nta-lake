@@ -1,0 +1,23 @@
+# Demo pipeline recipe（pipeline-orchestrator-mvp-20260518 T-8 / AC-11）。
+# 两节点链：Bronze → Silver（markdown-normalize）→ Gold（llm-qa-gen）。
+# Bronze 数据必须由测试 fixture 预 seed；recipe 节点全为 Processor，无 adapter as
+# processor 节点（v2 MUST FIX #2 修订）。e2e 测试时 LLM Gateway 用 monkeypatch mock。
+
+name: demo-bronze-to-gold
+
+nodes:
+  - id: normalize
+    processor: markdown-normalize@0.1
+    inputs:
+      - bronze/demo/raw-md@main
+    config: {}
+    output: silver/demo/normalized-md@auto
+
+  - id: qa_gen
+    processor: llm-qa-gen@0.1
+    inputs:
+      - "@normalize"
+    config:
+      model: claude-opus-4-7
+      samples_per_doc: 2
+    output: gold/demo/sft@auto
