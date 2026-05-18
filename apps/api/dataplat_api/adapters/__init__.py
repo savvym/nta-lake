@@ -4,9 +4,12 @@ module import 时自动把所有内置 adapter 注册到 `get_registry()`（spec
 新 adapter 按下面模板补：import 类 + 一行 register。
 """
 
+from dataplat_api.adapters.firecrawl_url import FirecrawlURLAdapter
 from dataplat_api.adapters.raw_upload import RawFileUploadAdapter
 from dataplat_api.runner import get_registry
 
-get_registry().register(RawFileUploadAdapter())
+_registry = get_registry()
+_registry.register(RawFileUploadAdapter())
+_registry.register(FirecrawlURLAdapter())
 
-__all__ = ["RawFileUploadAdapter"]
+__all__ = ["FirecrawlURLAdapter", "RawFileUploadAdapter"]

@@ -30,6 +30,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from dataplat_api.llm.factory import get_llm_gateway
 from dataplat_api.models import CommitORM, RefORM
 from dataplat_api.runner.registry import get_registry
 from dataplat_api.runner.runcontext import StandardRunContext
@@ -76,7 +77,9 @@ class AdapterRunner:
             resolved_parents = []
 
         workspace = Path(tempfile.mkdtemp(prefix="dataplat-ingest-"))
-        ctx = StandardRunContext(logger=_logger)
+        ctx = StandardRunContext(
+            logger=_logger, blob_store=store, llm=get_llm_gateway()
+        )
         try:
             try:
                 result = await asyncio.to_thread(

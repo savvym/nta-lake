@@ -1004,6 +1004,48 @@ run_llm_gateway_mvp() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+run_adapter_firecrawl() {
+  echo "=== adapter-firecrawl-20260517 :: 13 AC ==="
+
+  run_ac AC-1 "FirecrawlURLAdapter 实现 SourceAdapter Protocol（test -f + isinstance）" \
+    bash -c 'test -f apps/api/dataplat_api/adapters/firecrawl_url.py && cd apps/api && uv run python -c "from dataplat_core.protocols.adapter import SourceAdapter; from dataplat_api.adapters.firecrawl_url import FirecrawlURLAdapter; assert isinstance(FirecrawlURLAdapter(), SourceAdapter)"'
+
+  run_ac AC-2 "FirecrawlURLSpec extra=forbid" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.adapters.firecrawl_url import FirecrawlURLSpec; assert FirecrawlURLSpec.model_config.get(\"extra\")==\"forbid\""'
+
+  run_ac AC-3 "AdapterRunner 构 ctx 注入 llm + blob_store（test -f + 正向双 grep + 反向拦 None）" \
+    bash -c 'test -f apps/api/dataplat_api/runner/adapter_runner.py && grep -q "llm=" apps/api/dataplat_api/runner/adapter_runner.py && grep -q "blob_store=" apps/api/dataplat_api/runner/adapter_runner.py && ! grep -E "llm[[:space:]]*=[[:space:]]*None|blob_store[[:space:]]*=[[:space:]]*None" apps/api/dataplat_api/runner/adapter_runner.py'
+
+  run_ac AC-4 "registry 含 firecrawl-url v0.1" \
+    bash -c 'cd apps/api && uv run python -c "import dataplat_api.adapters; from dataplat_api.runner import get_registry; assert get_registry().get(\"firecrawl-url\",\"0.1\") is not None"'
+
+  run_ac AC-5 "extract_image_urls 识别 HTML/md + 相对路径解析 + data: 跳过" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.adapters._image_extract import extract_image_urls; urls=extract_image_urls(r'\''hi <img src=\"https://x.com/a.png\"> ![alt](/img/b.jpg) ![c](https://y.com/c.gif)'\'', \"https://example.com\"); assert any(\"a.png\" in u for u in urls) and any(\"example.com/img/b.jpg\" in u for u in urls) and any(\"c.gif\" in u for u in urls)"'
+
+  run_ac AC-6 "firecrawl_url.py 用 httpx 抓取" \
+    bash -c 'grep -q "httpx" apps/api/dataplat_api/adapters/firecrawl_url.py'
+
+  run_ac AC-7 "firecrawl_url.py 串行（不含 asyncio.gather）" \
+    bash -c '! grep -q "asyncio.gather" apps/api/dataplat_api/adapters/firecrawl_url.py'
+
+  run_ac AC-8 "输出文件名 pattern assets/<idx>/content.md" \
+    bash -c 'grep -q "content.md" apps/api/dataplat_api/adapters/firecrawl_url.py && grep -q "assets/" apps/api/dataplat_api/adapters/firecrawl_url.py'
+
+  run_ac AC-9 "图片文件名 pattern assets/<idx>/images/" \
+    bash -c 'grep -q "images/" apps/api/dataplat_api/adapters/firecrawl_url.py'
+
+  run_ac_skipif_no_pg_minio_redis AC-10 "tests/test_firecrawl.py ≥ 6 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && (cd apps/api && uv run pytest -q --tb=no tests/test_firecrawl.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_firecrawl.py 2>&1 | grep -cE "test_firecrawl\.py::")" -ge 6 ]'
+
+  run_ac AC-11 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-12 "FirecrawlURLSpec 默认 llm_model = claude-haiku-4-5-20251001" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.adapters.firecrawl_url import FirecrawlURLSpec; assert FirecrawlURLSpec.model_fields[\"llm_model\"].default == \"claude-haiku-4-5-20251001\""'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -1031,6 +1073,8 @@ case "$FILTER" in
     run_processor_framework
     echo
     run_llm_gateway_mvp
+    echo
+    run_adapter_firecrawl
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -1070,6 +1114,9 @@ case "$FILTER" in
     ;;
   llm-gateway-mvp|llm-gateway-mvp-20260517)
     run_llm_gateway_mvp
+    ;;
+  adapter-firecrawl|adapter-firecrawl-20260517)
+    run_adapter_firecrawl
     ;;
   *)
     echo "未知 change: $FILTER" >&2
