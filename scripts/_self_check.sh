@@ -1046,6 +1046,48 @@ run_adapter_firecrawl() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+run_llm_qa_gen() {
+  echo "=== llm-qa-gen-20260518 :: 13 AC ==="
+
+  run_ac AC-1 "LLMQAGenSpec extra=forbid" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.llm_qa_gen import LLMQAGenSpec; assert LLMQAGenSpec.model_config.get(\"extra\")==\"forbid\""'
+
+  run_ac AC-2 "LLMQAGenProcessor 实现 Processor Protocol（test -f + isinstance）" \
+    bash -c 'test -f apps/api/dataplat_api/processors/llm_qa_gen.py && cd apps/api && uv run python -c "from dataplat_core.protocols.processor import Processor; from dataplat_api.processors.llm_qa_gen import LLMQAGenProcessor; assert isinstance(LLMQAGenProcessor(), Processor)"'
+
+  run_ac AC-3 "registry 注册 llm-qa-gen v0.1" \
+    bash -c 'cd apps/api && uv run python -c "import dataplat_api.processors; from dataplat_api.runner.processor_registry import get_processor_registry; assert get_processor_registry().get(\"llm-qa-gen\",\"0.1\") is not None"'
+
+  run_ac AC-4 "默认 model_id = claude-haiku-4-5-20251001" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.llm_qa_gen import LLMQAGenSpec; assert LLMQAGenSpec.model_fields[\"model_id\"].default == \"claude-haiku-4-5-20251001\""'
+
+  run_ac AC-5 "默认 records_per_doc = 1" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.llm_qa_gen import LLMQAGenSpec; assert LLMQAGenSpec.model_fields[\"records_per_doc\"].default == 1"'
+
+  run_ac AC-6 "prompt_template 默认含 {text} 占位" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.llm_qa_gen import LLMQAGenSpec; assert \"{text}\" in LLMQAGenSpec.model_fields[\"prompt_template\"].default"'
+
+  run_ac AC-7 "llm_qa_gen.py 过滤 .md/.txt/.markdown（_TEXT_SUFFIXES 含三种）" \
+    bash -c 'grep -q "_TEXT_SUFFIXES" apps/api/dataplat_api/processors/llm_qa_gen.py && grep -F -q ".md" apps/api/dataplat_api/processors/llm_qa_gen.py && grep -F -q ".txt" apps/api/dataplat_api/processors/llm_qa_gen.py && grep -F -q ".markdown" apps/api/dataplat_api/processors/llm_qa_gen.py'
+
+  run_ac AC-8 "llm_qa_gen.py 输出文件名 sft.jsonl" \
+    bash -c 'grep -q "sft.jsonl" apps/api/dataplat_api/processors/llm_qa_gen.py'
+
+  run_ac AC-9 "_parse_qa_response 直接 JSON 路径正确解析" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.llm_qa_gen import _parse_qa_response; r=_parse_qa_response('"'"'{\"prompt\":\"p\",\"response\":\"r\"}'"'"'); assert r[\"prompt\"]==\"p\" and r[\"response\"]==\"r\""'
+
+  run_ac_skipif_no_pg_minio_redis AC-10 "tests/test_llm_qa_gen.py ≥ 6 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && (cd apps/api && uv run pytest -q --tb=no tests/test_llm_qa_gen.py) && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_llm_qa_gen.py 2>&1 | grep -cE "test_llm_qa_gen\.py::")" -ge 6 ]'
+
+  run_ac AC-11 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-12 "llm_qa_gen.py 含 ctx.llm 引用 + llm is None 显式检查" \
+    bash -c 'grep -q "ctx.llm" apps/api/dataplat_api/processors/llm_qa_gen.py && grep -qE "llm is None|ctx.llm.*None" apps/api/dataplat_api/processors/llm_qa_gen.py'
+
+  run_ac AC-13 "AC-13 自递归" true
+}
+
 case "$FILTER" in
   "")
     run_bootstrap_monorepo
@@ -1075,6 +1117,8 @@ case "$FILTER" in
     run_llm_gateway_mvp
     echo
     run_adapter_firecrawl
+    echo
+    run_llm_qa_gen
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -1117,6 +1161,9 @@ case "$FILTER" in
     ;;
   adapter-firecrawl|adapter-firecrawl-20260517)
     run_adapter_firecrawl
+    ;;
+  llm-qa-gen|llm-qa-gen-20260518)
+    run_llm_qa_gen
     ;;
   *)
     echo "未知 change: $FILTER" >&2
