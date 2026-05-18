@@ -70,6 +70,7 @@ function JobPage() {
                 <Link
                   to="/repos/$owner/$name"
                   params={{ owner: payload.owner, name: payload.name }}
+                  search={{ tab: "files" }}
                   className="text-blue-700 hover:underline"
                 >
                   {payload.owner}/{payload.name}

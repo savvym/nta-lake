@@ -3,9 +3,9 @@ change_id: repo-files-tab-v2-20260518
 title: Repo 详情页 Files 独立 Tab + 文件预览页（独立路由 + 5MB + 4 格式）
 owner: application-owner-agent
 started_at: 2026-05-18T20:30:00Z
-stage: request_analysis
+stage: deployment
 status: waiting_review
-last_updated: 2026-05-18T22:20:00Z
+last_updated: 2026-05-18T22:55:00Z
 related_changes:
   - repo-files-tab-20260517
   - pipeline-ui-tab-20260518
@@ -48,15 +48,15 @@ related_changes:
 | 阶段 | 状态 | 最新版本 | verdict | 产物 / 报告 |
 |---|---|---|---|---|
 | 1 需求分析 | done | v2 | — | [spec.md](request_analysis/spec.md) v2 · [tasks.md](request_analysis/tasks.md) v2（闭 v1 review 5 MUST FIX + 3 SHOULD + 2 NICE） |
-| 2 需求评审 | waiting_review | v2 待评 | v1 REVISION REQUIRED（已闭环） | v1：[spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md)；v2 待 reviewer 复检（仅检 MUST FIX 闭环，不全量重评） |
-| 3 编码实现 | pending | — | — | coding/coding_report_v1.md |
-| 4 编码评审 | pending | — | — | coding/review/code_review_v1.md |
-| 5 单测编写 | pending | — | — | unit_test/test_report_v1.md |
-| 6 单测评审 | pending | — | — | unit_test/review/test_review_v1.md |
-| 7 代码推送 | pending | — | — | main 直接 commit（无 remote） |
+| 2 需求评审 | done | v2 | **APPROVED**（v1 REVISION REQUIRED → v2 闭环） | v1：[spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md)；v2：[spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v2.md](request_analysis/review/tasks_review_v2.md)（11/11 CLOSED）|
+| 3 编码实现 | done | v1 | — | [coding_report_v1.md](coding/coding_report_v1.md)（16 文件改动；T-1..T-10 全 done；2 处偏离 spec 文档化）|
+| 4 编码评审 | waiting_review | v1 待评 | — | 待 sonnet reviewer spawn 写 coding/review/code_review_v1.md |
+| 5 单测编写 | done | v1 | — | [test_report_v1.md](unit_test/test_report_v1.md)（5 vitest + 3 pytest = 8 测试全 PASS）|
+| 6 单测评审 | waiting_review | v1 待评 | — | 待 sonnet reviewer spawn 写 unit_test/review/test_review_v1.md |
+| 7 代码推送 | pending | — | — | worktree commit + cherry-pick main（无 remote）|
 | 8 CI 验证 | self-attest | — | — | 项目无 remote 长期未决（沿用既往）|
-| 9 部署验证 | pending | — | — | deployment/deploy_verify_v1.md |
-| 10 用户确认 | pending | — | — | 浏览器实测 |
+| 9 部署验证 | done | v1 | **PASS** | [deploy_verify_v1.md](deployment/deploy_verify_v1.md)（self_check 8/8 + reviewer-lint + ac-kind-lint 全 PASS；vitest 5/5 + pytest 3/3 + npm build 干净）|
+| 10 用户确认 | pending | — | — | 用户浏览器实测（dev server 8080 + web 5174）|
 
 ## 关键决策
 
@@ -71,7 +71,7 @@ related_changes:
 
 ## 当前阻塞
 
-- spec_v2 / tasks_v2 已提交（闭 v1 review 全部 MUST FIX + SHOULD FIX + NICE）；等待 stage 2 reviewer v2 复检（建议 sonnet，仅复检 MUST FIX 闭环）。
+- stage 3 编码 + 单测 + self_check 全 PASS（8/8 AC）；stage 4/6 reviewer 待 spawn（建议 sonnet 并行）；stage 10 用户实测待启动。
 
 ## Deferred 项（已 review 通过但未在本 change 内修）
 

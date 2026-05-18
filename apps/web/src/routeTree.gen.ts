@@ -16,6 +16,7 @@ import { Route as ReposNewRouteImport } from './routes/repos.new'
 import { Route as JobsJob_idRouteImport } from './routes/jobs.$job_id'
 import { Route as ReposOwnerNameRouteImport } from './routes/repos/$owner.$name'
 import { Route as CommitsOwnerNameHashRouteImport } from './routes/commits.$owner.$name.$hash'
+import { Route as BlobOwnerNameHashRouteImport } from './routes/blob.$owner.$name.$hash'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -52,6 +53,11 @@ const CommitsOwnerNameHashRoute = CommitsOwnerNameHashRouteImport.update({
   path: '/commits/$owner/$name/$hash',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlobOwnerNameHashRoute = BlobOwnerNameHashRouteImport.update({
+  id: '/blob/$owner/$name/$hash',
+  path: '/blob/$owner/$name/$hash',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/repos/new': typeof ReposNewRoute
   '/repos/': typeof ReposIndexRoute
   '/repos/$owner/$name': typeof ReposOwnerNameRoute
+  '/blob/$owner/$name/$hash': typeof BlobOwnerNameHashRoute
   '/commits/$owner/$name/$hash': typeof CommitsOwnerNameHashRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/repos/new': typeof ReposNewRoute
   '/repos': typeof ReposIndexRoute
   '/repos/$owner/$name': typeof ReposOwnerNameRoute
+  '/blob/$owner/$name/$hash': typeof BlobOwnerNameHashRoute
   '/commits/$owner/$name/$hash': typeof CommitsOwnerNameHashRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/repos/new': typeof ReposNewRoute
   '/repos/': typeof ReposIndexRoute
   '/repos/$owner/$name': typeof ReposOwnerNameRoute
+  '/blob/$owner/$name/$hash': typeof BlobOwnerNameHashRoute
   '/commits/$owner/$name/$hash': typeof CommitsOwnerNameHashRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/repos/new'
     | '/repos/'
     | '/repos/$owner/$name'
+    | '/blob/$owner/$name/$hash'
     | '/commits/$owner/$name/$hash'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/repos/new'
     | '/repos'
     | '/repos/$owner/$name'
+    | '/blob/$owner/$name/$hash'
     | '/commits/$owner/$name/$hash'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/repos/new'
     | '/repos/'
     | '/repos/$owner/$name'
+    | '/blob/$owner/$name/$hash'
     | '/commits/$owner/$name/$hash'
   fileRoutesById: FileRoutesById
 }
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   ReposNewRoute: typeof ReposNewRoute
   ReposIndexRoute: typeof ReposIndexRoute
   ReposOwnerNameRoute: typeof ReposOwnerNameRoute
+  BlobOwnerNameHashRoute: typeof BlobOwnerNameHashRoute
   CommitsOwnerNameHashRoute: typeof CommitsOwnerNameHashRoute
 }
 
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommitsOwnerNameHashRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blob/$owner/$name/$hash': {
+      id: '/blob/$owner/$name/$hash'
+      path: '/blob/$owner/$name/$hash'
+      fullPath: '/blob/$owner/$name/$hash'
+      preLoaderRoute: typeof BlobOwnerNameHashRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReposNewRoute: ReposNewRoute,
   ReposIndexRoute: ReposIndexRoute,
   ReposOwnerNameRoute: ReposOwnerNameRoute,
+  BlobOwnerNameHashRoute: BlobOwnerNameHashRoute,
   CommitsOwnerNameHashRoute: CommitsOwnerNameHashRoute,
 }
 export const routeTree = rootRouteImport

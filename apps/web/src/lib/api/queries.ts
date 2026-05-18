@@ -321,3 +321,21 @@ export function usePipelineRun(runId: string | null) {
     },
   });
 }
+
+// --- repo-files-tab-v2-20260518 ---
+
+export interface BlobMetaResponse {
+  sha256: string;
+  size: number;
+}
+
+export function useBlobMeta(owner: string, name: string, sha256: string) {
+  return useQuery({
+    queryKey: ["blob-meta", owner, name, sha256],
+    queryFn: () =>
+      fetchJson<BlobMetaResponse>(
+        `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(sha256)}/meta`,
+      ),
+    enabled: /^[0-9a-f]{64}$/.test(sha256),
+  });
+}

@@ -731,3 +731,70 @@ async def test_q_user_get_private_commit_404(
         assert r.status_code == 404
     finally:
         await _delete_repo_cascade("test", repo_name)
+
+
+# --------- blob_meta (a) 上传 → GET /blobs/{sha}/meta → 200 + size 正确 ---------
+
+
+@pytest.mark.asyncio
+async def test_blob_meta_returns_size(admin_user: dict) -> None:
+    repo_name = f"repo-bm-{uuid.uuid4().hex[:6]}"
+    data = b"hello"
+    transport = ASGITransport(app=app)
+    try:
+        async with AsyncClient(transport=transport, base_url="https://test") as c:
+            await _login(c, admin_user)
+            await _create_repo(c, "test", repo_name, "public")
+            r_blob = await c.post(f"/repos/test/{repo_name}/blobs", content=data)
+            assert r_blob.status_code == 201
+            sha = r_blob.json()["sha256"]
+
+            r_meta = await c.get(f"/repos/test/{repo_name}/blobs/{sha}/meta")
+            assert r_meta.status_code == 200
+            body = r_meta.json()
+            assert body["sha256"] == sha
+            assert body["size"] == len(data)
+    finally:
+        await _delete_repo_cascade("test", repo_name)
+
+
+# --------- blob_meta (b) GET /blobs/{9*64}/meta → 404 ---------
+
+
+@pytest.mark.asyncio
+async def test_blob_meta_not_found(admin_user: dict) -> None:
+    repo_name = f"repo-bm-{uuid.uuid4().hex[:6]}"
+    transport = ASGITransport(app=app)
+    try:
+        async with AsyncClient(transport=transport, base_url="https://test") as c:
+            await _login(c, admin_user)
+            await _create_repo(c, "test", repo_name, "public")
+            r = await c.get(f"/repos/test/{repo_name}/blobs/{'9' * 64}/meta")
+            assert r.status_code == 404
+    finally:
+        await _delete_repo_cascade("test", repo_name)
+
+
+# --------- blob_meta (c) 匿名 GET public repo blob meta → 200 ---------
+
+
+@pytest.mark.asyncio
+async def test_blob_meta_public_anon(admin_user: dict) -> None:
+    repo_name = f"repo-bm-{uuid.uuid4().hex[:6]}"
+    data = b"public meta content"
+    transport = ASGITransport(app=app)
+    try:
+        async with AsyncClient(transport=transport, base_url="https://test") as c:
+            await _login(c, admin_user)
+            await _create_repo(c, "test", repo_name, "public")
+            r_blob = await c.post(f"/repos/test/{repo_name}/blobs", content=data)
+            sha = r_blob.json()["sha256"]
+
+        async with AsyncClient(transport=transport, base_url="https://test") as anon:
+            r_meta = await anon.get(f"/repos/test/{repo_name}/blobs/{sha}/meta")
+        assert r_meta.status_code == 200
+        body = r_meta.json()
+        assert body["sha256"] == sha
+        assert body["size"] == len(data)
+    finally:
+        await _delete_repo_cascade("test", repo_name)

@@ -1,6 +1,6 @@
 """dataplat HTTP API request/response Pydantic schemas。"""
 
-from dataplat_api.schemas.blob import BlobUploadResponse
+from dataplat_api.schemas.blob import BlobMetaResponse, BlobUploadResponse
 from dataplat_api.schemas.commit import CommitCreate, CommitRead
 from dataplat_api.schemas.ingest import IngestRequest, IngestResponse, IngestSummary
 from dataplat_api.schemas.job import JobIngestRequest, JobRead
@@ -20,6 +20,7 @@ from dataplat_api.schemas.tree import (
 )
 
 __all__ = [
+    "BlobMetaResponse",
     "BlobUploadResponse",
     "CommitCreate",
     "CommitRead",

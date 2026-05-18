@@ -29,7 +29,7 @@ function CommitPage() {
         <div className="text-gray-700">
           Commit {hash} 在 {owner}/{name} 不存在或无权访问。
         </div>
-        <Link to="/repos/$owner/$name" params={{ owner, name }}>
+        <Link to="/repos/$owner/$name" params={{ owner, name }} search={{ tab: "files" }}>
           <Button variant="outline" size="sm">
             回 repo
           </Button>
@@ -47,7 +47,7 @@ function CommitPage() {
             {data.hash}
           </div>
         </div>
-        <Link to="/repos/$owner/$name" params={{ owner, name }}>
+        <Link to="/repos/$owner/$name" params={{ owner, name }} search={{ tab: "files" }}>
           <Button variant="outline" size="sm">
             回 {owner}/{name}
           </Button>

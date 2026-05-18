@@ -45,6 +45,7 @@ function ReposListPage() {
               key={r.id}
               to="/repos/$owner/$name"
               params={{ owner: r.owner, name: r.name }}
+              search={{ tab: "files" }}
               className="block"
             >
               <Card className="hover:shadow-md transition-shadow">

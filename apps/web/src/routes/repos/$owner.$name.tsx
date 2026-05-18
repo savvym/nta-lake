@@ -24,14 +24,30 @@ import {
   useUploadBlob,
 } from "../../lib/api/queries";
 
+// URL search param: ?tab=files|ingest|pipelines （默认 files）
+type TabKey = "files" | "ingest" | "pipelines";
+const TAB_KEYS: readonly TabKey[] = ["files", "ingest", "pipelines"];
+
 export const Route = createFileRoute("/repos/$owner/$name")({
   component: RepoDetailPage,
+  validateSearch: (search: Record<string, unknown>): { tab: TabKey } => {
+    const raw = String(search.tab ?? "");
+    return {
+      tab: (TAB_KEYS as readonly string[]).includes(raw)
+        ? (raw as TabKey)
+        : "files",
+    };
+  },
 });
 
 const VISIBILITIES = ["private", "internal", "public"] as const;
 
 function RepoDetailPage() {
   const { owner, name } = Route.useParams();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const activeTab = search.tab;
+  const onTabChange = (t: TabKey) => navigate({ search: { tab: t } });
   const router = useRouter();
   const { data: me } = useMe();
   const { data: repo, isLoading, isError, refetch } = useRepo(owner, name);
@@ -145,11 +161,62 @@ function RepoDetailPage() {
         </CardContent>
       </Card>
 
-      <FilesSection owner={owner} name={name} />
+      <Tabs activeTab={activeTab} onChange={onTabChange} isAdmin={isAdmin} />
 
-      {isAdmin && <IngestSection owner={owner} name={name} />}
+      <div hidden={activeTab !== "files"}>
+        <FilesSection owner={owner} name={name} />
+      </div>
+      {isAdmin && (
+        <>
+          <div hidden={activeTab !== "ingest"}>
+            <IngestSection owner={owner} name={name} />
+          </div>
+          <div hidden={activeTab !== "pipelines"}>
+            <PipelinesSection owner={owner} name={name} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
-      {isAdmin && <PipelinesSection owner={owner} name={name} />}
+function Tabs({
+  activeTab,
+  onChange,
+  isAdmin,
+}: {
+  activeTab: TabKey;
+  onChange: (t: TabKey) => void;
+  isAdmin: boolean;
+}) {
+  const tabs: { key: TabKey; label: string; adminOnly: boolean }[] = [
+    { key: "files", label: "Files", adminOnly: false },
+    { key: "ingest", label: "Ingest", adminOnly: true },
+    { key: "pipelines", label: "Pipelines", adminOnly: true },
+  ];
+  return (
+    <div className="border-b border-gray-200 flex gap-1" role="tablist">
+      {tabs
+        .filter((t) => !t.adminOnly || isAdmin)
+        .map((t) => {
+          const active = t.key === activeTab;
+          return (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => onChange(t.key)}
+              className={
+                "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors " +
+                (active
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300")
+              }
+            >
+              {t.label}
+            </button>
+          );
+        })}
     </div>
   );
 }
@@ -233,7 +300,16 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
                     key={e.name}
                     className="border-b border-gray-100 hover:bg-gray-50"
                   >
-                    <td className="py-2 pr-4 break-all">{e.name}</td>
+                    <td className="py-2 pr-4 break-all">
+                      <Link
+                        to="/blob/$owner/$name/$hash"
+                        params={{ owner, name, hash: e.target_hash }}
+                        search={{ path: e.name }}
+                        className="text-blue-700 hover:underline"
+                      >
+                        {e.name}
+                      </Link>
+                    </td>
                     <td className="py-2 pr-4 text-gray-500">{e.entry_type}</td>
                     <td className="py-2 pr-4 font-mono text-xs text-gray-500">
                       {e.target_hash.slice(0, 12)}…

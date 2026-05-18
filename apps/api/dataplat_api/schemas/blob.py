@@ -13,3 +13,10 @@ class BlobUploadResponse(BaseModel):
     size: int
     storage_key: str
     deduplicated: bool
+
+
+class BlobMetaResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sha256: SHA256
+    size: int

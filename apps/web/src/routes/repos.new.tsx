@@ -74,6 +74,7 @@ function NewRepoPage() {
       router.navigate({
         to: "/repos/$owner/$name",
         params: { owner: parsed.data.owner, name: parsed.data.name },
+        search: { tab: "files" },
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {

@@ -1332,6 +1332,39 @@ run_pipeline_ui_tab() {
 }
 
 # =============================================================================
+# Block: repo-files-tab-v2-20260518
+# 8 条 AC（含 3 behavioral：AC-6 vitest / AC-7 pytest / AC-8 npm run build）
+# =============================================================================
+
+run_repo_files_tab_v2() {
+  echo "=== repo-files-tab-v2-20260518 :: 8 AC ==="
+
+  run_ac AC-1 "commits.py 加 get_blob_meta 路由 + schemas/blob.py 含 BlobMetaResponse（4 直接 grep）" \
+    bash -c 'test -f apps/api/dataplat_api/routers/commits.py && grep -q "/{owner}/{name}/blobs/{sha256}/meta" apps/api/dataplat_api/routers/commits.py && grep -q "def get_blob_meta" apps/api/dataplat_api/routers/commits.py && grep -q "class BlobMetaResponse" apps/api/dataplat_api/schemas/blob.py'
+
+  run_ac AC-2 "queries.ts 含 BlobMetaResponse interface + useBlobMeta hook（含 awk 锚定 /meta）" \
+    bash -c 'test -f apps/web/src/lib/api/queries.ts && grep -q "interface BlobMetaResponse" apps/web/src/lib/api/queries.ts && grep -q "export function useBlobMeta" apps/web/src/lib/api/queries.ts && awk "/^export function useBlobMeta/{p=1;next} p && /^export /{exit} p" apps/web/src/lib/api/queries.ts | grep -q "/meta"'
+
+  run_ac AC-3 "repos/\$owner.\$name.tsx 含 Tabs 实现：tab= + 3 个 Tab key + useSearch" \
+    bash -c 'test -f apps/web/src/routes/repos/\$owner.\$name.tsx && grep -q "tab=" apps/web/src/routes/repos/\$owner.\$name.tsx && grep -q "\"files\"" apps/web/src/routes/repos/\$owner.\$name.tsx && grep -q "\"ingest\"" apps/web/src/routes/repos/\$owner.\$name.tsx && grep -q "\"pipelines\"" apps/web/src/routes/repos/\$owner.\$name.tsx && { grep -q "Route.useSearch" apps/web/src/routes/repos/\$owner.\$name.tsx || grep -q "useSearch(" apps/web/src/routes/repos/\$owner.\$name.tsx ; }'
+
+  run_ac AC-4 "blob.\$owner.\$name.\$hash.tsx 存在 + createFileRoute + useBlobMeta + 5MB 常量 + Markdown renderer + 图片扩展名" \
+    bash -c 'test -f apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && grep -q "createFileRoute(\"/blob/\$owner/\$name/\$hash\")" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && grep -q "useBlobMeta" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && { grep -qE "5 ?\\* ?1024 ?\\* ?1024" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "5242880" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MAX_PREVIEW_SIZE" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; } && { grep -q "renderMinimalMarkdown" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MarkdownView" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MarkdownRendered" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; } && { grep -q "\\.png" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "\\.jpg" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "\\.jpeg" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; }'
+
+  run_ac AC-5 "FilesSection 函数体含 /blob/\$owner/\$name/\$hash + search（awk 状态机锚定）" \
+    bash -c 'awk "/function FilesSection/{p=1;next} p && /^function /{exit} p" apps/web/src/routes/repos/\$owner.\$name.tsx | grep -q "/blob/\$owner/\$name/\$hash" && awk "/function FilesSection/{p=1;next} p && /^function /{exit} p" apps/web/src/routes/repos/\$owner.\$name.tsx | grep -q "search"'
+
+  run_ac AC-6 "vitest 3 测试文件 ≥5 passed（拆 alternation 为 2 grep + shell ||；sed 剥 ANSI 颜色 escape）" \
+    bash -c '(cd apps/web && NO_COLOR=1 npx vitest run src/lib/api/blob-meta.test.tsx src/routes/repos.tabs.test.tsx src/routes/blob.test.tsx 2>&1 | sed "s/\x1b\[[0-9;]*m//g" | tee /tmp/dataplat-vitest-blob.log >/dev/null) ; { grep -qE "Tests +[5-9] passed" /tmp/dataplat-vitest-blob.log || grep -qE "Tests +[1-9][0-9]+ passed" /tmp/dataplat-vitest-blob.log ; }'
+
+  run_ac_skipif_no_pg_minio_redis AC-7 "pytest blob_meta ≥3 passed（拆 alternation）" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_MINIO_ACCESS_KEY=${DATAPLAT_MINIO_ACCESS_KEY:-minioadmin} && export DATAPLAT_MINIO_SECRET_KEY=${DATAPLAT_MINIO_SECRET_KEY:-minioadmin} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && (cd apps/api && uv run pytest -q --tb=no tests/test_commits.py -k blob_meta 2>&1 | tee /tmp/dataplat-pytest-blob.log >/dev/null) ; { grep -qE "[3-9] passed" /tmp/dataplat-pytest-blob.log || grep -qE "[1-9][0-9]+ passed" /tmp/dataplat-pytest-blob.log ; }'
+
+  run_ac AC-8 "npm run build 干净（拆 alternation 为 2 个 !grep）" \
+    bash -c '(cd apps/web && npm run build 2>&1 | tee /tmp/dataplat-web-build.log >/dev/null) && grep -q "built in" /tmp/dataplat-web-build.log && ! grep -q "error TS" /tmp/dataplat-web-build.log && ! grep -qE "Found [0-9]+ errors" /tmp/dataplat-web-build.log'
+}
+
+# =============================================================================
 # Block: stage9-followup-cleanup-20260518
 # 4 条 AC（含 2 条 behavioral：AC-2 alembic 三连 + delete_rule 断言、AC-4 pytest 10/10）
 # =============================================================================
@@ -1471,6 +1504,8 @@ case "$FILTER" in
     echo
     run_pipeline_ui_tab
     echo
+    run_repo_files_tab_v2
+    echo
     run_harness_ac_behavioral_tier
     echo
     run_ac_kind_lint
@@ -1535,6 +1570,9 @@ case "$FILTER" in
   pipeline-ui-tab|pipeline-ui-tab-20260518)
     run_pipeline_ui_tab
     ;;
+  repo-files-tab-v2|repo-files-tab-v2-20260518)
+    run_repo_files_tab_v2
+    ;;
   harness-ac-behavioral-tier|harness-ac-behavioral-tier-20260518)
     run_harness_ac_behavioral_tier
     ;;
@@ -1543,7 +1581,7 @@ case "$FILTER" in
     ;;
   *)
     echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / ... / web-write-flows / repo-files-tab" >&2
+    echo "已知 change: bootstrap-monorepo / ... / web-write-flows / repo-files-tab / repo-files-tab-v2 / pipeline-ui-tab / harness-ac-behavioral-tier / stage9-followup-cleanup" >&2
     exit 2
     ;;
 esac

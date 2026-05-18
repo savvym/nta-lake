@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dataplat_api.auth.deps import get_optional_user, require_admin
 from dataplat_api.db import get_session
 from dataplat_api.models import CommitORM, RepositoryORM
-from dataplat_api.schemas.blob import BlobUploadResponse
+from dataplat_api.schemas.blob import BlobMetaResponse, BlobUploadResponse
 from dataplat_api.schemas.commit import CommitCreate, CommitRead
 from dataplat_api.schemas.tree import TreeEntryRead, TreeRead
 from dataplat_api.services.blob import BlobService
@@ -146,6 +146,28 @@ async def download_blob(
             yield chunk
 
     return StreamingResponse(_streaming(), media_type="application/octet-stream")
+
+
+@router.get(
+    "/{owner}/{name}/blobs/{sha256}/meta",
+    response_model=BlobMetaResponse,
+)
+async def get_blob_meta(
+    owner: str,
+    name: str,
+    sha256: str = Path(pattern=_SHA256_PATTERN),
+    current_user: AuthenticatedUser | None = Depends(get_optional_user),
+    session: AsyncSession = Depends(get_session),
+    store: BlobStore = Depends(get_blob_store),
+) -> BlobMetaResponse:
+    await _resolve_repo(session, owner, name, current_user)
+    size = await store.get_size(sha256)
+    if size is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Blob {sha256} 不存在",
+        )
+    return BlobMetaResponse(sha256=sha256, size=size)
 
 
 @router.post(
