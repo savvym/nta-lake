@@ -4,8 +4,8 @@ title: Pipeline 编排引擎 MVP：Recipe YAML + DAG 调度 + cache_key + REST A
 owner: application-owner-agent
 started_at: 2026-05-18T06:01:20Z
 stage: push
-status: pending
-last_updated: 2026-05-18T09:30:00Z
+status: done
+last_updated: 2026-05-18T09:40:00Z
 related_changes:
   - processor-framework-20260517
   - rq-worker-skeleton-20260517
@@ -54,8 +54,8 @@ related_changes:
 | 4 编码评审 | done | v2 | APPROVED | v1: [code_review_v1.md](coding/review/code_review_v1.md) (REVISION REQUIRED) ; v2: [code_review_v2.md](coding/review/code_review_v2.md) (APPROVED) |
 | 5 单测编写 | done | v1 | — | [test_report_v1.md](unit_test/test_report_v1.md) |
 | 6 单测评审 | done | v1 | APPROVED | [test_review_v1.md](unit_test/review/test_review_v1.md) |
-| 7 代码推送 | pending | — | — | branch / commit SHA |
-| 8 CI 验证 | pending | — | — | [ci_result_v1.md](ci_result/ci_result_v1.md) |
+| 7 代码推送 | done（仅本地 commit） | v1 | — | main @ `a6ce8d6` feat(pipeline)；41 files / +4779 -20。**push 未做**：git remote 未配置 |
+| 8 CI 验证 | deferred | — | — | ci.yml 在 .github/workflows 但本仓库无 remote；待 push 才能跑 GHA |
 | 9 部署验证 | pending | — | — | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
 | 10 用户确认 | pending | — | — | 确认人 / 时间 |
 
@@ -72,12 +72,11 @@ related_changes:
 
 ## 当前阻塞
 
-- 无。stage 1-6 全 APPROVED；stage 5/6 已 done（32 测试 / 0 MUST FIX）。
-- **下一动作（需用户决策）**：
-  - **stage 7 代码推送** = `git commit` + `git push` → 这是涉及共享状态的高风险操作，按 CLAUDE.md 必须用户明确授权。建议先看 `git status` / `git diff` 确认范围再 commit。
-  - **stage 8 CI 验证** = 等 GitHub Actions 跑通 → 需要先推送
-  - **stage 9 部署验证** = 重启 API + worker + 跑 demo recipe → 需要 dev 环境（PG + MinIO + Redis 正确凭证）
-  - **stage 10 用户确认** = 用户验收
+- stage 1-7 全完成（本地 commit `a6ce8d6`）；stage 8/9/10 推后续会话。
+- 阻塞原因：
+  - **stage 8**：git remote 未配置 → 无法 push 触发 GitHub Actions。待项目配 remote。
+  - **stage 9**：需要 dev 环境（PG + MinIO + Redis 正确凭证）+ 重启 API/worker + 跑 demo recipe。本会话无环境，下次会话或在本机 docker-compose 跑通。
+  - **stage 10**：用户验收。等 stage 9 数据齐备后给用户跑一次端到端 demo。
 
 ## Deferred 项（stage 2 v2 review APPROVED 后未在本阶段修，进 stage 3 前同步处理）
 
@@ -102,7 +101,7 @@ related_changes:
 
 - Branch：`application-owner/pipeline-orchestrator-mvp-20260518`
 - PR：TBD
-- Merge commit：TBD
+- Merge commit：`a6ce8d6`（main 直接 commit；无 PR；本会话本地完成 stage 1-7，push 推后续会话）
 - 部署版本：TBD
 - 用户确认：TBD
 - 关闭时间：TBD
