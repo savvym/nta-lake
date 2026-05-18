@@ -106,6 +106,7 @@ APPROVED → 下一阶段；REVISION → generator 修 v{M+1} 后重提评审
 ```python
 Agent(
     subagent_type="general-purpose",
+    model="sonnet",
     description="<stage> reviewer for <change-id>",
     prompt="""
 你是 dataplat 项目变更 <change-id> 的 stage {2|4|6} 独立 reviewer 子 agent v{N}。
@@ -130,15 +131,33 @@ Agent(
 )
 ```
 
-## 8. 与 application-owner 的边界
+## 8. 模型选择
+
+**默认 sonnet**（硬约束，由 `harness-reviewer-model-sonnet-20260518` 引入）：
+
+- **理由**：reviewer 的智力负载 = 模式匹配（grep 表达式语法 / 反例构造）+ cross-ref（跨文件 + 跨 stage）+ 谨慎陈述（MUST/SHOULD/NICE 分级 + 引用具体行号），不需 opus 级深度因果推理；sonnet 4.6 速度比 opus 4.7 快约 3-5x；opus 计算量留给 generator（coding agent / spec 编写）。
+- **实现**：§7 spawn 模板 + `.harness/agents/application-owner.md §7.5` 模板 + `.harness/skills/expert-reviewer/SKILL.md § Application Owner 怎么 spawn` 三处 `Agent(...)` 调用均含 `model="sonnet"`。Owner 复制粘贴时不要漏。
+
+**override 路径**（合法偏离）：
+
+- Owner 在 spawn 前判定本次评审**确实**涉及深度因果推理 / 复杂跨文件反例构造 / 微妙数据一致性论证 → 可显式 spawn `model="opus"`。
+- 偏离条件：**必须在 review 文件第一节明示**"本次用 opus，理由：<具体>"。reviewer 自己也可以在拿到任务后发现需要切换，但要在 review 文件附"sonnet 接到任务后判断需深度推理，建议下轮 opus"——本轮仍按当前模型完成。
+- 不允许"默认全升 opus"（拖慢节奏 + 违反规约 + 未来跨 change 漏报率分析失真）。
+
+**改回默认时**：
+
+- 如跨多 change 观察到 sonnet 漏报率持续偏高 → 开 follow-up change 调整规约（如改默认 opus、或加分流策略），不要靠会话级临时约定绕过。
+
+## 9. 与 application-owner 的边界
 
 - Application Owner **不直接做评审**；只 spawn reviewer 子 agent + 把 reviewer 输出引到下一阶段
 - Application Owner **不修改** reviewer 写的 review 文件（哪怕觉得 reviewer 错）；若不同意可在 coding_report 显式声明 deferred 或开 v{N+1} 再 spawn 评
 - Reviewer **不向** Application Owner 反向请求修改 spec；通过 verdict + MUST FIX 表达即可
 
-## 9. 历史与版本演进
+## 10. 历史与版本演进
 
-- **v0.1（本变更引入）**：基础 reviewer agent 定义；spawn 方式 = general-purpose；输出 review.md
-- **v0.2（未来 follow-up `custom-reviewer-subagent-*`）**：定义自定义 .claude/agents/reviewer subagent + tool 限制（Read/Grep only）
-- **v0.3（未来 follow-up `reviewer-worktree-isolation-*`）**：worktree 隔离评审
-- **v0.4（未来 follow-up `reviewer-quality-metric-*`）**：评审深度 metric（MUST FIX 数分布 / 接受率等）
+- **v0.1（`harness-reviewer-agent-separation-20260518`）**：基础 reviewer agent 定义；spawn 方式 = general-purpose；输出 review.md
+- **v0.2（`harness-reviewer-model-sonnet-20260518`）**：spawn 默认模型 = sonnet（本节 §8）
+- **v0.3（未来 follow-up `custom-reviewer-subagent-*`）**：定义自定义 .claude/agents/reviewer subagent + tool 限制（Read/Grep only）
+- **v0.4（未来 follow-up `reviewer-worktree-isolation-*`）**：worktree 隔离评审
+- **v0.5（未来 follow-up `reviewer-quality-metric-*`）**：评审深度 metric（MUST FIX 数分布 / 接受率等）

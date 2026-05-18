@@ -146,9 +146,12 @@
 
 ### 模板
 
+> **模型选择硬约束**：reviewer 默认 `model="sonnet"`（review 智力负载 = 模式匹配 + cross-ref + 谨慎陈述，不需 opus 级推理；sonnet 4.6 速度 3-5x opus 4.7；opus 留给 generator）。如本次评审涉及深度因果推理 / 复杂跨文件反例构造，Owner 可显式 spawn `model="opus"`，但**必须在 review 文件附理由**。详 `.harness/agents/reviewer-agent.md` § 模型选择。
+
 ```python
 Agent(
     subagent_type="general-purpose",
+    model="sonnet",
     description="<stage> reviewer for <change-id>",
     prompt="""
 你是 dataplat 项目变更 <change-id> 的 stage {2|4|6} 独立 reviewer 子 agent v{N}。

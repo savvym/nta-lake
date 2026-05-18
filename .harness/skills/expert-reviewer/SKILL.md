@@ -136,11 +136,12 @@ verdict == APPROVED 时：MUST FIX 数 == 0
 
 ### Application Owner 怎么 spawn
 
-详见 `.harness/agents/application-owner.md` § 7.5 "如何 spawn reviewer 子 agent" + `.harness/agents/reviewer-agent.md`。模板示例：
+详见 `.harness/agents/application-owner.md` § 7.5 "如何 spawn reviewer 子 agent" + `.harness/agents/reviewer-agent.md` § 模型选择。模板示例（**默认 sonnet** 硬约束）：
 
 ```python
 Agent(
     subagent_type="general-purpose",
+    model="sonnet",
     description="<stage> reviewer for <change-id>",
     prompt="""你是 stage {N} 独立 reviewer 子 agent v{M}...
     reviewer 字段固定为：claude-agent:<change-id>-stage{N}-reviewer-v{M}
