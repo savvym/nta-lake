@@ -136,9 +136,65 @@
 4. 编辑 summary.md：填 stage=request_analysis, title, owner, started_at
 5. 加载 Skill: .harness/skills/request-analysis/SKILL.md
 6. 产出 spec.md + tasks.md
-7. 启动 review：加载 expert-reviewer，产出 spec_review_v1.md / tasks_review_v1.md
+7. 启动 review：**spawn 独立 reviewer 子 agent**（见 §7.5）；产出 spec_review_v1.md / tasks_review_v1.md
 8. review 通过后，进入 coding 阶段……（按 development-process.md 推进）
 ```
+
+## 7.5 如何 spawn reviewer 子 agent（**stage 2 / 4 / 6 必须**）
+
+> **硬约束**：stage 2 / 4 / 6 评审**必须由独立 reviewer agent 执行**；不允许 Application Owner 自己写 review（self-review）。违反者被 `scripts/_self_check.sh` 的 `run_reviewer_lint` 守门硬 FAIL。详见 `.harness/agents/reviewer-agent.md` + `.harness/skills/expert-reviewer/SKILL.md` § "reviewer 字段填写规约"。
+
+### 模板
+
+```python
+Agent(
+    subagent_type="general-purpose",
+    description="<stage> reviewer for <change-id>",
+    prompt="""
+你是 dataplat 项目变更 <change-id> 的 stage {2|4|6} 独立 reviewer 子 agent v{N}。
+
+# 必读材料（按顺序，全文读）
+1. /data/home/zhhdzhang/nta/nta-lake/.harness/agents/reviewer-agent.md ← 你的角色定义
+2. /data/home/zhhdzhang/nta/nta-lake/.harness/skills/expert-reviewer/SKILL.md ← 工作 SOP
+3. /data/home/zhhdzhang/nta/nta-lake/.harness/rules/development-process.md ← 流程定义
+4. <被评审产物绝对路径>（spec.md / tasks.md / coding_report.md + git diff / test_report.md）
+5. <如有 v{N-1}>：上一版 review 文件路径（复检 MUST FIX 是否真修）
+
+# 任务
+- 按 reviewer-agent.md §5 工作流走（加载 SKILL → 读材料 → 评审 → 写文件 → 报告）
+- 输出 <绝对路径>：
+    stage 2 → request_analysis/review/{spec,tasks}_review_v{N}.md
+    stage 4 → coding/review/code_review_v{N}.md
+    stage 6 → unit_test/review/test_review_v{N}.md
+- reviewer 字段固定为：claude-agent:<change-id>-stage{N}-reviewer-v{N}
+
+# 硬约束（reviewer-agent.md §2）
+- 不修被评审产物；只写自己的 review 文件
+- 不 sycophantic approve；发现 MUST FIX 必须报
+- 不向 Owner 反向请求改 spec；通过 verdict + MUST FIX 表达
+
+# 报告
+完成后 <300 字汇总：verdict + MUST FIX 数 + 关键问题摘要
+"""
+)
+```
+
+### reviewer 字段命名约定
+
+`claude-agent:<change-id>-stage{N}-reviewer-v{M}`
+
+- `<change-id>` 例如 `harness-reviewer-agent-separation-20260518`
+- `N` ∈ {2, 4, 6}（stage 编号）
+- `M` ∈ {1, 2, 3, ...}（review 版本号；spec/tasks 修 v2 后重新 spawn v2 reviewer，reviewer 字段为 `...stage2-reviewer-v2`）
+
+### 何时不 spawn（合法偏离）
+
+只有以下情况允许填 `self-attest (<理由>)` 代替 spawn：
+
+- 流程偏离声明（如 "会话级授权偏离 #N；时间 / 成本 / 用户授权"）
+- template 占位符未填的历史 review 文件（spawn 后才补字段）
+
+所有 self-attest 必须含括号文案说明理由；裸 `self-attest` 或 `application-owner-agent` 等同未填，self_check 硬 FAIL。
 
 ## 8. 当你不确定时
 

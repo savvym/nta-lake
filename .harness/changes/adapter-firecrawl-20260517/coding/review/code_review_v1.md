@@ -3,7 +3,7 @@ change_id: adapter-firecrawl-20260517
 target: coding/main（工作树）
 target_head: working-tree（待 commit）
 review_version: 1
-reviewer: application-owner-agent
+reviewer: self-attest (会话级授权偏离 #1; 2026-05-17/18 用户授权 "你合理安排规划" 省 spawn 成本; 详见 harness-reviewer-agent-separation-20260518 §背景)
 reviewed_at: 2026-05-18T09:00:00Z
 verdict: APPROVED
 ---

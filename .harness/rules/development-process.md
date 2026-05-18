@@ -37,15 +37,17 @@
 
 - **Entry Criteria**：阶段 1 产物齐全。
 - **Skill Injection**：`skills/expert-reviewer/SKILL.md`（plan 模式）。
-- **执行者要求**：**与阶段 1 不同的 Agent / 子会话**，避免自审。
+- **执行者要求（硬约束）**：**必须由独立 reviewer agent 执行**；不允许同一会话同时扮演 generator 与 reviewer（self-review）；Application Owner 通过 `Agent(subagent_type="general-purpose", ...)` spawn 子 agent。详见 `.harness/agents/application-owner.md` § 7.5 spawn 模板 + `.harness/agents/reviewer-agent.md` + `.harness/skills/expert-reviewer/SKILL.md` § reviewer 字段填写规约。违反者被 `scripts/_self_check.sh` `run_reviewer_lint` 硬 FAIL。
 - **产出物**：
   - `request_analysis/review/spec_review_v{N}.md`
   - `request_analysis/review/tasks_review_v{N}.md`
   - 每份 review 必须有 `verdict: APPROVED | REVISION REQUIRED`，且 MUST FIX 项有具体行号引用。
+  - reviewer 字段必须以 `claude-agent:` 起头（真 spawn 子 agent ID）或 `self-attest (<理由>)`（显式偏离声明）；裸 `application-owner-agent` 等价 self-review，被 lint 硬 FAIL。
 - **Quality Gate**：
   - 评审报告存在且包含必填章节。
   - 所有 MUST FIX 已在新 spec/tasks 版本中关闭。
   - 最终一轮 verdict = APPROVED。
+  - reviewer 字段合规（白名单 `claude-agent:` 或 `self-attest (...)`）。
 - **Rollback Route**：REVISION REQUIRED → 回到阶段 1。
 
 ## 阶段 3 · 编码实现（coding）
@@ -67,12 +69,14 @@
 
 - **Entry Criteria**：阶段 3 Quality Gate 通过。
 - **Skill Injection**：`skills/code-review/SKILL.md`。
-- **执行者要求**：与阶段 3 不同的 Agent / 子会话。
+- **执行者要求（硬约束）**：**必须由独立 reviewer agent 执行**；不允许同一会话同时扮演 generator 与 reviewer（self-review）；Application Owner 通过 `Agent(subagent_type="general-purpose", ...)` spawn 子 agent。详见 `.harness/agents/application-owner.md` § 7.5 spawn 模板 + `.harness/agents/reviewer-agent.md`。违反者被 `scripts/_self_check.sh` `run_reviewer_lint` 硬 FAIL。
 - **产出物**：
   - `coding/review/code_review_v{N}.md`：分类标 MUST FIX / SHOULD FIX / NICE TO HAVE，verdict。
+  - reviewer 字段必须以 `claude-agent:` 起头或 `self-attest (<理由>)`；裸 `application-owner-agent` 被 lint 硬 FAIL。
 - **Quality Gate**：
   - 评审报告存在；所有 MUST FIX 已关闭；最终一轮 verdict = APPROVED。
   - SHOULD FIX 若有未关闭项，须在 `summary.md` 显式说明 deferred 原因和跟进位置。
+  - reviewer 字段合规。
 - **Rollback Route**：REVISION REQUIRED → 回阶段 3。
 
 ## 阶段 5 · 单测编写（unit_test）
@@ -91,13 +95,16 @@
 ## 阶段 6 · 单测评审（unit_test/review）
 
 - **Entry Criteria**：阶段 5 Quality Gate 通过。
-- **Skill Injection**：`skills/expert-reviewer/SKILL.md`（review 模式）。
-- **执行者要求**：与阶段 5 不同的 Agent / 子会话。
-- **产出物**：`unit_test/review/test_review_v{N}.md`。
+- **Skill Injection**：`skills/expert-reviewer/SKILL.md`（artifact 模式）。
+- **执行者要求（硬约束）**：**必须由独立 reviewer agent 执行**；不允许同一会话同时扮演 generator 与 reviewer（self-review）；Application Owner 通过 `Agent(subagent_type="general-purpose", ...)` spawn 子 agent。详见 `.harness/agents/application-owner.md` § 7.5 spawn 模板 + `.harness/agents/reviewer-agent.md`。违反者被 `scripts/_self_check.sh` `run_reviewer_lint` 硬 FAIL。
+- **产出物**：
+  - `unit_test/review/test_review_v{N}.md`
+  - reviewer 字段必须以 `claude-agent:` 起头或 `self-attest (<理由>)`；裸 `application-owner-agent` 被 lint 硬 FAIL。
 - **Quality Gate**：
   - 每条 spec 验收标准都能追溯到具体测试用例（review 报告列出映射表）。
   - 没有"空跑"测试（断言空、只 assert True、把异常 swallow）。
   - verdict = APPROVED。
+  - reviewer 字段合规。
 - **Rollback Route**：REVISION REQUIRED → 回阶段 5。
 
 ## 阶段 7 · 代码推送（push）

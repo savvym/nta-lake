@@ -1130,8 +1130,57 @@ run_sdk_cli_mvp() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+# =============================================================================
+# Global lint: reviewer field separation（harness-reviewer-agent-separation-20260518）
+# 不属任何 change block；前置在所有 block 之前；FAIL 立 exit 1（fail-fast）
+# 对外只占 1 个 run_ac 计数，内部跑 3 个 grep（反向×2 + 白名单校验）
+# =============================================================================
+
+run_reviewer_lint() {
+  echo "=== global :: reviewer-lint ==="
+
+  # 内部 3 grep；任一失败 → 整个 AC FAIL
+  # 等价于：! grep application-owner-agent && ! grep template-placeholder && grep -E claude|self-attest
+  run_ac "reviewer-lint" "reviewer 字段独立性守门（反向×2 + 白名单）" \
+    bash -c '
+      set -e
+      # 反向 #1: 禁止 reviewer: application-owner-agent
+      if grep -rE "^reviewer:[[:space:]]+application-owner-agent" .harness/changes/ >/dev/null 2>&1; then
+        echo "FAIL: 命中 reviewer: application-owner-agent（self-review，违反 expert-reviewer SKILL 硬约束）" >&2
+        grep -rnE "^reviewer:[[:space:]]+application-owner-agent" .harness/changes/ >&2
+        exit 1
+      fi
+      # 反向 #2: 禁止模板占位符（排除 _template 与本 change 自身未填行）
+      bad=$(grep -rlE "^reviewer:[[:space:]]+<" .harness/changes/ 2>/dev/null | grep -v "/_template/" | grep -v "/harness-reviewer-agent-separation-20260518/" || true)
+      if [ -n "$bad" ]; then
+        echo "FAIL: 命中 reviewer 模板占位符未填" >&2
+        echo "$bad" >&2
+        exit 1
+      fi
+      # 白名单: reviewer 字段必须以 claude（含 claude-agent: / claude-stage{N}-reviewer 历史命名）
+      # 或 self-attest 起头（_template + 本 change 自身未填行排除）
+      bad_white=$(grep -rE "^reviewer:" .harness/changes/ 2>/dev/null | grep -v "/_template/" | grep -v "/harness-reviewer-agent-separation-20260518/" | grep -vE "^[^:]+:reviewer:[[:space:]]+(claude|self-attest)" || true)
+      if [ -n "$bad_white" ]; then
+        echo "FAIL: 命中非白名单 reviewer 值（必须以 claude-agent: 或 self-attest 起头）" >&2
+        echo "$bad_white" >&2
+        exit 1
+      fi
+      exit 0
+    '
+
+  # fail-fast: 若 FAIL，立即 exit 1（阻止后续 block 跑）
+  if [ "$FAIL" -gt 0 ]; then
+    echo
+    echo "reviewer-lint FAIL → exit 1（fail-fast；不跑后续 block）"
+    echo "修复参考：.harness/skills/expert-reviewer/SKILL.md § reviewer 字段填写规约"
+    exit 1
+  fi
+}
+
 case "$FILTER" in
   "")
+    run_reviewer_lint
+    echo
     run_bootstrap_monorepo
     echo
     run_core_domain_model
@@ -1211,6 +1260,9 @@ case "$FILTER" in
     ;;
   sdk-cli-mvp|sdk-cli-mvp-20260518)
     run_sdk_cli_mvp
+    ;;
+  reviewer-lint)
+    run_reviewer_lint
     ;;
   *)
     echo "未知 change: $FILTER" >&2

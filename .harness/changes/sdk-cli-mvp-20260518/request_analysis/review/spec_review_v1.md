@@ -3,7 +3,7 @@ change_id: sdk-cli-mvp-20260518
 target: spec.md
 target_version: 1
 review_version: 1
-reviewer: application-owner-agent
+reviewer: self-attest (会话级授权偏离 #1; 2026-05-17/18 用户授权 "你合理安排规划" 省 spawn 成本; 详见 harness-reviewer-agent-separation-20260518 §背景)
 reviewed_at: 2026-05-18T11:10:00Z
 verdict: APPROVED
 ---

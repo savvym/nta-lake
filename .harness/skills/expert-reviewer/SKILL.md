@@ -113,3 +113,47 @@ verdict == APPROVED 时：MUST FIX 数 == 0
 - 把 NICE TO HAVE 当 MUST FIX 阻塞流程。
 - 给 verdict 但不留 MUST FIX 关闭判据。
 - review_v2 直接改 v1 文件，丢失历史。
+
+## reviewer 字段填写规约（**硬约束**）
+
+> 本节由 harness-reviewer-agent-separation-20260518 引入，对应实证：本会话连续 7 个变更全部 `reviewer: application-owner-agent` 违反了本文开头 "评判者必须是独立子会话或独立 Agent" 硬约束。本节把规约**机械化**——`scripts/_self_check.sh` `run_reviewer_lint` 硬 FAIL 守门。
+
+### 白名单（合法值）
+
+| 形态 | 例 | 含义 |
+|---|---|---|
+| `claude-agent:<change-id>-stage{N}-reviewer-v{M}` | `claude-agent:harness-reviewer-agent-separation-stage2-reviewer-v1` | 真 spawn 的独立 reviewer 子 agent ID；推荐路径 |
+| `self-attest (<理由>)` | `self-attest (会话级授权偏离 #1；2026-05-17/18 用户授权 "你合理安排规划" 省 spawn 成本)` | 显式偏离声明；括号文案必填，含具体理由 / change 路径 / 时间 |
+
+### 黑名单（禁止值；self_check 硬 FAIL）
+
+| 形态 | 为什么禁止 |
+|---|---|
+| `application-owner-agent` / `application-owner` | 等价 self-review，违反"评判者必须独立"硬约束 |
+| `claude` / `agent` / 空 | 不可识别身份 |
+| `<name 或 agent id>` 等模板占位符 | template 未填，等价未评 |
+| `self-attest`（无括号文案） | 偏离未说明理由，无可追责性 |
+
+### Application Owner 怎么 spawn
+
+详见 `.harness/agents/application-owner.md` § 7.5 "如何 spawn reviewer 子 agent" + `.harness/agents/reviewer-agent.md`。模板示例：
+
+```python
+Agent(
+    subagent_type="general-purpose",
+    description="<stage> reviewer for <change-id>",
+    prompt="""你是 stage {N} 独立 reviewer 子 agent v{M}...
+    reviewer 字段固定为：claude-agent:<change-id>-stage{N}-reviewer-v{M}
+    ...""",
+)
+```
+
+### self_check 守门
+
+`bash scripts/_self_check.sh reviewer-lint`：
+
+- 反向 grep：`! grep -rE "^reviewer:[[:space:]]+application-owner-agent" .harness/changes/`
+- 反向 grep：`! grep -rE "^reviewer:[[:space:]]+<" .harness/changes/ --exclude-dir=_template`
+- 白名单校验：所有 `reviewer:` 字段以 `claude-agent:` 或 `self-attest (` 起头
+
+FAIL 立 exit 1，阻止其他 block 跑。

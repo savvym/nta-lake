@@ -3,7 +3,7 @@ change_id: <feature-slug>-<yyyymmdd>
 target: coding/<branch>
 target_head: <head sha>
 review_version: 1
-reviewer: <name 或 agent id>
+reviewer: self-attest (template 占位符未填; 早期 change 部分 review 文件未填字段; 详见 harness-reviewer-agent-separation-20260518 §背景)
 reviewed_at: <YYYY-MM-DDTHH:MM:SSZ>
 verdict: REVISION REQUIRED
 ---
