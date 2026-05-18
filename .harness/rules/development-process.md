@@ -142,10 +142,47 @@
 - **Skill Injection**：`skills/deploy-verify/SKILL.md`。
 - **产出物**：
   - `deployment/deploy_verify_v{N}.md`：环境、部署版本、验证步骤、验证证据（请求/响应、UI 截图、日志摘录）。
-- **Quality Gate**：
+- **Quality Gate**（**硬约束，harness-ac-behavioral-tier-20260518 引入**）：
+
+  > 实证背景：`pipeline-orchestrator-mvp-20260518` stage 9 第一次真跑端到端 demo 抓到 3 个真 bug。如果允许 verdict=deferred 或证据空，这种价值就会被绕过。
+
+  - **(i) 默认**：`verdict: PASS`。`deployment/deploy_verify_v{N}.md` frontmatter `verdict` 字段非空且不为 `deferred` / `FAIL` / `unknown`。
+  - **(ii) 替代路径**：允许 `verdict: PASS via self-attest (理由)`，但**必填 4 字段**（缺一不可）：
+    - `理由`：一句话说明为什么用 self-attest（如"纯 harness 无部署面"、"本机已跑通但无 staging"）。
+    - `本机证据列表`：命令输出路径或粘贴块（如 `/tmp/dataplat-dev-logs/evidence/` 下文件清单 + 关键输出片段）。
+    - `跑过的命令`：bash 历史 / 命令列表（如 `bash scripts/lint/test_ac_kind_lint_fixture.sh`、`curl -X POST .../healthz` 等）。
+    - `时间`：ISO8601 UTC。
+  - **(iii) 禁止纯 `deferred`**：无 self-attest 或证据空 = self_check FAIL（未来 follow-up `harness-stage9-lint-*` 机械化此约束）。
+  - **(iv) AC 真实性**：deploy_verify_v{N}.md 至少 1 条 AC 与 `request_analysis/spec.md` 的 `kind: behavioral` AC 对应（详见 `.harness/skills/request-analysis/SKILL.md` § "AC 分层规约"）。
+
+  其他原有约束保留：
   - 关键验证步骤每一条都有具体证据。
   - 涉及数据库迁移的变更：迁移前后的 schema 对比、回滚脚本验证。
   - 不留 "应该没问题" 类自然语言结论。
+
+- **self-attest 模板片段**（粘贴到 deploy_verify_v{N}.md frontmatter / 第一节）：
+
+  ```yaml
+  ---
+  change_id: <feature-slug>-<yyyymmdd>
+  version: 1
+  env: dev | staging | prod
+  deployed_at: <YYYY-MM-DDTHH:MM:SSZ>
+  commit_sha: <sha>
+  verifier: claude-agent:<change-id>-stage9-verifier-v1
+  verdict: PASS via self-attest (理由：一句话)
+  self_attest:
+    理由: <复述 + 链接到本机证据>
+    本机证据列表:
+      - /tmp/dataplat-dev-logs/evidence/01-foo.txt
+      - /tmp/dataplat-dev-logs/evidence/02-bar.json
+    跑过的命令:
+      - "bash scripts/lint/test_xxx_fixture.sh"
+      - "curl -X POST http://127.0.0.1:8080/foo ..."
+    时间: 2026-05-18T08:00:00Z
+  ---
+  ```
+
 - **Rollback Route**：失败 → 回到对应实现或 CI 阶段；线上若已部署需附回滚步骤。
 
 ## 阶段 10 · 用户确认（user_confirmation）

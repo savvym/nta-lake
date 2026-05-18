@@ -157,3 +157,35 @@ Agent(
 - 白名单校验：所有 `reviewer:` 字段以 `claude-agent:` 或 `self-attest (` 起头
 
 FAIL 立 exit 1，阻止其他 block 跑。
+
+## stage 2 AC kind 字段必查（**硬约束**）
+
+> 本节由 `harness-ac-behavioral-tier-20260518` 引入，对应实证：`pipeline-orchestrator-mvp-20260518` stage 9 第一次真跑端到端抓到 3 个真 bug（demo recipe 字段名 / fixture 撞 hash / FK 缺 CASCADE），证明 self_check 226/226 PASS 是 grep 假象。本节把 AC 分层规约的 reviewer 复核**机械化**——`scripts/_self_check.sh::run_ac_kind_lint` 与本节互锁。
+
+### 必查 3 项
+
+reviewer 评 stage 2 spec.md 时**必须**核对以下 3 项；任一不满足 → MUST FIX：
+
+1. **AC 表存在 `kind` 列**：用 `awk '/^## 验收标准/{p=1;next} p && /^## /{exit} p' spec.md | grep -qE '^\|[^|]*\|[[:space:]]*kind[[:space:]]*\|'`。
+2. **至少 1 行 AC 的 kind 单元格真值为 `behavioral`**：用 `awk ... | grep -qE '^\|[[:space:]]*AC-[0-9]+[a-z]?[[:space:]]*\|[[:space:]]*(\*\*)?behavioral(\*\*)?[[:space:]]*\|'`。**不接受裸字串 `grep -q behavioral`**——会被描述里 "behavioral 三层" 等字串误命中，机械化保护失效。
+3. **若 spec frontmatter 声明 `ac_kind_lint: exempt`**：reviewer **必跑** `git diff --stat origin/main..HEAD`（或 `git log --stat <baseline>..HEAD` 无 remote 时）并**把结果粘贴到 review 文件**，验证所有改动文件 path 仅在 `.harness/*` / `wiki/*` / `scripts/*` / `*.md` 范围内。任一文件不满足 → MUST FIX（"声明 exempt 但有非豁免范围改动"）。
+
+详细规约见 `.harness/skills/request-analysis/SKILL.md` § "AC 分层规约"。
+
+### MUST FIX 模板措辞
+
+```markdown
+| # | 位置 | 问题 | 建议 |
+|---|---|---|---|
+| MUST FIX-K | spec.md AC 表 | AC 表缺 `kind` 列（或所有 AC kind=static，违反"每个非豁免 change 至少 1 条 behavioral AC"硬约束） | 加 `kind` 列；至少 1 条 AC 设计为 `kind: behavioral`（ASGITransport / pytest 集成 / load_recipe / curl smoke 任一）。详 `.harness/skills/request-analysis/SKILL.md` § "AC 分层规约" |
+| MUST FIX-K | spec.md frontmatter ac_kind_lint: exempt | 声明 exempt 但 git diff --stat 显示 `apps/api/dataplat_api/foo.py` 等非豁免范围改动 | 删除 frontmatter `ac_kind_lint: exempt` 字段；按正常规约补 ≥1 条 behavioral AC。或缩范围只在豁免目录改动 |
+```
+
+### self_check 守门
+
+`bash scripts/_self_check.sh ac-kind-lint`：
+
+- 对所有未豁免 change 跑双条件断言（kind 列存在 + AC 行 kind=behavioral 锚定 regex）
+- 永久豁免 2 个 + grandfather 暂豁免 17 个（详 `.harness/skills/request-analysis/SKILL.md` § "豁免清单"）
+- 自声明 `ac_kind_lint: exempt` 通过 frontmatter 解析跳过 lint，但 reviewer 必查 git diff（本 SKILL 上方第 3 项）
+- FAIL 立 exit 1，阻止其他 block 跑

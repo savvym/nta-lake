@@ -32,12 +32,17 @@ In scope：
 
 ## 验收标准
 
-每条必须可演示且可机械化。命名 `AC-N`，与上面的范围对应。
+每条必须可演示且可机械化。命名 `AC-N`，与上面的范围对应。`kind` 字段二选一：
+- `static`：grep / test -f / dry-import 类骨架检查
+- `behavioral`：真跑代码并断言行为（HTTP roundtrip / pytest 集成 / load_recipe / curl smoke / bash fixture）
 
-| ID | 描述 | 验证方式 | 期望 |
-|---|---|---|---|
-| AC-1 | <e.g. POST /repos 用 bronze layer 创建仓库返回 201> | curl + 单测 | 201 + 返回体含 repo_id |
-| AC-2 | <e.g. 上传同一文件两次只产生一个 blob> | 集成测试 | blob count == 1 |
+**每个非豁免 change 至少 1 条 `behavioral` AC**（详 `.harness/skills/request-analysis/SKILL.md` § "AC 分层规约"）。
+混合型 AC 必须拆为两条（一 static + 一 behavioral）。
+
+| ID | kind | 描述 | 验证方式 | 期望 |
+|---|---|---|---|---|
+| AC-1 | static | <e.g. routers/repos.py 含 @router.post(/repos)> | `test -f routers/repos.py && grep -q "@router.post" routers/repos.py` | grep 命中 |
+| AC-2 | behavioral | <e.g. POST /repos 用 bronze layer 返回 201 + repo_id> | `uv run pytest -q tests/test_repos.py::test_create_201`（ASGITransport L2） | pytest passed + 响应 201 含 repo_id |
 
 ## 风险
 

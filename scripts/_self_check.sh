@@ -1178,6 +1178,174 @@ run_pipeline_orchestrator_mvp() {
 # 对外只占 1 个 run_ac 计数，内部跑 3 个 grep（反向×2 + 白名单校验）
 # =============================================================================
 
+_ac_kind_lint_exempt_changes() {
+  # harness-ac-behavioral-tier-20260518 close 时硬编码 19 个豁免历史 change：
+  #   2 永久（纯 harness）: harness-bootstrap / harness-reviewer-agent-separation
+  #   17 暂豁免 grandfather（实代码，必须 backfill, follow-up harness-ac-kind-backfill-*）
+  # env AC_KIND_LINT_EXEMPT_OVERRIDE 可注入测试豁免（逗号分隔 change_id），fixture 用
+  if [ -n "${AC_KIND_LINT_EXEMPT_OVERRIDE+x}" ]; then
+    # OVERRIDE 已显式 set（包括空串），优先使用
+    echo "${AC_KIND_LINT_EXEMPT_OVERRIDE}" | tr ',' '\n'
+    return
+  fi
+  cat <<EOF
+harness-bootstrap-20260516
+harness-reviewer-agent-separation-20260518
+bootstrap-monorepo-20260516
+core-domain-model-20260516
+cas-storage-20260517
+auth-scaffold-20260517
+repo-api-mvp-20260517
+commit-api-mvp-20260517
+rq-worker-skeleton-20260517
+processor-framework-20260517
+adapter-framework-20260517
+llm-gateway-mvp-20260517
+adapter-firecrawl-20260517
+llm-qa-gen-20260518
+web-mvp-pages-20260517
+web-write-flows-20260517
+repo-files-tab-20260517
+sdk-cli-mvp-20260518
+pipeline-orchestrator-mvp-20260518
+EOF
+}
+
+run_ac_kind_lint() {
+  echo "=== global :: ac-kind-lint ==="
+
+  # 守门 AC 分层规约（harness-ac-behavioral-tier-20260518）：
+  # 1. AC 表头含 kind 列
+  # 2. AC 行 kind 单元格至少 1 行真为 behavioral（**锚定 regex，不接受裸 grep**）
+  # 3. frontmatter ac_kind_lint: exempt 自声明跳过 lint
+  # 4. 豁免清单跳过（由 _ac_kind_lint_exempt_changes 提供）
+  # env 入口：
+  #   AC_KIND_LINT_SCAN_DIR     默认 .harness/changes（fixture 注入）
+  #   AC_KIND_LINT_EXEMPT_OVERRIDE  逗号分隔 change_id（fixture 注入）
+
+  run_ac "ac-kind-lint" "AC 分层规约守门（kind 列存在 + AC 行 kind=behavioral 锚定 regex）" \
+    bash -c '
+      set -e
+      scan_dir="${AC_KIND_LINT_SCAN_DIR:-.harness/changes}"
+      if [ ! -d "$scan_dir" ]; then
+        echo "FAIL: scan_dir=$scan_dir 不存在" >&2
+        exit 1
+      fi
+      exempt_list=$(_ac_kind_lint_exempt_changes_inline)
+      failed=0
+      for spec in "$scan_dir"/*/request_analysis/spec.md; do
+        [ -f "$spec" ] || continue
+        cid=$(basename "$(dirname "$(dirname "$spec")")")
+        # 跳过 _template
+        [ "$cid" = "_template" ] && continue
+        # 跳过豁免清单
+        if echo "$exempt_list" | grep -Fxq "$cid"; then
+          continue
+        fi
+        # 跳过 frontmatter ac_kind_lint: exempt
+        if head -20 "$spec" | grep -qE "^ac_kind_lint:[[:space:]]+exempt"; then
+          continue
+        fi
+        # 抽 AC 表段
+        seg=$(awk "/^## 验收标准/{p=1;next} p && /^## /{exit} p" "$spec")
+        if [ -z "$seg" ]; then
+          echo "FAIL: $cid spec.md 无 ## 验收标准 段或抽取为空" >&2
+          failed=1
+          continue
+        fi
+        # 双条件断言
+        if ! echo "$seg" | grep -qE "^\|[^|]*\|[[:space:]]*kind[[:space:]]*\|"; then
+          echo "FAIL: $cid spec.md AC 表缺 kind 列表头" >&2
+          failed=1
+          continue
+        fi
+        if ! echo "$seg" | grep -qE "^\|[[:space:]]*AC-[0-9]+[a-z]?[[:space:]]*\|[[:space:]]*(\*\*)?behavioral(\*\*)?[[:space:]]*\|"; then
+          echo "FAIL: $cid spec.md AC 表无 kind=behavioral 行（注意：必须 AC 行 kind 单元格真为 behavioral，AC 描述里出现 \"behavioral\" 字串不算）" >&2
+          failed=1
+          continue
+        fi
+      done
+      if [ "$failed" -ne 0 ]; then
+        exit 1
+      fi
+      exit 0
+    '
+
+  # fail-fast: 若 FAIL，立即 exit 1（阻止后续 block 跑）
+  if [ "$FAIL" -gt 0 ]; then
+    echo
+    echo "ac-kind-lint FAIL → exit 1（fail-fast；不跑后续 block）"
+    echo "修复参考：.harness/skills/request-analysis/SKILL.md § AC 分层规约"
+    exit 1
+  fi
+}
+
+# inline 版本供 bash -c subshell 调用（function 不能跨 subshell 直接调用）
+_ac_kind_lint_exempt_changes_inline() {
+  if [ -n "${AC_KIND_LINT_EXEMPT_OVERRIDE+x}" ]; then
+    echo "${AC_KIND_LINT_EXEMPT_OVERRIDE}" | tr ',' '\n'
+    return
+  fi
+  cat <<EOF
+harness-bootstrap-20260516
+harness-reviewer-agent-separation-20260518
+bootstrap-monorepo-20260516
+core-domain-model-20260516
+cas-storage-20260517
+auth-scaffold-20260517
+repo-api-mvp-20260517
+commit-api-mvp-20260517
+rq-worker-skeleton-20260517
+processor-framework-20260517
+adapter-framework-20260517
+llm-gateway-mvp-20260517
+adapter-firecrawl-20260517
+llm-qa-gen-20260518
+web-mvp-pages-20260517
+web-write-flows-20260517
+repo-files-tab-20260517
+sdk-cli-mvp-20260518
+pipeline-orchestrator-mvp-20260518
+EOF
+}
+export -f _ac_kind_lint_exempt_changes_inline
+
+# =============================================================================
+# Block: harness-ac-behavioral-tier-20260518
+# 8 条 AC + 引用 global ac-kind-lint
+# =============================================================================
+
+run_harness_ac_behavioral_tier() {
+  echo "=== harness-ac-behavioral-tier-20260518 :: 8 AC ==="
+
+  local CHANGE=harness-ac-behavioral-tier-20260518
+  local SPEC=.harness/changes/${CHANGE}/request_analysis/spec.md
+
+  run_ac AC-1 "SKILL.md 新增 § AC 分层规约（含 kind 定义 + behavioral 三层 + 豁免判定）" \
+    bash -c 'test -f .harness/skills/request-analysis/SKILL.md && grep -q "AC 分层规约" .harness/skills/request-analysis/SKILL.md && grep -q "kind: behavioral" .harness/skills/request-analysis/SKILL.md && grep -q "豁免判定" .harness/skills/request-analysis/SKILL.md'
+
+  run_ac AC-2 "SKILL.md 含 '每个非豁免 change 至少 1 条 behavioral AC' 硬约束 + ac_kind_lint: exempt 自声明格式" \
+    bash -c 'test -f .harness/skills/request-analysis/SKILL.md && grep -qE "至少.*1 ?条.*behavioral" .harness/skills/request-analysis/SKILL.md && grep -q "ac_kind_lint: exempt" .harness/skills/request-analysis/SKILL.md'
+
+  run_ac AC-3 "expert-reviewer SKILL 加 stage 2 必查 3 项 + git diff 复核" \
+    bash -c 'test -f .harness/skills/expert-reviewer/SKILL.md && grep -q "至少 1 条 behavioral\|至少 1 行 AC" .harness/skills/expert-reviewer/SKILL.md && grep -qE "git diff.*--stat" .harness/skills/expert-reviewer/SKILL.md && grep -q "ac_kind_lint" .harness/skills/expert-reviewer/SKILL.md'
+
+  run_ac AC-4 "run_ac_kind_lint fixture 真跑（3 场景：合规 PASS / 缺 kind 列 FAIL / 全 static 但描述含 behavioral FAIL）" \
+    bash -c 'test -f scripts/lint/test_ac_kind_lint_fixture.sh && bash scripts/lint/test_ac_kind_lint_fixture.sh'
+
+  run_ac AC-5 "development-process.md stage 9 含 4 checkpoint + self-attest 模板" \
+    bash -c 'test -f .harness/rules/development-process.md && S9=$(awk "/^## 阶段 9/{p=1;next} p && /^## 阶段 /{exit} p" .harness/rules/development-process.md) && echo "$S9" | grep -qE "verdict.*PASS" && echo "$S9" | grep -q "self-attest" && echo "$S9" | grep -q "禁止.*deferred" && echo "$S9" | grep -qE "必填.*字段|理由.*证据.*命令.*时间"'
+
+  run_ac AC-6 "self_check main 含 run_ac_kind_lint 调用 + 本 spec AC 行 behavioral ≥ 2 + _template 含 kind 列" \
+    bash -c 'test -f scripts/_self_check.sh && grep -q "run_ac_kind_lint" scripts/_self_check.sh && SPEC=.harness/changes/harness-ac-behavioral-tier-20260518/request_analysis/spec.md && test -f "$SPEC" && SEG=$(awk "/^## 验收标准/{p=1;next} p && /^## /{exit} p" "$SPEC") && echo "$SEG" | grep -qE "^\|[^|]*\|[[:space:]]*kind[[:space:]]*\|" && [ "$(echo "$SEG" | grep -cE "^\|[[:space:]]*AC-[0-9]+[a-z]?[[:space:]]*\|[[:space:]]*(\*\*)?behavioral(\*\*)?[[:space:]]*\|")" -ge 2 ] && grep -q "kind" .harness/changes/_template/request_analysis/spec.md'
+
+  run_ac AC-7 "SKILL.md 豁免清单分两类（永久 2 + 暂豁免 17）且 19 个 ID 全命中" \
+    bash -c 'test -f .harness/skills/request-analysis/SKILL.md && for cid in harness-bootstrap-20260516 harness-reviewer-agent-separation-20260518 bootstrap-monorepo-20260516 core-domain-model-20260516 cas-storage-20260517 auth-scaffold-20260517 repo-api-mvp-20260517 commit-api-mvp-20260517 rq-worker-skeleton-20260517 processor-framework-20260517 adapter-framework-20260517 llm-gateway-mvp-20260517 adapter-firecrawl-20260517 llm-qa-gen-20260518 web-mvp-pages-20260517 web-write-flows-20260517 repo-files-tab-20260517 sdk-cli-mvp-20260518 pipeline-orchestrator-mvp-20260518; do grep -q "$cid" .harness/skills/request-analysis/SKILL.md || exit 1; done && grep -q "永久豁免" .harness/skills/request-analysis/SKILL.md && grep -q "暂豁免" .harness/skills/request-analysis/SKILL.md'
+
+  run_ac AC-8 "self_check 含 run_harness_ac_behavioral_tier 调用（自递归确认本 block 在 main 调用链中）" \
+    bash -c 'test -f scripts/_self_check.sh && grep -q "run_harness_ac_behavioral_tier" scripts/_self_check.sh'
+}
+
 run_reviewer_lint() {
   echo "=== global :: reviewer-lint ==="
 
@@ -1256,6 +1424,10 @@ case "$FILTER" in
     run_sdk_cli_mvp
     echo
     run_pipeline_orchestrator_mvp
+    echo
+    run_harness_ac_behavioral_tier
+    echo
+    run_ac_kind_lint
     ;;
   bootstrap-monorepo|bootstrap-monorepo-20260516)
     run_bootstrap_monorepo
@@ -1310,6 +1482,12 @@ case "$FILTER" in
     ;;
   reviewer-lint)
     run_reviewer_lint
+    ;;
+  harness-ac-behavioral-tier|harness-ac-behavioral-tier-20260518)
+    run_harness_ac_behavioral_tier
+    ;;
+  ac-kind-lint)
+    run_ac_kind_lint
     ;;
   *)
     echo "未知 change: $FILTER" >&2

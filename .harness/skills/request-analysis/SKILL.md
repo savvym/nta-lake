@@ -176,3 +176,142 @@ grep -cE "<feature-slug>|<YYYY-MM-DDTHH:MM:SSZ>|<复述|<bullet list>" summary.m
 ```
 
 跨 AC 矛盾是 spec generator 最高频的失败模式，**比"没写测试" 更隐蔽 + 更致命**——它通过了语法检查但在 stage 3 实现期才暴露，回退成本最高。第 5~7 条来自 adapter-framework v1 stage 2 review 实证；其中第 6 条是 [project-followup-harness-lint] 累积 5 次预警后的第 6 次同型 bug，必须重视。第 8 条来自 rq-worker-skeleton v1 stage 2 反哺（AC-4 Python 复合语句 SyntaxError）——形态合法 ≠ 语法合法，generator 必须真跑 dry-parse。
+
+## AC 分层规约（harness-ac-behavioral-tier-20260518 反哺）
+
+`pipeline-orchestrator-mvp-20260518` stage 9 第一次真跑端到端 demo 暴露 3 个真 bug：demo recipe 字段名误用（grep 命中 PASS、`load_recipe` 直接挂）、`test_cache_hit_*` fixture 撞 hash、`pipeline_cache` FK 缺 CASCADE。直接根因：**self_check 226/226 PASS 是 grep 假象**——大量 AC 用 `grep` / `test -f` / `uv run python -c "import X"` 类静态检查，能证明源码骨架存在，但无法证明业务路径真跑通。
+
+本段把 AC 升级为分层（static / behavioral），让 self_check "全 PASS" 不再是 grep 假象——同 `harness-reviewer-agent-separation-20260518` 模式：先在 SKILL 加规约，再用 `scripts/_self_check.sh` 加 `run_ac_kind_lint` global function 机械化守门，与 `run_reviewer_lint` 协同。
+
+### kind 字段二分定义
+
+`spec.md` 验收标准表每条 AC 必须有 `kind` 列，值二选一：
+
+- **`static`**：源码骨架检查。命令形态：`grep`、`test -f`、`ls`、`uv run python -c "import X"`、`tomllib.load`、`json.load` 等纯 parse / 文件存在性 / 字面命中检查。**不真跑业务路径**。
+- **`behavioral`**：真跑代码并断言行为。
+
+不引入 `mixed` 第三类——混合型 AC 必须拆为两条独立 AC（见下方"混合型拆分示例"）。
+
+### behavioral 三层判定
+
+`behavioral` AC 三层（任一即可，不强求"必须 L1"）：
+
+| 层级 | 形态 | 例子 |
+|---|---|---|
+| L1 | 真起服务 curl smoke（含部署面） | `curl -X POST http://localhost:8080/repos ... → 201`；适用 stage 9 deploy_verify |
+| L2 | ASGITransport in-process roundtrip（含路由） | `httpx.AsyncClient(transport=ASGITransport(app=app)).post(...)`；现有 apps/api/tests 大量用此模式，**是事实标准** |
+| L3 | load_recipe / pydantic parse / bash fixture 真跑断言（含纯逻辑） | `from dataplat_api.schemas.pipeline import load_recipe; load_recipe(yaml_text)`；或 `bash scripts/lint/test_*.sh` 真跑脚本断言；适用纯 Python / 纯脚本路径 |
+
+不算 behavioral 的（明确反例）：
+
+- `uv run python -c "import dataplat_api.foo"` —— 仅验证 import 成功，不调用业务函数。
+- `grep "@router.post" routers/foo.py` —— 仅验证路由定义存在，不打实际请求。
+- `test -f tests/test_foo.py` —— 仅验证测试文件存在，不跑测试。
+
+### 硬约束
+
+**每个非豁免 change 至少 1 条 `kind: behavioral` AC**。stage 2 reviewer 必查（详见 `.harness/skills/expert-reviewer/SKILL.md` § "stage 2 AC kind 字段必查"），违反者 MUST FIX。
+
+机械化守门：`scripts/_self_check.sh::run_ac_kind_lint` 扫所有未豁免 change 的 `spec.md`，**双条件断言**：
+
+1. AC 表头含 `kind` 列：`grep -qE '^\|[^|]*\|[[:space:]]*kind[[:space:]]*\|' <段>`
+2. 至少 1 行 AC 的 kind 单元格真值为 `behavioral`（**锚定 AC 行 regex，不接受裸字串 grep**，避免被 AC 描述里 "behavioral" 字串误命中）：`grep -qE '^\|[[:space:]]*AC-[0-9]+[a-z]?[[:space:]]*\|[[:space:]]*(\*\*)?behavioral(\*\*)?[[:space:]]*\|' <段>`
+
+任一不满足 → 整个 lint FAIL。
+
+### 豁免清单（grandfather 期）
+
+`harness-ac-behavioral-tier-20260518` close 时硬编码 19 个历史 closed change，**分两类**：
+
+**永久豁免（2 个，"纯 harness/纯文档" change，无 dataplat 实代码）**：
+
+- `harness-bootstrap-20260516`
+- `harness-reviewer-agent-separation-20260518`
+
+**暂豁免 grandfather（17 个，实代码 change，仅因历史原因暂豁免，必须 backfill）**：
+
+- `bootstrap-monorepo-20260516`
+- `core-domain-model-20260516`
+- `cas-storage-20260517`
+- `auth-scaffold-20260517`
+- `repo-api-mvp-20260517`
+- `commit-api-mvp-20260517`
+- `rq-worker-skeleton-20260517`
+- `processor-framework-20260517`
+- `adapter-framework-20260517`
+- `llm-gateway-mvp-20260517`
+- `adapter-firecrawl-20260517`
+- `llm-qa-gen-20260518`
+- `web-mvp-pages-20260517`
+- `web-write-flows-20260517`
+- `repo-files-tab-20260517`
+- `sdk-cli-mvp-20260518`
+- `pipeline-orchestrator-mvp-20260518`
+
+**注意**：`harness-ac-behavioral-tier-20260518` 自身**不**在豁免清单（meta-change 制定者也走 dogfood，自带 ≥2 条 behavioral AC = AC-4 + AC-8）；未来新 change 默认也不豁免。
+
+后续 follow-up `harness-ac-kind-backfill-*` 标 **P1**（下个非紧急 sprint），不允许无限 deferred。
+
+### 自声明豁免（`ac_kind_lint: exempt`）
+
+新 change 如果**确实**是纯文档 / 纯 harness / 纯 wiki / 纯 scripts 改动，可在 `spec.md` frontmatter 加：
+
+```yaml
+---
+change_id: <id>
+version: 1
+authored_at: <ISO8601>
+status: draft
+ac_kind_lint: exempt           # 自声明豁免（必须附理由 + 通过 reviewer git diff 复核）
+ac_kind_lint_exempt_reason: |
+  纯 harness 变更（仅改 .harness/* + scripts/*）；
+  通过 reviewer 跑 git diff --stat origin/main..HEAD 验证。
+---
+```
+
+### 豁免判定标准（reviewer 复核）
+
+stage 2 reviewer 复核 `ac_kind_lint: exempt` 自声明时必跑：
+
+```bash
+git diff --stat origin/main..HEAD | awk '{print $1}'
+```
+
+声明合法当且仅当：**所有改动文件 path 满足以下任一前缀**：
+
+- `.harness/*`
+- `wiki/*`
+- `scripts/*`（含 `scripts/lint/*`）
+- `*.md`（README / CLAUDE / 文档）
+
+任一文件不满足 → reviewer MUST FIX（"声明 exempt 但有非豁免范围改动"）。reviewer 必须把 `git diff --stat` 输出**粘贴到 review 文件**。
+
+无 remote 项目（本仓库当前情况）：用 `git log --stat <baseline-commit>..HEAD` 等价。
+
+### 混合型 AC 拆分示例（伪代码）
+
+混合型 AC 必须拆为两条独立 AC，避免一条 AC 同时承载"骨架检查 + 行为断言"两种意图。示例：
+
+**原（错误）**：
+
+```markdown
+| AC-N | mixed/不写 | POST /repos 返回 201 + 路由文件含 @router.post(/repos) | curl + grep | 201 + grep 命中 |
+```
+
+**改（正确，拆为两条）**：
+
+```markdown
+| AC-Na | static | 路由文件含 @router.post(/repos) | `test -f routers/repos.py && grep -q "@router.post.*\"/repos\"" routers/repos.py` | grep 命中 |
+| AC-Nb | behavioral | POST /repos 用 bronze layer 返回 201 + repo_id | `uv run pytest -q apps/api/tests/test_repos.py::test_create_201`（ASGITransport L2） | pytest passed |
+```
+
+拆分判定：如果 AC 描述含"且 / 同时 / + ... + "等连接词，且两侧分别是 static / behavioral 形态，则必须拆。
+
+### 与其他 lint 的关系
+
+`run_ac_kind_lint` 与 `run_reviewer_lint` 同型协同（都是 global function、fail-fast、对外 1 个 run_ac 计数）：
+
+- `run_reviewer_lint`：守门评审者独立性（防止 self-review）
+- `run_ac_kind_lint`：守门验收标准真实性（防止 grep 假象）
+
+合在一起：spec generator 写不出"骗 AC"的 spec、reviewer 不能"骗 review"——两道机械门。
