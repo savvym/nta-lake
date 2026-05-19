@@ -1,83 +1,32 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>
+change_id: tree-nested-domain-20260520
 version: 1
-env: dev           # dev | staging | prod
-deployed_at: <YYYY-MM-DDTHH:MM:SSZ>
-image_tag: <tag>
-commit_sha: <sha>
-verifier: <name>
-verdict: PASS      # PASS | FAIL
+env: n/a
+deployed_at: 2026-05-19T16:28:00Z
+image_tag: n/a (no deploy surface)
+commit_sha: 8654a26
+verifier: claude-agent:tree-nested-domain-20260520-application-owner
+verdict: SKIPPED (noop)
 ---
 
-# Deploy Verification v1
+# Deploy Verification v1（noop）
 
-> 如本变更**不涉及部署面**（纯文档 / 纯 harness），删除本目录并在 `summary.md` 阶段 9 行写 "skipped: no deploy surface"。
+## 为什么 noop
 
-## 验证矩阵
+本 change 仅后端代码 + 单测 + self_check AC block；不动：
+- Alembic migrations（无 schema 变化；TreeORM / TreeEntryORM 已支持 entry_type=String(8)）
+- API 兼容性：soft mode 设计保证旧扁平 commit GET 完全不变，新嵌套 commit 默认只本级 + ?recursive=1 全展开
+- Pipeline / Recipe / Web UI / Worker / Adapter / Processor：全 0 改动
+- Docker / Helm / K8s 部署清单：无
 
-| ID | 验收项 / 必查项 | 验证方式 | 期望 | 实际 | 证据 |
-|---|---|---|---|---|---|
-| AC-1 | _e.g. POST /repos 返回 201_ | `curl -i ...` | 201 + repo_id | 201 | [evidence](#ac-1) |
-| AC-2 | _e.g. 上传同文件去重_ | 集成 smoke | blob_count == 1 | 1 | [evidence](#ac-2) |
-| DEP-1 | 服务 healthz 200 | `curl /healthz` | 200 OK | 200 | [evidence](#dep-1) |
-| DEP-2 | DB 迁移落地 | `alembic current` | == head | head | [evidence](#dep-2) |
-| DEP-3 | worker 在线 | `rq info` | active > 0 | 2 | [evidence](#dep-3) |
-| DEP-4 | 前端可加载 | 浏览器 / Playwright smoke | 主页面无 5xx | OK | [evidence](#dep-4) |
-| DEP-5 | metrics / 日志无新 ERROR | grafana / `kubectl logs` | 0 新 ERROR | OK | [evidence](#dep-5) |
-
-## 证据
-
-### AC-1
-
-```text
-$ curl -i -X POST https://dev.dataplat.internal/api/repos \
-    -H 'Cookie: access=...' \
-    -d '{"owner":"my","name":"foo","layer":"bronze","subtype":"pdf-collection"}'
-HTTP/1.1 201 Created
-...
-{"repo_id":"...", ...}
-```
-
-### AC-2
-
-```text
-(粘贴集成 smoke 脚本输出)
-```
-
-### DEP-1
-
-```text
-$ curl -i https://dev.dataplat.internal/healthz
-HTTP/1.1 200 OK
-```
-
-### DEP-2
-
-```text
-$ alembic current
-0042_xxx (head)
-```
-
-### DEP-3 / DEP-4 / DEP-5
-
-```text
-...
-```
+upgrade 路径：合并 main → 重启 api 进程即可。新 commit 自动 nested 化；旧 commit 永远以扁平形式存储。
 
 ## 风险评估
 
-- [ ] 涉及 schema 不兼容？_是 / 否_。如是：附迁移回滚脚本测试结果。
-- [ ] 涉及不可回滚操作（数据删除、外部副作用）？_是 / 否_。
-- [ ] 需要 follow-up？_是 / 否_。如是：列 follow-up change / task id。
+- [x] schema 不兼容？**否**。无 alembic 新 revision。
+- [x] 不可回滚？**否**。旧扁平数据格式不动；回滚只需 git revert 代码。
+- [x] follow-up 需要？**是**。`web-tree-nested-ui-*`（前端树形展开）/ `tests-worker-session-isolation-*`（3 个 pre-existing flake 根因）。
 
 ## Verdict
 
-PASS / FAIL
-
-## 处理动作
-
-- PASS → 进入阶段 10 用户确认。
-- FAIL → 决断：回滚 or 修复。
-  - 选择回滚 → 附回滚命令 / 镜像 tag。
-  - 选择修复 → 回退到对应阶段（3 / 5 / 8）。
-- 在 `summary.md` 同步更新。
+**SKIPPED (noop)**：无部署面。
