@@ -1,9 +1,17 @@
 ---
 change_id: web-tree-nested-ui-20260520
-version: 2
+version: 3
 authored_at: 2026-05-19T16:50:00Z
-revised_at: 2026-05-19T17:15:00Z
+revised_at: 2026-05-19T17:35:00Z
 status: draft
+revision_notes_v3: |
+  v3 修 stage 2 reviewer v2 报的 3 条新 spec MUST FIX：
+  - AC-6 numTotalTests 基线：当前 repos.files-section.test.tsx 已有 1 个 it，
+    本 change 加 ≥ 4 新用例 → 期望 numTotalTests ≥ 5；JSON 解析改为断言这个数。
+  - "11 AC" 残留：spec.md 标题 §AC 表上方 / "受影响模块" / "跨链路一致性自审"
+    多处仍说 12，与 AC 表 11 行不符 → 全文统一改 "11 AC"。
+  - AC-11 kind 错标 behavioral：实际是 static grep；改为 static；自审 behavioral 数
+    从 "4" 改为 "3"（AC-6 / AC-7 / AC-10）。
 revision_notes: |
   v2 修 stage 2 reviewer v1 报的 4 条 spec MUST FIX：
   - MUST FIX-1（AC-9 虚 AC）：删 AC-9（"手测"非可机械化）；归入 process_tasks
@@ -51,7 +59,7 @@ In scope（与下方 AC 对齐）：
 
 - AC-1: `queries.ts` 加 `useSubtree(owner, name, tree_hash)`：调 `GET /api/repos/{owner}/{name}/trees/{tree_hash}`，返 `TreeRead`
 - AC-2: `queries.ts` 加 `useSubtreeByPath(owner, name, commit_hash, path)`：单 queryFn 内串行 fetch：root → split path by `/` → 对每段在当前层 entries 找 `entry_type=="tree" && name==seg` → 拿 target_hash → fetch `/trees/{hash}` → 重复；最终返当前层 `TreeRead`；任一段不存在 / 不是 tree → throw 含具体错误
-- AC-3: `repos/$owner.$name.tsx` 路由 `validateSearch` 加 `path?: string`（默认空字符串）
+- AC-3: `repos/$owner.$name.tsx` 路由 `validateSearch` 加 `path` 字段，默认值 `""`（用 zod `.default("")` 或 `.catch("")`，绝不允许 undefined）
 - AC-4: `FilesSection` 改造：
   - 取 `path` from search params
   - 用 `useSubtreeByPath(owner, name, commit_hash, path)` 拿当前层 entries
@@ -66,12 +74,13 @@ In scope（与下方 AC 对齐）：
   - 点面包屑某段 → search.path 回退
   - legacy 扁平 commit：渲染扁平列表无 folder
   - path 不存在（fetch error）→ 显示错误 message
-- AC-7: `vitest run` ≥ 4 新用例 + 现有测试不回归
+- AC-7: `vitest run` ≥ 4 新用例 + 现有测试不回归（baseline 1 → 总 ≥ 5）
 - AC-8: pnpm lint + pnpm typecheck 全 PASS
-- AC-9: behavioral：手测（self_check 不强制；在 user_confirmation 阶段用户实测确认）
-- AC-10: scripts/_self_check.sh 加 `run_web_tree_nested_ui` 10 AC + filter + 全跑入口
-- AC-11: 上游 repo-files-tab / repo-files-tab-v2 / tree-nested-domain 关键测试不回归（pnpm --filter web test + apps/api self_check tree-nested-domain）
-- AC-12: AC-12 自递归
+- AC-9: scripts/_self_check.sh 加 `run_web_tree_nested_ui` 11 AC + filter + 全跑入口（兼自递归）
+- AC-10: 上游 repo-files-tab / repo-files-tab-v2 / tree-nested-domain 关键测试不回归（pnpm --filter web test + apps/api self_check tree-nested-domain）
+- AC-11: 路由 validateSearch path 默认值为 `""`（grep 锚定 `.default("")` 或 `.catch("")`；不是 undefined）
+
+（v2 删原 AC-9 "手测 user_confirmation"——非可机械化，归 P-user-confirm；删原 AC-12 自递归——与本 AC-9 重复，merge 到本 AC-9）
 
 ## 非范围
 
@@ -82,7 +91,7 @@ In scope（与下方 AC 对齐）：
 - 不引入 file preview / search inside subdirectory（独立 follow-up）
 - 不动 commit detail / blob view 页（保持现有 /blob/$owner/$name/$hash 路由）
 
-## 验收标准（12 AC）
+## 验收标准（11 AC，**3 behavioral**：AC-6 / AC-7 / AC-10）
 
 | ID | kind | 描述 | 验证 | 期望 |
 |---|---|---|---|---|
@@ -96,15 +105,18 @@ In scope（与下方 AC 对齐）：
 | AC-8 | static | pnpm lint + pnpm typecheck 全 PASS（web filter） | `pnpm --filter web lint && pnpm --filter web typecheck` | 命令退出 0 |
 | AC-9 | static | self_check 含 run_web_tree_nested_ui（AC-9 也兼自递归） | `grep -q "run_web_tree_nested_ui" scripts/_self_check.sh` | 命令退出 0 |
 | AC-10 | behavioral | 上游 web 测试不回归（含 repos.files-section.test.tsx + repos.tabs.test.tsx + tree-nested-domain backend 不变） | `pnpm --filter web test -- --run && bash scripts/_self_check.sh current tree-nested-domain-20260520` | 全 PASS |
-| AC-11 | behavioral | 路由 validateSearch path 默认值为 ""（不是 undefined） | 见 § "AC-11 完整命令" | dry-import 后断言 default === "" |
+| AC-11 | static | 路由 validateSearch path 默认值为 ""（不是 undefined；grep 锚定 `.default("")`/`.catch("")`） | 见 § "AC-11 完整命令" | grep 命中 |
 
 ### AC-6 完整命令
 
 ```bash
 # JSON reporter 输出可程序化解析：取 numTotalTests / numFailedTests
 cd apps/web && pnpm test -- --run --reporter json src/routes/repos.files-section.test.tsx > /tmp/web-tree-nested-vitest.json && \
-  python3 -c "import json; d=json.load(open('/tmp/web-tree-nested-vitest.json')); assert d['numFailedTests']==0, d; assert d['numTotalTests']>=4, d['numTotalTests']"
+  python3 -c "import json; d=json.load(open('/tmp/web-tree-nested-vitest.json')); assert d['numFailedTests']==0, d; assert d['numTotalTests']>=5, ('baseline 1 + 新增 ≥4 =', d['numTotalTests'])"
 ```
+
+> baseline：当前 `repos.files-section.test.tsx` 有 1 个 `it(...)`；本 change 加 ≥ 4 → numTotalTests ≥ 5。
+
 
 ### AC-11 完整命令
 
@@ -113,7 +125,6 @@ cd apps/web && pnpm test -- --run --reporter json src/routes/repos.files-section
 grep -qE 'path\s*:\s*z\.string\(\)\.(default\(["\x27]{2}\)|catch\(["\x27]{2}\))' apps/web/src/routes/repos/\$owner.\$name.tsx
 ```
 
-> behavioral AC = 3（AC-6 / AC-7 / AC-10）；AC-11 静态 grep 锚定 default 不是 undefined；满足分层规约（≥ 1 条 behavioral）。
 
 ## 风险
 
@@ -133,7 +144,7 @@ grep -qE 'path\s*:\s*z\.string\(\)\.(default\(["\x27]{2}\)|catch\(["\x27]{2}\))'
 1. ✅ summary 已写
 2. ✅ 范围 / 非范围 明确
 3. ✅ AC 全可机械化
-4. ✅ AC 分层：4 behavioral
+4. ✅ AC 分层：3 behavioral（AC-6 / AC-7 / AC-10）
 5. ✅ 非豁免（动 apps/web + scripts/_self_check.sh）
 6. ✅ 反向 grep 不需要 test -f 前置
 7. ✅ spec ↔ tasks ↔ self_check 一致
@@ -144,7 +155,7 @@ grep -qE 'path\s*:\s*z\.string\(\)\.(default\(["\x27]{2}\)|catch\(["\x27]{2}\))'
 - 改：`apps/web/src/lib/api/queries.ts`（加 `useSubtree` + `useSubtreeByPath`）
 - 改：`apps/web/src/routes/repos/$owner.$name.tsx`（validateSearch + FilesSection 改造）
 - 改：`apps/web/src/routes/repos.files-section.test.tsx`（加 ≥ 4 用例 + 调整 legacy 断言）
-- 改：`scripts/_self_check.sh`（追加 `run_web_tree_nested_ui` 12 AC + filter + 全跑入口）
+- 改：`scripts/_self_check.sh`（追加 `run_web_tree_nested_ui` 11 AC + filter + 全跑入口）
 
 ## 不受影响
 

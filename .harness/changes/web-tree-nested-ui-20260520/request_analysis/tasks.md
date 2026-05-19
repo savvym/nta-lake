@@ -1,8 +1,13 @@
 ---
 change_id: web-tree-nested-ui-20260520
-version: 2
+version: 3
 authored_at: 2026-05-19T16:50:00Z
-revised_at: 2026-05-19T17:15:00Z
+revised_at: 2026-05-19T17:35:00Z
+revision_notes_v3: |
+  v3 修 stage 2 reviewer v2 报的 2 条新 tasks MUST FIX：
+  - T-2 description 示例改 `.default("")`（不是 `.optional()`），与 AC-11 grep
+    regex 对齐
+  - T-5 estimated_stage：ci_result → coding（脚本改动属于 code 阶段范畴）
 revision_notes: |
   v2 修 stage 2 reviewer v1 报的 2 条 tasks MUST FIX：
   - MUST FIX-1（T-3 超大）：拆 T-3a（数据层：useSubtreeByPath 接入 + path search 钩子）+
@@ -42,8 +47,8 @@ tasks:
     description: |
       apps/web/src/routes/repos/$owner.$name.tsx。
       现有 validateSearch（来自 createFileRoute）含 tab；加 path 字段：
-        - path: z.string().optional() 或 路由生成代码格式
-        - 默认值 ""
+        - `path: z.string().default("")` 或 `.catch("")` 形态，确保默认空串而非 undefined
+        - AC-11 grep 锚定 `.default("")`/`.catch("")`，调用方 always 拿到 string
       _searchSchema 同步更新（如果有 schema variable）
       Link / navigate 调用点同步：tab 切换时保留 path（或重置到 ""），看交互期望
     depends_on: [T-1]
@@ -113,7 +118,7 @@ tasks:
       AC-8 跑 pnpm lint + typecheck。
       filter case + 全跑入口 list 都加上。
     depends_on: [T-4]
-    estimated_stage: ci_result
+    estimated_stage: coding
     covers_ac: [AC-9]
     status: pending
 
