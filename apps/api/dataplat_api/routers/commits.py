@@ -255,29 +255,29 @@ async def _expand_tree_recursive(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"tree 嵌套深度 > {_MAX_TREE_RECURSION_DEPTH}，拒绝展开",
             )
-        hashes_this_layer = [h for h, _ in pending]
+        # 同 hash 可对应多 prefix（ML 数据集 train/val/test 等内容相同的子目录会共享
+        # subtree hash）；按 hash 聚合所有 prefix，避免重复迭代造成输出膨胀。
         prefix_map: dict[str, list[str]] = {}
         for h, p in pending:
             prefix_map.setdefault(h, []).append(p)
-        # 单次 batch SELECT 取本层所有 tree
+        # 单次 batch SELECT 取本层所有 unique tree hash
         stmt = (
             select(TreeORM)
             .where(
                 TreeORM.repo_id == repo_id,
-                TreeORM.hash.in_(hashes_this_layer),
+                TreeORM.hash.in_(list(prefix_map.keys())),
             )
             .options(selectinload(TreeORM.entries))
         )
         trees = (await session.execute(stmt)).scalars().all()
         tree_by_hash = {t.hash: t for t in trees}
         next_pending: list[tuple[str, str]] = []
-        for h in hashes_this_layer:
+        for h, prefixes in prefix_map.items():
             tree = tree_by_hash.get(h)
             if tree is None:
                 continue
             sorted_entries = sorted(tree.entries, key=lambda x: x.position)
-            # 该 hash 可能对应多个 prefix（同子树被多处引用，理论上极少）
-            for prefix in prefix_map[h]:
+            for prefix in prefixes:
                 for e in sorted_entries:
                     full_name = f"{prefix}{e.name}" if prefix else e.name
                     if e.entry_type == "tree":
