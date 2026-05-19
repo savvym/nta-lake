@@ -3,9 +3,9 @@ change_id: tree-nested-domain-20260520
 title: Tree 嵌套支持（soft mode + recursive GET）
 owner: application-owner-agent
 started_at: 2026-05-19T13:54:24Z
-stage: request_analysis
-status: waiting_review
-last_updated: 2026-05-19T14:05:00Z
+stage: coding
+status: in_progress
+last_updated: 2026-05-19T14:45:00Z
 related_changes:
   - commit-api-mvp-20260517            # 现状来源（"MVP 仅支持单层"声明）
   - processor-framework-20260517       # 引入 follow-up `tree-nested-*` 的 change
@@ -29,8 +29,8 @@ related_changes:
 
 | 阶段 | 状态 | 最新版本 | verdict | 阶段 commit | 产物 / 报告 |
 |---|---|---|---|---|---|
-| 1 需求分析 | done | v1 | — | TBD | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
-| 2 需求评审 | pending | — | — | — | 待 spawn sonnet reviewer |
+| 1 需求分析 | done | spec v3 / tasks v2 | — | 986e0a0 | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
+| 2 需求评审 | done | v3 | APPROVED (spec v3 + tasks v2) | 986e0a0 | v1: [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) <br>v2: [spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v2.md](request_analysis/review/tasks_review_v2.md) <br>v3: [spec_review_v3.md](request_analysis/review/spec_review_v3.md) |
 | 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
 | 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
 | 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |

@@ -12,6 +12,7 @@ Auth + visibility 矩阵：
 from __future__ import annotations
 
 import tempfile
+import uuid
 from collections.abc import AsyncIterator
 
 from dataplat_core.domain.lineage import Lineage
@@ -22,15 +23,17 @@ from fastapi import (
     Depends,
     HTTPException,
     Path,
+    Query,
     Request,
     status,
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from dataplat_api.auth.deps import get_optional_user, require_admin
 from dataplat_api.db import get_session
-from dataplat_api.models import CommitORM, RepositoryORM
+from dataplat_api.models import CommitORM, RepositoryORM, TreeEntryORM, TreeORM
 from dataplat_api.schemas.blob import BlobMetaResponse, BlobUploadResponse
 from dataplat_api.schemas.commit import CommitCreate, CommitRead
 from dataplat_api.schemas.tree import TreeEntryRead, TreeRead
@@ -208,6 +211,55 @@ async def get_commit(
     return _commit_to_read(commit, deduplicated=False)
 
 
+async def _load_subtree_entries(
+    session: AsyncSession,
+    repo_id: uuid.UUID,
+    tree_hash: str,
+) -> list[TreeEntryORM] | None:
+    """按 (tree_hash, repo_id) 取该层 entries（含子 tree entry）；不存在 → None。"""
+    from sqlalchemy import select  # local import 减少 module-level deps
+
+    tree_stmt = (
+        select(TreeORM)
+        .where(TreeORM.hash == tree_hash, TreeORM.repo_id == repo_id)
+        .options(selectinload(TreeORM.entries))
+    )
+    tree = (await session.execute(tree_stmt)).scalar_one_or_none()
+    if tree is None:
+        return None
+    return sorted(tree.entries, key=lambda x: x.position)
+
+
+async def _expand_tree_recursive(
+    session: AsyncSession,
+    repo_id: uuid.UUID,
+    tree_hash: str,
+    prefix: str = "",
+) -> list[TreeEntryRead]:
+    """递归展开嵌套 tree → leaf blob entry 列表（name 为扁平全路径）。"""
+    entries = await _load_subtree_entries(session, repo_id, tree_hash)
+    if entries is None:
+        return []
+    out: list[TreeEntryRead] = []
+    for e in entries:
+        full_name = f"{prefix}{e.name}" if prefix else e.name
+        if e.entry_type == "tree":
+            sub = await _expand_tree_recursive(
+                session, repo_id, e.target_hash, prefix=f"{full_name}/"
+            )
+            out.extend(sub)
+        else:
+            out.append(
+                TreeEntryRead(
+                    name=full_name,
+                    mode=e.mode,
+                    entry_type=e.entry_type,  # type: ignore[arg-type]
+                    target_hash=e.target_hash,
+                )
+            )
+    return out
+
+
 @router.get(
     "/{owner}/{name}/tree/{commit_hash}",
     response_model=TreeRead,
@@ -216,6 +268,7 @@ async def get_tree(
     owner: str,
     name: str,
     commit_hash: str = Path(pattern=_SHA256_PATTERN),
+    recursive: bool = Query(False, description="True: 递归展开所有 type=tree entry 为 leaf blob 列表"),
     current_user: AuthenticatedUser | None = Depends(get_optional_user),
     session: AsyncSession = Depends(get_session),
 ) -> TreeRead:
@@ -226,6 +279,43 @@ async def get_tree(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Tree for commit {commit_hash} 在 {owner}/{name} 不存在",
         )
+    if recursive:
+        entries = await _expand_tree_recursive(session, repo.id, tree.hash)
+    else:
+        entries = [
+            TreeEntryRead(
+                name=e.name,
+                mode=e.mode,
+                entry_type=e.entry_type,  # type: ignore[arg-type]
+                target_hash=e.target_hash,
+            )
+            for e in sorted(tree.entries, key=lambda x: x.position)
+        ]
+    return TreeRead(hash=tree.hash, entries=entries)
+
+
+@router.get(
+    "/{owner}/{name}/trees/{tree_hash}",
+    response_model=TreeRead,
+)
+async def get_subtree_by_hash(
+    owner: str,
+    name: str,
+    tree_hash: str = Path(pattern=_SHA256_PATTERN),
+    current_user: AuthenticatedUser | None = Depends(get_optional_user),
+    session: AsyncSession = Depends(get_session),
+) -> TreeRead:
+    """按任意 tree hash（root 或 subtree）取该层 entries。
+
+    跨 repo 不暴露：即便 hash 相同，请求 repo 与 owner 不匹配 → 404。
+    """
+    repo = await _resolve_repo(session, owner, name, current_user)
+    entries_orm = await _load_subtree_entries(session, repo.id, tree_hash)
+    if entries_orm is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tree {tree_hash} 在 {owner}/{name} 不存在",
+        )
     entries = [
         TreeEntryRead(
             name=e.name,
@@ -233,6 +323,6 @@ async def get_tree(
             entry_type=e.entry_type,  # type: ignore[arg-type]
             target_hash=e.target_hash,
         )
-        for e in sorted(tree.entries, key=lambda x: x.position)
+        for e in entries_orm
     ]
-    return TreeRead(hash=tree.hash, entries=entries)
+    return TreeRead(hash=tree_hash, entries=entries)
