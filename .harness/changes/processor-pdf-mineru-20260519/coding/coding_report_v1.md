@@ -4,7 +4,7 @@ version: 1
 authored_at: 2026-05-19T10:30:00Z
 branch: change/processor-pdf-mineru-20260519
 base_commit: 17bf2c1
-head_commit: TBD（commit 后填）
+head_commit: 6e726e5
 status: waiting_review
 ---
 
@@ -24,9 +24,9 @@ status: waiting_review
 
 | Task ID | 状态 | commits | 备注 |
 |---|---|---|---|
-| T-1 | done | TBD | MinerUClient 三方法齐全；JSON 解析集中到 `_parse_submit_response` / `_parse_poll_response`；token via `_headers()` |
-| T-2 | done | TBD | 五项 Processor Protocol 数据属性（含 config_schema）+ run()；asyncio.run 模式与 llm-summarize 对齐；输出 path 用 `Path(src).with_suffix(".md")` |
-| T-3 | done | TBD | __init__.py import + register；__all__ 同步更新 |
+| T-1 | done | 6e726e5 | MinerUClient 三方法齐全；JSON 解析集中到 `_parse_submit_response` / `_parse_poll_response`；token via `_headers()` |
+| T-2 | done | 6e726e5 | 五项 Processor Protocol 数据属性（含 config_schema）+ run()；asyncio.run 模式与 llm-summarize 对齐；输出 path 用 `Path(src).with_suffix(".md")` |
+| T-3 | done | 6e726e5 | __init__.py import + register；__all__ 同步更新 |
 | T-4 | pending | — | 单测，stage 5 起 |
 | T-5 | pending | — | self_check AC block，stage 8 起 |
 | T-6 | pending | — | local lint + self_check current 全绿，stage 8 |
