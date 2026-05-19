@@ -3,9 +3,9 @@ change_id: processor-pdf-mineru-assets-20260520
 title: PDF→MD 时连带保存 images + content_list
 owner: application-owner-agent
 started_at: 2026-05-19T12:30:02Z
-stage: coding
-status: in_progress
-last_updated: 2026-05-19T12:55:00Z
+stage: user_confirmation
+status: waiting_review
+last_updated: 2026-05-19T13:15:00Z
 related_changes:
   - processor-pdf-mineru-20260519           # 上游 spec § 非范围 deferred 项的兑现
   - processor-pdf-mineru-live-fix-20260519  # 基于此分支
