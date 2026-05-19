@@ -4,8 +4,8 @@ title: PDF→MD 时连带保存 images + content_list
 owner: application-owner-agent
 started_at: 2026-05-19T12:30:02Z
 stage: user_confirmation
-status: waiting_review
-last_updated: 2026-05-19T13:15:00Z
+status: done
+last_updated: 2026-05-19T13:30:00Z
 related_changes:
   - processor-pdf-mineru-20260519           # 上游 spec § 非范围 deferred 项的兑现
   - processor-pdf-mineru-live-fix-20260519  # 基于此分支
@@ -44,7 +44,7 @@ session_deviation:
 | 7 代码推送 | | | | | _branch / push ref_ |
 | 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
 | 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
-| 10 用户确认 | | | | | _确认人 / 时间_ |
+| 10 用户确认 | done | — | PASS（实测 1.8MB PDF → 305K MD + 81 图 + 510K content_list 全部落 silver target） | 76c1ae9 | 用户：2026-05-19 演示会话内确认 "当前这个 change 可以闭环" |
 
 ## 关键决策
 
@@ -72,5 +72,5 @@ session_deviation:
 - PR：TBD（push 后开）
 - Merge commit：TBD（合并 PR 后填）
 - 部署版本：n/a（stage 9 noop）
-- 用户确认：TBD
-- 关闭时间：TBD（stage 10 用户确认后填）
+- 用户确认：2026-05-19 演示会话内确认
+- 关闭时间：2026-05-19T13:30:00Z
