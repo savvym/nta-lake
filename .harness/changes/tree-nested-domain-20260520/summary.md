@@ -34,7 +34,7 @@ related_changes:
 | 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
 | 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
 | 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
-| 6 单测评审 | | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
+| 6 单测评审 | done | v1 | APPROVED | — | [test_review_v1.md](unit_test/review/test_review_v1.md)（MUST FIX 0 / SHOULD FIX 2 / NICE TO HAVE 3） |
 | 7 代码推送 | | | | | _branch / push ref_ |
 | 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
 | 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |

@@ -478,6 +478,13 @@ async def test_path_validation_rejects(admin_user: dict) -> None:
                     ],
                     "type=tree 输入被拒",
                 ),
+                (
+                    [
+                        {"name": "a/dup.txt", "mode": 33188, "target_hash": sha_a},
+                        {"name": "a/dup.txt", "mode": 33188, "target_hash": sha_b},
+                    ],
+                    "同层重名 (full name 重复)",
+                ),
             ]
             for entries, label in bad_inputs:
                 res = await _post_commit(client, owner, name, entries)
