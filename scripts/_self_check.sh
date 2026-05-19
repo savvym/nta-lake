@@ -1206,6 +1206,52 @@ run_processor_pdf_mineru_assets() {
   run_ac AC-12 "AC-12 自递归" true
 }
 
+run_tree_nested_domain() {
+  echo "=== tree-nested-domain-20260520 :: 14 AC ==="
+
+  run_ac AC-1 "TreeEntryCreate / TreeEntryRead 接受 entry_type='tree'" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.schemas.tree import TreeEntryCreate, TreeEntryRead; e=TreeEntryCreate(name=\"x\", mode=16384, entry_type=\"tree\", target_hash=\"a\"*64); assert e.entry_type==\"tree\"; r=TreeEntryRead(name=\"x\", mode=16384, entry_type=\"tree\", target_hash=\"a\"*64); assert r.entry_type==\"tree\""'
+
+  run_ac AC-2 "services/commit.py 含 _normalize_to_nested" \
+    bash -c 'grep -q "_normalize_to_nested" apps/api/dataplat_api/services/commit.py'
+
+  run_ac AC-3 "services/commit.py 含 _validate_tree_paths" \
+    bash -c 'grep -q "_validate_tree_paths" apps/api/dataplat_api/services/commit.py'
+
+  run_ac AC-4 "_normalize_to_nested 输出 root_hash 与多 tree 列表" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.services.commit import _normalize_to_nested; from dataplat_api.schemas.tree import TreeEntryCreate as T; root, trees = _normalize_to_nested([T(name=\"images/a.jpg\", mode=33188, entry_type=\"blob\", target_hash=\"a\"*64), T(name=\"paper.md\", mode=33188, entry_type=\"blob\", target_hash=\"b\"*64)]); assert isinstance(root, str) and len(trees) >= 2"'
+
+  run_ac AC-5 "create_commit 真调 _normalize_to_nested + TreeORM 写入" \
+    bash -c 'cd apps/api && uv run python -c "import inspect; from dataplat_api.services.commit import CommitService, _normalize_to_nested; src = inspect.getsource(CommitService.create_commit); assert \"_normalize_to_nested\" in src; assert src.count(\"TreeORM(\") >= 1"'
+
+  run_ac AC-6 "_canonical_tree_bytes / _tree_hash 函数定义保留" \
+    bash -c 'grep -q "def _canonical_tree_bytes" apps/api/dataplat_api/services/commit.py && grep -q "def _tree_hash" apps/api/dataplat_api/services/commit.py'
+
+  run_ac AC-7 "GET /tree/{commit_hash} 路由含 recursive 参数" \
+    bash -c 'grep -q "recursive" apps/api/dataplat_api/routers/commits.py'
+
+  run_ac AC-8 "新路由 GET /{owner}/{name}/trees/{tree_hash} 存在" \
+    bash -c 'grep -q "/{owner}/{name}/trees/{tree_hash}" apps/api/dataplat_api/routers/commits.py'
+
+  run_ac_skipif_no_pg_minio_redis AC-9 "test_get_tree_legacy_flat_unchanged PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_MINIO_ACCESS_KEY=${DATAPLAT_MINIO_ACCESS_KEY:-dataplat} && export DATAPLAT_MINIO_SECRET_KEY=${DATAPLAT_MINIO_SECRET_KEY:-dataplat-secret} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && export DATAPLAT_COOKIE_SECURE=false && (cd apps/api && uv run pytest -q --tb=no tests/test_tree_nested.py::test_get_tree_legacy_flat_unchanged)'
+
+  run_ac_skipif_no_pg_minio_redis AC-10 "test_post_flat_input_round_trip PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_MINIO_ACCESS_KEY=${DATAPLAT_MINIO_ACCESS_KEY:-dataplat} && export DATAPLAT_MINIO_SECRET_KEY=${DATAPLAT_MINIO_SECRET_KEY:-dataplat-secret} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && export DATAPLAT_COOKIE_SECURE=false && (cd apps/api && uv run pytest -q --tb=no tests/test_tree_nested.py::test_post_flat_input_round_trip)'
+
+  run_ac_skipif_no_pg_minio_redis AC-11 "tests/test_tree_nested.py ≥ 8 + 全 PASS" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_MINIO_ACCESS_KEY=${DATAPLAT_MINIO_ACCESS_KEY:-dataplat} && export DATAPLAT_MINIO_SECRET_KEY=${DATAPLAT_MINIO_SECRET_KEY:-dataplat-secret} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && export DATAPLAT_COOKIE_SECURE=false && [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_tree_nested.py 2>&1 | grep -cE "test_tree_nested\.py::")" -ge 8 ] && (cd apps/api && uv run pytest -q --tb=no tests/test_tree_nested.py)'
+
+  run_ac AC-12 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac_skipif_no_pg_minio_redis AC-13 "上游 commit-api-mvp / processor-framework / pdf-mineru 不回归（deselect 3 个 pre-existing flake）" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_MINIO_ACCESS_KEY=${DATAPLAT_MINIO_ACCESS_KEY:-dataplat} && export DATAPLAT_MINIO_SECRET_KEY=${DATAPLAT_MINIO_SECRET_KEY:-dataplat-secret} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && export DATAPLAT_COOKIE_SECURE=false && (cd apps/api && uv run pytest -q --tb=no -k "not test_f_end_to_end_process_succeeded and not test_g_unknown_processor_marks_failed and not test_h_source_ref_missing_marks_failed" tests/test_commits.py tests/test_processor.py tests/test_pdf_mineru.py)'
+
+  run_ac AC-14 "self_check 含 run_tree_nested_domain" \
+    bash -c 'grep -q "run_tree_nested_domain" scripts/_self_check.sh'
+}
+
 run_sdk_cli_mvp() {
   echo "=== sdk-cli-mvp-20260518 :: 13 AC ==="
 
@@ -1739,6 +1785,9 @@ run_change_block() {
     processor-pdf-mineru-assets|processor-pdf-mineru-assets-20260520)
       run_processor_pdf_mineru_assets
       ;;
+    tree-nested-domain|tree-nested-domain-20260520)
+      run_tree_nested_domain
+      ;;
     sdk-cli-mvp|sdk-cli-mvp-20260518)
       run_sdk_cli_mvp
       ;;
@@ -1819,6 +1868,8 @@ run_full() {
   run_processor_pdf_mineru_live_fix
   echo
   run_processor_pdf_mineru_assets
+  echo
+  run_tree_nested_domain
   echo
   run_sdk_cli_mvp
   echo

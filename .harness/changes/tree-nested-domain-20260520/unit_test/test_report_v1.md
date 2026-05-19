@@ -1,7 +1,7 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>
+change_id: tree-nested-domain-20260520
 version: 1
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+authored_at: 2026-05-19T15:50:00Z
 status: waiting_review
 ---
 
@@ -11,53 +11,69 @@ status: waiting_review
 
 | AC ID | 测试文件 | 测试函数 |
 |---|---|---|
-| AC-1 | apps/api/tests/api/test_repos.py | test_create_bronze_repo_returns_201 |
-| AC-2 | apps/api/tests/api/test_repos.py | test_commit_blob_dedup_works |
-
-> 每条 AC 必须在表里出现至少一次。
+| AC-3 (路径校验) | test_tree_nested.py | test_path_validation_rejects（9 类失败 fixture：空 / 起头 / / 结尾 / / 连续 / / . / .. / 空白 segment / blob-dir conflict / type=tree input） |
+| AC-6 (子 tree dedup) | test_tree_nested.py | test_dedup_same_subtree_across_commits |
+| AC-7 (default GET 含 subtree) | test_tree_nested.py | test_get_tree_default_shows_subtree |
+| AC-8 (GET /trees/{hash}) | test_tree_nested.py | test_get_subtree_by_hash |
+| AC-9 (legacy 不回归) | test_tree_nested.py | test_get_tree_legacy_flat_unchanged · test_recursive_no_op_on_flat |
+| AC-10 (扁平 → recursive 还原) | test_tree_nested.py | test_post_flat_input_round_trip |
+| AC-11 (≥ 8 用例全 PASS) | test_tree_nested.py | 9 个用例 |
+| AC-13 (上游不回归) | tests/test_commits.py / tests/test_processor.py / tests/test_pdf_mineru.py | -k deselect 3 pre-existing flake，35 PASS |
 
 ## 测试文件清单
 
 | 文件 | 类型 | 用例数 |
 |---|---|---|
-| apps/api/tests/api/test_repos.py | 集成 | 6 |
-| apps/web/src/components/RepoCard.test.tsx | 单元 | 3 |
+| apps/api/tests/test_tree_nested.py | 集成（ASGI + PG + MinIO） | 9 |
 
-## Mock 范围声明
+## Mock 范围
 
-> 允许 mock：LLM provider（用 FakeLLMProvider）、外部 HTTP（msw / respx）、时间。
-> 禁止 mock：RepositoryService / BlobStore / LineageService 等数据访问层。
+- 不 mock CommitService / _validate_tree_paths / _normalize_to_nested / GET 路由（被测对象）
+- 测试 (d) test_get_tree_legacy_flat_unchanged 与 (i) test_recursive_no_op_on_flat **直接 INSERT TreeORM** 模拟历史扁平 commit（绕过 service normalize 入库）；显式声明 `session.flush()` 让 FK 检查能看到 ORM-staged rows，然后 raw SQL INSERT commits
 
-本轮 mock 了：
-
-- _e.g. anthropic provider → 用 FakeLLMProvider 返回 fixture._
-
-## 本地运行结果
+## 本地运行
 
 ```text
-$ uv run pytest apps/api -q
-.......... 24 passed in 12.34s
+$ cd apps/api && uv run pytest -q tests/test_tree_nested.py
+.........  9 passed in 6.38s
 
-$ pnpm --filter web test
- PASS  src/components/RepoCard.test.tsx
- Tests: 3 passed, 3 total
+$ uv run ruff check apps/api packages/core worker/src
+All checks passed!
+
+$ uv run mypy apps/api/dataplat_api packages/core/src worker/src
+Success: no issues found in 96 source files
+
+$ source .env.local && cd apps/api && uv run pytest -q --tb=no \
+    -k "not test_f_end_to_end_process_succeeded and not test_g_unknown_processor_marks_failed and not test_h_source_ref_missing_marks_failed" \
+    tests/test_commits.py tests/test_processor.py tests/test_pdf_mineru.py tests/test_tree_nested.py
+44 passed, 3 deselected in 18.16s
 ```
 
 ## 已知 flaky / 跳过
 
-> 任何 skip 必须显式说明。
+- 3 个 pre-existing flake（spec v4 § Deferred + AC-13 -k deselect）：
+  - `tests/test_processor.py::test_f_end_to_end_process_succeeded`
+  - `tests/test_processor.py::test_g_unknown_processor_marks_failed`
+  - `tests/test_processor.py::test_h_source_ref_missing_marks_failed`
+- 根因：worker 进程读不到 ASGI 测试 session 未提交的 repo；非本 change 引入，main baseline 同样 fail。
+- 跟进：follow-up `tests-worker-session-isolation-*`。
 
-- _无_
+## 覆盖率
 
-## 覆盖率（如已配置）
+未跑 coverage（spec 未要求）。9 测试覆盖：
+- 扁平 → nested round-trip
+- 默认 GET 含子 tree
+- /trees/{hash} 取子层 + 404
+- 历史 flat 不回归 + recursive no-op
+- 子 tree dedup per repo
+- 9 类路径校验失败（含 type=tree input）
+- 3 层深嵌套
+- 空 tree
 
-```text
-apps/api/dataplat_api/services/repository.py    94%
-apps/api/dataplat_api/storage/blob.py            87%
-```
-
-> 覆盖率不达标本身**不阻塞**，但低于 60% 的核心模块会被评审标 MUST FIX。
+未覆盖（接受）：
+- 真实 64+ 层超深嵌套触发 _MAX_TREE_RECURSION_DEPTH（实际不会触发；rate limit 性质）
+- 跨 repo same hash 隔离（spec 显式承诺 by repo_id；可加单测但优先级低）
 
 ## 下一步
 
-进入阶段 6 单测评审：加载 `.harness/skills/expert-reviewer/SKILL.md`（artifact 模式），写 `unit_test/review/test_review_v1.md`。
+stage 6：spawn 独立 sonnet test reviewer 复检。
