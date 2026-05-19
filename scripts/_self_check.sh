@@ -1167,6 +1167,45 @@ run_processor_pdf_mineru_live_fix() {
     bash -c 'grep -q "run_processor_pdf_mineru_live_fix" scripts/_self_check.sh'
 }
 
+run_processor_pdf_mineru_assets() {
+  echo "=== processor-pdf-mineru-assets-20260520 :: 12 AC ==="
+
+  run_ac AC-1 "PdfMineruSpec 含 return_images / return_content_list 默认 True" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.pdf_mineru import PdfMineruSpec; s=PdfMineruSpec.model_fields; assert s[\"return_images\"].default is True and s[\"return_content_list\"].default is True"'
+
+  run_ac AC-2 "client.submit 签名含 return_images / return_content_list" \
+    bash -c 'cd apps/api && uv run python -c "import inspect; from dataplat_api.processors._mineru_client import MinerUClient; sig=inspect.signature(MinerUClient.submit); assert \"return_images\" in sig.parameters and \"return_content_list\" in sig.parameters"'
+
+  run_ac AC-3 "client 含 fetch_full_result 方法" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors._mineru_client import MinerUClient; assert hasattr(MinerUClient, \"fetch_full_result\")"'
+
+  run_ac AC-4 "client 含 base64 decode 逻辑" \
+    bash -c 'grep -qE "b64decode|base64" apps/api/dataplat_api/processors/_mineru_client.py'
+
+  run_ac AC-5 "pdf_mineru.py 写 images/* 路径" \
+    bash -c 'grep -F -q "images/" apps/api/dataplat_api/processors/pdf_mineru.py'
+
+  run_ac AC-6 "pdf_mineru.py 写 content_list.json" \
+    bash -c 'grep -F -q "content_list.json" apps/api/dataplat_api/processors/pdf_mineru.py'
+
+  run_ac AC-7 "fake httpx 返 2 image + content_list → ≥ 4 IngestFileRef" \
+    bash -c 'cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py::test_run_with_assets'
+
+  run_ac AC-8 "tests/test_pdf_mineru.py ≥ 9 + 全 PASS" \
+    bash -c '[ "$(cd apps/api && uv run pytest --collect-only -q tests/test_pdf_mineru.py 2>&1 | grep -cE "test_pdf_mineru\.py::")" -ge 9 ] && (cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py)'
+
+  run_ac AC-9 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-10 "self_check 含本 change AC block" \
+    bash -c 'grep -q "run_processor_pdf_mineru_assets" scripts/_self_check.sh'
+
+  run_ac AC-11 "上游 7 个核心 unit tests 不回归" \
+    bash -c 'cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py::test_run_success tests/test_pdf_mineru.py::test_run_poll_failed_raises tests/test_pdf_mineru.py::test_run_env_missing_url tests/test_pdf_mineru.py::test_client_token_header_present tests/test_pdf_mineru.py::test_client_token_header_absent tests/test_pdf_mineru.py::test_run_skips_non_pdf tests/test_pdf_mineru.py::test_run_poll_timeout'
+
+  run_ac AC-12 "AC-12 自递归" true
+}
+
 run_sdk_cli_mvp() {
   echo "=== sdk-cli-mvp-20260518 :: 13 AC ==="
 
@@ -1697,6 +1736,9 @@ run_change_block() {
     processor-pdf-mineru-live-fix|processor-pdf-mineru-live-fix-20260519)
       run_processor_pdf_mineru_live_fix
       ;;
+    processor-pdf-mineru-assets|processor-pdf-mineru-assets-20260520)
+      run_processor_pdf_mineru_assets
+      ;;
     sdk-cli-mvp|sdk-cli-mvp-20260518)
       run_sdk_cli_mvp
       ;;
@@ -1775,6 +1817,8 @@ run_full() {
   run_processor_pdf_mineru
   echo
   run_processor_pdf_mineru_live_fix
+  echo
+  run_processor_pdf_mineru_assets
   echo
   run_sdk_cli_mvp
   echo
