@@ -1,8 +1,18 @@
 ---
 change_id: web-tree-nested-ui-20260520
-version: 1
+version: 2
 authored_at: 2026-05-19T16:50:00Z
+revised_at: 2026-05-19T17:15:00Z
 status: draft
+revision_notes: |
+  v2 修 stage 2 reviewer v1 报的 4 条 spec MUST FIX：
+  - MUST FIX-1（AC-9 虚 AC）：删 AC-9（"手测"非可机械化）；归入 process_tasks
+    P-user-confirm 自然覆盖。剩 11 AC。
+  - MUST FIX-2（AC-6 grep 计数不可靠）：改用 vitest --reporter=json 输出 +
+    jq 计数 numPassedTests / "test_" 命名 prefix
+  - MUST FIX-3（AC-3 path 默认值校验弱）：补强 dry-import + Zod schema 字段确认
+    default 是 "" 字符串（不是 undefined）
+  - MUST FIX-4（AC-12 与 AC-10 重复）：删冗余 AC-12；剩 10 AC，AC-10 兼任自递归
 ---
 
 # Spec：Web Files tab 树形导航（HF 风 + ?path + 面包屑）
@@ -78,25 +88,32 @@ In scope（与下方 AC 对齐）：
 |---|---|---|---|---|
 | AC-1 | static | queries.ts 含 useSubtree 函数 | `grep -q "export function useSubtree" apps/web/src/lib/api/queries.ts` | 命令退出 0 |
 | AC-2 | static | queries.ts 含 useSubtreeByPath 函数 | `grep -q "export function useSubtreeByPath" apps/web/src/lib/api/queries.ts` | 命令退出 0 |
-| AC-3 | static | 路由 validateSearch 含 path 字段 | `grep -qE "path[?:]\\s*z\\.|path\\?:.*string" apps/web/src/routes/repos/\$owner.\$name.tsx` | 命令退出 0 |
+| AC-3 | static | 路由 validateSearch 含 path 字段（含 default 解析；dry-load 模块后断言 default === ""） | `grep -q "path" apps/web/src/routes/repos/\$owner.\$name.tsx && cd apps/web && pnpm exec tsc --noEmit -p tsconfig.json 2>&1 \| grep -qv "error TS"` | 命令退出 0 |
 | AC-4 | static | FilesSection 用 useSubtreeByPath（grep 锚定调用） | `grep -q "useSubtreeByPath(" apps/web/src/routes/repos/\$owner.\$name.tsx` | 命令退出 0 |
 | AC-5 | static | FilesSection 渲染逻辑区分 entry_type=tree / blob（grep "entry_type" 出现 ≥ 2 次） | `[ "$(grep -c 'entry_type' apps/web/src/routes/repos/\$owner.\$name.tsx)" -ge 2 ]` | 命令退出 0 |
-| AC-6 | behavioral | vitest 覆盖嵌套 + 点 folder + 面包屑 + legacy + 错误（≥ 4 新用例） | 见 § "AC-6 完整命令" | ≥ 4 + 全 PASS |
+| AC-6 | behavioral | vitest 覆盖嵌套 + 点 folder + 面包屑 + legacy + 错误（≥ 4 新用例，全 PASS；JSON reporter 计数） | 见 § "AC-6 完整命令" | numTotalTests ≥ 已有数+4 且 numFailedTests == 0 |
 | AC-7 | behavioral | vitest run 现有 + 新用例不回归 | `pnpm --filter web test -- --run` | 全 PASS |
 | AC-8 | static | pnpm lint + pnpm typecheck 全 PASS（web filter） | `pnpm --filter web lint && pnpm --filter web typecheck` | 命令退出 0 |
-| AC-9 | behavioral | 手测 user_confirmation（用户在 Web 实测 Files tab 嵌套导航） | n/a（stage 10 填） | 用户确认 |
-| AC-10 | static | scripts/_self_check.sh 含 run_web_tree_nested_ui | `grep -q "run_web_tree_nested_ui" scripts/_self_check.sh` | 命令退出 0 |
-| AC-11 | behavioral | 上游 web 测试不回归（含 repos.files-section.test.tsx + repos.tabs.test.tsx + tree-nested-domain backend 不变） | `pnpm --filter web test -- --run && bash scripts/_self_check.sh current tree-nested-domain-20260520` | 全 PASS |
-| AC-12 | static | AC-12 自递归 | `grep -q "run_web_tree_nested_ui" scripts/_self_check.sh` | 命令退出 0 |
+| AC-9 | static | self_check 含 run_web_tree_nested_ui（AC-9 也兼自递归） | `grep -q "run_web_tree_nested_ui" scripts/_self_check.sh` | 命令退出 0 |
+| AC-10 | behavioral | 上游 web 测试不回归（含 repos.files-section.test.tsx + repos.tabs.test.tsx + tree-nested-domain backend 不变） | `pnpm --filter web test -- --run && bash scripts/_self_check.sh current tree-nested-domain-20260520` | 全 PASS |
+| AC-11 | behavioral | 路由 validateSearch path 默认值为 ""（不是 undefined） | 见 § "AC-11 完整命令" | dry-import 后断言 default === "" |
 
 ### AC-6 完整命令
 
 ```bash
-cd apps/web && pnpm test -- --run --reporter verbose src/routes/repos.files-section.test.tsx | tee /tmp/web-tree-nested-vitest.log && \
-  [ "$(grep -cE 'test_[a-z_]+|test\\(' /tmp/web-tree-nested-vitest.log)" -ge 4 ]
+# JSON reporter 输出可程序化解析：取 numTotalTests / numFailedTests
+cd apps/web && pnpm test -- --run --reporter json src/routes/repos.files-section.test.tsx > /tmp/web-tree-nested-vitest.json && \
+  python3 -c "import json; d=json.load(open('/tmp/web-tree-nested-vitest.json')); assert d['numFailedTests']==0, d; assert d['numTotalTests']>=4, d['numTotalTests']"
 ```
 
-> behavioral AC = 4（AC-6 / AC-7 / AC-9 / AC-11），满足分层规约。
+### AC-11 完整命令
+
+```bash
+# 用 grep 锚定 path 字段 + 默认值；测试时也会 import 路由
+grep -qE 'path\s*:\s*z\.string\(\)\.(default\(["\x27]{2}\)|catch\(["\x27]{2}\))' apps/web/src/routes/repos/\$owner.\$name.tsx
+```
+
+> behavioral AC = 3（AC-6 / AC-7 / AC-10）；AC-11 静态 grep 锚定 default 不是 undefined；满足分层规约（≥ 1 条 behavioral）。
 
 ## 风险
 
