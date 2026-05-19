@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 
 import { Button } from "../../components/ui/button";
 import {
@@ -20,24 +21,26 @@ import {
   usePipelineRun,
   useRepoRef,
   useRepo,
+  useSubtreeByPath,
   useUpdateRepo,
   useUploadBlob,
 } from "../../lib/api/queries";
 
-// URL search param: ?tab=files|ingest|pipelines （默认 files）
+// URL search param: ?tab=files|ingest|pipelines &path=images/sub （默认 files / ""）
 type TabKey = "files" | "ingest" | "pipelines";
-const TAB_KEYS: readonly TabKey[] = ["files", "ingest", "pipelines"];
+
+// zod schema for validateSearch；path 默认空字符串（绝不允许 undefined）
+const searchSchema = z.object({
+  tab: z
+    .enum(["files", "ingest", "pipelines"] as const)
+    .catch("files")
+    .default("files"),
+  path: z.string().catch("").default(""),
+});
 
 export const Route = createFileRoute("/repos/$owner/$name")({
   component: RepoDetailPage,
-  validateSearch: (search: Record<string, unknown>): { tab: TabKey } => {
-    const raw = String(search.tab ?? "");
-    return {
-      tab: (TAB_KEYS as readonly string[]).includes(raw)
-        ? (raw as TabKey)
-        : "files",
-    };
-  },
+  validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
 });
 
 const VISIBILITIES = ["private", "internal", "public"] as const;
@@ -46,7 +49,8 @@ function RepoDetailPage() {
   const { owner, name } = Route.useParams();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const onTabChange = (t: TabKey) => navigate({ search: { tab: t } });
+  // 切 tab 时清空 path（不同 tab 共享 path 字段语义不一致；保持简单）
+  const onTabChange = (t: TabKey) => navigate({ search: { tab: t, path: "" } });
   const router = useRouter();
   const { data: me } = useMe();
   const { data: repo, isLoading, isError, refetch } = useRepo(owner, name);
@@ -226,9 +230,25 @@ function Tabs({
 }
 
 function FilesSection({ owner, name }: { owner: string; name: string }) {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const path = search.path ?? "";
+
   const refQuery = useRepoRef(owner, name, "main");
   const commitHash = refQuery.data?.commit_hash ?? "";
   const commitQuery = useCommit(owner, name, commitHash);
+  const subtreeQuery = useSubtreeByPath(owner, name, commitHash, path);
+
+  const setPath = (newPath: string) => {
+    // 保留其他 search 字段（tab）；仅改 path
+    navigate({ search: { ...search, path: newPath } });
+  };
+
+  // path 段（"" 时为空数组）
+  const pathSegments = path ? path.split("/").filter((s) => s.length > 0) : [];
+
+  const entries = subtreeQuery.data?.entries ?? [];
+  const hasFolders = entries.some((e) => e.entry_type === "tree");
 
   return (
     <Card>
@@ -238,37 +258,44 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
           <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
             main
           </span>
-          {commitQuery.data && (
+          {subtreeQuery.data && (
             <span className="text-sm text-gray-500 font-normal">
-              {commitQuery.data.tree.entries.length} files
+              {entries.length} entries
             </span>
           )}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {refQuery.isLoading || commitQuery.isLoading ? (
+        {refQuery.isLoading || commitQuery.isLoading || subtreeQuery.isLoading ? (
           <div className="text-gray-500 text-sm">加载中…</div>
         ) : !refQuery.data ? (
           <div className="text-gray-500 text-sm">
             暂无 commit
-            <span className="text-gray-400">（admin 可在 Ingest 区上传文件创建第一个 commit）</span>
+            <span className="text-gray-400">
+              （admin 可在 Ingest 区上传文件创建第一个 commit）
+            </span>
+          </div>
+        ) : subtreeQuery.isError ? (
+          <div className="space-y-2">
+            <div className="text-red-600 text-sm break-all">
+              路径 {JSON.stringify(path)} 加载失败：{String(subtreeQuery.error)}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setPath("")}>
+              返回根目录
+            </Button>
           </div>
         ) : !commitQuery.data ? (
           <div className="text-red-600 text-sm">
             commit {refQuery.data.commit_hash.slice(0, 12)}… 加载失败
           </div>
-        ) : commitQuery.data.tree.entries.length === 0 ? (
+        ) : entries.length === 0 && pathSegments.length === 0 ? (
           <div className="text-gray-500 text-sm">commit 为空 tree</div>
         ) : (
           <>
-            <div className="mb-3 text-sm text-gray-600 flex items-center gap-2">
+            <div className="mb-3 text-sm text-gray-600 flex items-center gap-2 flex-wrap">
               <Link
                 to="/commits/$owner/$name/$hash"
-                params={{
-                  owner,
-                  name,
-                  hash: commitQuery.data.hash,
-                }}
+                params={{ owner, name, hash: commitQuery.data.hash }}
                 className="font-mono text-xs text-blue-700 hover:underline"
               >
                 {commitQuery.data.hash.slice(0, 8)}
@@ -285,53 +312,141 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
                 by {commitQuery.data.author_id}
               </span>
             </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-gray-200">
-                  <th className="py-2 pr-4 font-medium text-gray-600">path</th>
-                  <th className="py-2 pr-4 font-medium text-gray-600">type</th>
-                  <th className="py-2 pr-4 font-medium text-gray-600 font-mono">
-                    sha256
-                  </th>
-                  <th className="py-2 font-medium text-gray-600 text-right">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {commitQuery.data.tree.entries.map((e) => (
-                  <tr
-                    key={e.name}
-                    className="border-b border-gray-100 hover:bg-gray-50"
-                  >
-                    <td className="py-2 pr-4 break-all">
-                      <Link
-                        to="/blob/$owner/$name/$hash"
-                        params={{ owner, name, hash: e.target_hash }}
-                        search={{ path: e.name }}
+
+            {/* 面包屑 */}
+            <div className="mb-3 text-sm flex items-center gap-1 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setPath("")}
+                className="text-blue-700 hover:underline"
+                aria-label="回到 repo 根目录"
+              >
+                {name}
+              </button>
+              {pathSegments.map((seg, i) => {
+                const target = pathSegments.slice(0, i + 1).join("/");
+                const isLast = i === pathSegments.length - 1;
+                return (
+                  <span key={`crumb-${i}`} className="flex items-center gap-1">
+                    <span className="text-gray-400">/</span>
+                    {isLast ? (
+                      <span className="text-gray-800">{seg}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPath(target)}
                         className="text-blue-700 hover:underline"
                       >
-                        {e.name}
-                      </Link>
-                    </td>
-                    <td className="py-2 pr-4 text-gray-500">{e.entry_type}</td>
-                    <td className="py-2 pr-4 font-mono text-xs text-gray-500">
-                      {e.target_hash.slice(0, 12)}…
-                    </td>
-                    <td className="py-2 text-right">
-                      <a
-                        href={`/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(e.target_hash)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-700 hover:underline text-xs"
-                      >
-                        下载
-                      </a>
-                    </td>
+                        {seg}
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+              {pathSegments.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-3 h-7 px-2 text-xs"
+                  onClick={() => {
+                    const parent = pathSegments.slice(0, -1).join("/");
+                    setPath(parent);
+                  }}
+                  aria-label="返回上一级"
+                >
+                  ↑ 返回上一级
+                </Button>
+              )}
+            </div>
+
+            {entries.length === 0 ? (
+              <div className="text-gray-500 text-sm">空目录</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-gray-200">
+                    <th className="py-2 pr-4 font-medium text-gray-600">name</th>
+                    <th className="py-2 pr-4 font-medium text-gray-600">type</th>
+                    <th className="py-2 pr-4 font-medium text-gray-600 font-mono">
+                      sha256
+                    </th>
+                    <th className="py-2 font-medium text-gray-600 text-right">
+                      操作
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {entries.map((e) => {
+                    const fullPath = path ? `${path}/${e.name}` : e.name;
+                    if (e.entry_type === "tree") {
+                      return (
+                        <tr
+                          key={e.name}
+                          className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => setPath(fullPath)}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter" || ev.key === " ") {
+                              ev.preventDefault();
+                              setPath(fullPath);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`进入子目录 ${e.name}`}
+                        >
+                          <td className="py-2 pr-4 break-all">
+                            <span className="text-blue-700">📁 {e.name}/</span>
+                          </td>
+                          <td className="py-2 pr-4 text-gray-500">tree</td>
+                          <td className="py-2 pr-4 font-mono text-xs text-gray-400">
+                            {e.target_hash.slice(0, 12)}…
+                          </td>
+                          <td className="py-2 text-right">
+                            <span className="text-gray-300 text-xs">—</span>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return (
+                      <tr
+                        key={e.name}
+                        className="border-b border-gray-100 hover:bg-gray-50"
+                      >
+                        <td className="py-2 pr-4 break-all">
+                          <Link
+                            to="/blob/$owner/$name/$hash"
+                            params={{ owner, name, hash: e.target_hash }}
+                            search={{ path: fullPath }}
+                            className="text-blue-700 hover:underline"
+                          >
+                            {e.name}
+                          </Link>
+                        </td>
+                        <td className="py-2 pr-4 text-gray-500">{e.entry_type}</td>
+                        <td className="py-2 pr-4 font-mono text-xs text-gray-500">
+                          {e.target_hash.slice(0, 12)}…
+                        </td>
+                        <td className="py-2 text-right">
+                          <a
+                            href={`/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(e.target_hash)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-700 hover:underline text-xs"
+                          >
+                            下载
+                          </a>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+            {!hasFolders && pathSegments.length === 0 && (
+              <div className="mt-2 text-xs text-gray-400">
+                此 commit 无子目录（可能是 legacy 扁平 commit）
+              </div>
+            )}
           </>
         )}
       </CardContent>

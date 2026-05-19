@@ -120,7 +120,7 @@ function Breadcrumbs({
       <Link
         to="/repos/$owner/$name"
         params={{ owner, name }}
-        search={{ tab: "files" }}
+        search={{ tab: "files", path: "" }}
         className="text-blue-700 hover:underline"
       >
         {owner}/{name}
@@ -129,7 +129,7 @@ function Breadcrumbs({
       <Link
         to="/repos/$owner/$name"
         params={{ owner, name }}
-        search={{ tab: "files" }}
+        search={{ tab: "files", path: "" }}
         className="text-blue-700 hover:underline"
       >
         Files

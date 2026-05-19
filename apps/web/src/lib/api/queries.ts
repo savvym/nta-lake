@@ -158,6 +158,75 @@ export function useRepoRef(owner: string, name: string, refName: string) {
   });
 }
 
+// --- tree-nested-domain-20260520 接入：按 hash 取任意子层 ---
+
+export function useSubtree(owner: string, name: string, treeHash: string) {
+  return useQuery({
+    queryKey: ["subtree", owner, name, treeHash],
+    queryFn: async (): Promise<TreeRead> => {
+      const r = await fetchJson<TreeRead>(
+        `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/trees/${encodeURIComponent(treeHash)}`,
+      );
+      if (r === null) {
+        throw new Error(`subtree ${treeHash.slice(0, 12)}… not found`);
+      }
+      return r;
+    },
+    enabled: !!treeHash && /^[0-9a-f]{64}$/.test(treeHash),
+  });
+}
+
+// 按路径解析到当前层 subtree（HF 风导航支撑）
+//
+// 算法：fetch root tree → split path by "/" → 每段在当前层 entries 找
+// type=="tree" && name==seg → 拿 target_hash → fetch /trees/{hash} → 重复。
+// 任一段不存在 / 不是 tree → throw 含 segment 与现有 entries。
+// path == "" 直接返 root tree。
+export function useSubtreeByPath(
+  owner: string,
+  name: string,
+  commitHash: string,
+  path: string,
+) {
+  return useQuery({
+    queryKey: ["subtree-by-path", owner, name, commitHash, path],
+    queryFn: async (): Promise<TreeRead> => {
+      const baseUrl = `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+      const root = await fetchJson<TreeRead>(
+        `${baseUrl}/tree/${encodeURIComponent(commitHash)}`,
+      );
+      if (root === null) {
+        throw new Error(`commit ${commitHash.slice(0, 12)}… tree not found`);
+      }
+      const segments = path ? path.split("/").filter((s) => s.length > 0) : [];
+      let current: TreeRead = root;
+      for (const seg of segments) {
+        const sub = current.entries.find(
+          (e) => e.name === seg && e.entry_type === "tree",
+        );
+        if (!sub) {
+          throw new Error(
+            `路径段 ${JSON.stringify(seg)} 在当前层不存在或不是目录；现有 entries：${current.entries
+              .map((e) => `${e.name}(${e.entry_type})`)
+              .join(", ")}`,
+          );
+        }
+        const next = await fetchJson<TreeRead>(
+          `${baseUrl}/trees/${encodeURIComponent(sub.target_hash)}`,
+        );
+        if (next === null) {
+          throw new Error(
+            `subtree ${sub.target_hash.slice(0, 12)}… (for segment ${seg}) not found`,
+          );
+        }
+        current = next;
+      }
+      return current;
+    },
+    enabled: !!commitHash && /^[0-9a-f]{64}$/.test(commitHash),
+  });
+}
+
 export function useJob(jobId: string) {
   return useQuery({
     queryKey: ["job", jobId],

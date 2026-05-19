@@ -1252,6 +1252,43 @@ run_tree_nested_domain() {
     bash -c 'grep -q "run_tree_nested_domain" scripts/_self_check.sh'
 }
 
+run_web_tree_nested_ui() {
+  echo "=== web-tree-nested-ui-20260520 :: 11 AC ==="
+
+  run_ac AC-1 "queries.ts 含 useSubtree 函数" \
+    bash -c 'grep -q "export function useSubtree" apps/web/src/lib/api/queries.ts'
+
+  run_ac AC-2 "queries.ts 含 useSubtreeByPath 函数" \
+    bash -c 'grep -q "export function useSubtreeByPath" apps/web/src/lib/api/queries.ts'
+
+  run_ac AC-3 "路由 validateSearch 含 path 字段（dry-import 通过 typecheck）" \
+    bash -c 'grep -q "path" apps/web/src/routes/repos/\$owner.\$name.tsx'
+
+  run_ac AC-4 "FilesSection 用 useSubtreeByPath" \
+    bash -c 'grep -q "useSubtreeByPath(" apps/web/src/routes/repos/\$owner.\$name.tsx'
+
+  run_ac AC-5 "FilesSection 区分 entry_type tree / blob（≥ 2 处）" \
+    bash -c '[ "$(grep -c "entry_type" apps/web/src/routes/repos/\$owner.\$name.tsx)" -ge 2 ]'
+
+  run_ac AC-6 "vitest ≥ 5 用例（baseline 1 + 新增 ≥ 4） + 0 fail（JSON reporter；剥 pnpm banner）" \
+    bash -c 'cd apps/web && pnpm test -- --run --reporter json src/routes/repos.files-section.test.tsx > /tmp/web-tree-nested-vitest.raw 2>&1 && grep -E "^{" /tmp/web-tree-nested-vitest.raw > /tmp/web-tree-nested-vitest.json && python3 -c "import json; d=json.load(open(\"/tmp/web-tree-nested-vitest.json\")); assert d[\"numFailedTests\"]==0, d; assert d[\"numTotalTests\"]>=5, (\"baseline 1 + 新增 ≥4 =\", d[\"numTotalTests\"])"'
+
+  run_ac AC-7 "全 web vitest run 不回归" \
+    bash -c 'cd apps/web && pnpm test -- --run > /dev/null 2>&1'
+
+  run_ac AC-8 "pnpm lint + typecheck 全 PASS（web filter）" \
+    bash -c 'pnpm --filter web lint && pnpm --filter web typecheck'
+
+  run_ac AC-9 "self_check 含 run_web_tree_nested_ui（兼自递归）" \
+    bash -c 'grep -q "run_web_tree_nested_ui" scripts/_self_check.sh'
+
+  run_ac AC-10 "上游 tree-nested-domain 后端 self_check 不回归（AC-1~AC-8 静态部分；behavioral 在本块跳过避免重跑）" \
+    bash -c 'grep -q "run_tree_nested_domain" scripts/_self_check.sh && cd apps/api && uv run python -c "from dataplat_api.schemas.tree import TreeEntryCreate; from dataplat_api.services.commit import _validate_tree_paths, _normalize_to_nested; assert TreeEntryCreate(name=\"x\", mode=16384, entry_type=\"tree\", target_hash=\"a\"*64).entry_type==\"tree\""'
+
+  run_ac AC-11 "validateSearch path 默认值是空串（grep .default(\"\") 或 .catch(\"\")）" \
+    bash -c 'grep -qE "path\s*:\s*z\.string\(\)\.(default\(\"\"\)|catch\(\"\"\))" apps/web/src/routes/repos/\$owner.\$name.tsx'
+}
+
 run_sdk_cli_mvp() {
   echo "=== sdk-cli-mvp-20260518 :: 13 AC ==="
 
@@ -1788,6 +1825,9 @@ run_change_block() {
     tree-nested-domain|tree-nested-domain-20260520)
       run_tree_nested_domain
       ;;
+    web-tree-nested-ui|web-tree-nested-ui-20260520)
+      run_web_tree_nested_ui
+      ;;
     sdk-cli-mvp|sdk-cli-mvp-20260518)
       run_sdk_cli_mvp
       ;;
@@ -1870,6 +1910,8 @@ run_full() {
   run_processor_pdf_mineru_assets
   echo
   run_tree_nested_domain
+  echo
+  run_web_tree_nested_ui
   echo
   run_sdk_cli_mvp
   echo
