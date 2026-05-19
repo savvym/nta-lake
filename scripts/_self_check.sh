@@ -1093,6 +1093,49 @@ run_llm_qa_gen() {
   run_ac AC-13 "AC-13 自递归" true
 }
 
+run_processor_pdf_mineru() {
+  echo "=== processor-pdf-mineru-20260519 :: 13 AC ==="
+
+  run_ac AC-1 "PdfMineruProcessor 实现 Processor Protocol（test -f + isinstance + config_schema dict）" \
+    bash -c 'test -f apps/api/dataplat_api/processors/pdf_mineru.py && cd apps/api && uv run python -c "from dataplat_core.protocols.processor import Processor; from dataplat_api.processors.pdf_mineru import PdfMineruProcessor; p=PdfMineruProcessor(); assert isinstance(p, Processor) and isinstance(p.config_schema, dict)"'
+
+  run_ac AC-2 "PdfMineruSpec extra=forbid" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.pdf_mineru import PdfMineruSpec; assert PdfMineruSpec.model_config.get(\"extra\")==\"forbid\""'
+
+  run_ac AC-3 "registry 注册 pdf-mineru v0.1" \
+    bash -c 'cd apps/api && uv run python -c "import dataplat_api.processors; from dataplat_api.runner.processor_registry import get_processor_registry; assert get_processor_registry().get(\"pdf-mineru\",\"0.1\") is not None"'
+
+  run_ac AC-4 "MinerUClient 三方法齐全 + 用 httpx（test -f + grep + dry-import）" \
+    bash -c 'test -f apps/api/dataplat_api/processors/_mineru_client.py && grep -q "httpx" apps/api/dataplat_api/processors/_mineru_client.py && cd apps/api && uv run python -c "from dataplat_api.processors._mineru_client import MinerUClient; assert all(hasattr(MinerUClient, m) for m in [\"submit\",\"poll\",\"fetch_markdown\"])"'
+
+  run_ac AC-5 "pdf_mineru.py 显式读 MINERU_API_URL + raise ValueError" \
+    bash -c 'grep -q "MINERU_API_URL" apps/api/dataplat_api/processors/pdf_mineru.py && grep -qE "raise[[:space:]]+ValueError" apps/api/dataplat_api/processors/pdf_mineru.py'
+
+  run_ac AC-6 "produces = silver/pdf-markdown" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.pdf_mineru import PdfMineruProcessor; p=PdfMineruProcessor(); assert p.produces.layer==\"silver\" and p.produces.subtype==\"pdf-markdown\""'
+
+  run_ac AC-7 "pdf_mineru.py 过滤 .pdf（_PDF_SUFFIXES 常量含 .pdf）" \
+    bash -c 'grep -q "_PDF_SUFFIXES" apps/api/dataplat_api/processors/pdf_mineru.py && grep -F -q ".pdf" apps/api/dataplat_api/processors/pdf_mineru.py'
+
+  run_ac AC-8 "输出文件名 pattern <basename>.md（grep .md + with_suffix）" \
+    bash -c 'grep -F -q ".md" apps/api/dataplat_api/processors/pdf_mineru.py && grep -q "with_suffix" apps/api/dataplat_api/processors/pdf_mineru.py'
+
+  run_ac AC-9 "mock httpx 跑 pdf-mineru：success path 产出 .md + poll failed → ValueError" \
+    bash -c 'cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py::test_run_success tests/test_pdf_mineru.py::test_run_poll_failed_raises'
+
+  run_ac AC-10 "tests/test_pdf_mineru.py ≥ 6 + 全 PASS（纯 unit，无 pg/minio/redis）" \
+    bash -c '[ "$(cd apps/api && uv run pytest --collect-only -q tests/test_pdf_mineru.py 2>&1 | grep -cE "test_pdf_mineru\.py::")" -ge 6 ] && (cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py)'
+
+  run_ac AC-11 "ruff + mypy 全 PASS（含 worker/src）" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-12 "MINERU_API_TOKEN 在/不在 → Authorization Bearer 头注入与否（pytest 行为）" \
+    bash -c 'cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py::test_client_token_header_present tests/test_pdf_mineru.py::test_client_token_header_absent'
+
+  run_ac AC-13 "AC-13 自递归（self_check 含 run_processor_pdf_mineru）" \
+    bash -c 'grep -q "run_processor_pdf_mineru" scripts/_self_check.sh'
+}
+
 run_sdk_cli_mvp() {
   echo "=== sdk-cli-mvp-20260518 :: 13 AC ==="
 
@@ -1617,6 +1660,9 @@ run_change_block() {
     llm-qa-gen|llm-qa-gen-20260518)
       run_llm_qa_gen
       ;;
+    processor-pdf-mineru|processor-pdf-mineru-20260519)
+      run_processor_pdf_mineru
+      ;;
     sdk-cli-mvp|sdk-cli-mvp-20260518)
       run_sdk_cli_mvp
       ;;
@@ -1691,6 +1737,8 @@ run_full() {
   run_adapter_firecrawl
   echo
   run_llm_qa_gen
+  echo
+  run_processor_pdf_mineru
   echo
   run_sdk_cli_mvp
   echo
