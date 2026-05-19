@@ -72,7 +72,7 @@ describe("useSubtreeByPath queryFn", () => {
     );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.hash).toBe(IMAGES_TREE_HASH);
-    expect(result.current.data?.entries[0].name).toBe("a.jpg");
+    expect(result.current.data?.entries[0]?.name).toBe("a.jpg");
   });
 
   it("null-guard: root fetch 返 null → throw", async () => {

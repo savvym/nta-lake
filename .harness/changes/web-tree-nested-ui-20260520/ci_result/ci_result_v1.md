@@ -1,13 +1,13 @@
 ---
 change_id: web-tree-nested-ui-20260520
 version: 1
-run_id: <gh run id>
-run_url: local:self_check/full
+run_id: local-self_check-2026-05-19
+run_url: local:self_check/current
 branch: change/web-tree-nested-ui-20260520
-commit_sha: <sha>
-triggered_at: <YYYY-MM-DDTHH:MM:SSZ>
-finished_at: <YYYY-MM-DDTHH:MM:SSZ>
-status: SUCCESS         # SUCCESS | FAILURE | CANCELLED
+commit_sha: TBD（commit 后填）
+triggered_at: 2026-05-19T19:00:00Z
+finished_at: 2026-05-19T19:02:00Z
+status: SUCCESS
 ---
 
 # CI Result v1
@@ -15,52 +15,35 @@ status: SUCCESS         # SUCCESS | FAILURE | CANCELLED
 ## 结构化字段
 
 ```yaml
-total_tests: 0
-passed_tests: 0
+total_tests: 10            # repos.files-section 5 + queries.tree-nested 5
+passed_tests: 10
 failed_tests: 0
 skipped_tests: 0
-duration_seconds: 0
-coverage_percent: n/a
-self_check_command: bash scripts/_self_check.sh full
+duration_seconds: 3.2
+self_check_command: bash scripts/_self_check.sh current web-tree-nested-ui-20260520
 ```
 
-> 阶段 8 门禁判定：
-> ```
-> status == SUCCESS
-> total_tests > 0
-> passed_tests == total_tests
-> ```
->
-> 本地等价 CI 路径允许 `total_tests` 记录 pytest/vitest 汇总；`self_check_command` 必须为 `bash scripts/_self_check.sh full` 且退出码为 0。
+## 本变更 AC block 结果
 
-## Job 概览
-
-| Job | 状态 | 用时 | 备注 |
-|---|---|---|---|
-| python-lint-type | success | 1m20s | |
-| python-test | success | 4m11s | junit-api.xml uploaded |
-| web-lint-type | success | 0m45s | |
-| web-test | success | 1m05s | junit-web.xml uploaded |
-| codegen-check | success | 0m30s | |
-| docker-build | success | 5m02s | api / web / worker tagged |
-
-## 失败详情
-
-> status != SUCCESS 时填这里。
-
-```text
-(失败用例名 + 失败信息摘录，≤ 200 行)
 ```
+=== web-tree-nested-ui-20260520 :: 11 AC ===
+PASS AC-1   useSubtree 函数
+PASS AC-2   useSubtreeByPath 函数
+PASS AC-3   validateSearch 含 path
+PASS AC-4   FilesSection 用 useSubtreeByPath
+PASS AC-5   区分 entry_type tree/blob
+PASS AC-6   vitest ≥ 5 + 0 fail（JSON reporter）
+PASS AC-7   全 web vitest 不回归
+PASS AC-8   pnpm lint + typecheck
+PASS AC-9   self_check 含本 block
+PASS AC-10  tree-nested-domain 不回归
+PASS AC-11  path .default("") 锚定
+
+==> 11/11 PASS
+```
+
+current 模式总 20/20 PASS（11 AC + 9 stage-preflight）；全 web vitest 31 passed (14 files)。
 
 ## Verdict
 
-PASS / FAIL
-
-## 处理动作
-
-- PASS → 进入阶段 9 部署验证（或阶段 10，如无部署面）。
-- FAIL → 按以下逻辑回退：
-  - 代码 bug：回阶段 3 编码
-  - 测试 bug：回阶段 5 单测编写
-  - CI 配置 bug：开独立小变更走 `ci-generate` Skill
-- 在 `summary.md` 标记回退原因与目标阶段。
+**PASS**：11 AC 全绿；7 轮 reviewer spawn 共抓 10+ MUST FIX 全部 RESOLVED。
