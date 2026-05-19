@@ -104,17 +104,17 @@ class PdfMineruProcessor:
 
         client = MinerUClient(base_url=api_url, token=api_token)
 
-        async def _convert_one(pdf_bytes: bytes, filename: str) -> bytes:
+        async def _process_one(pdf_bytes: bytes, filename: str) -> tuple[str, int]:
             task_id = await client.submit(pdf_bytes, filename, spec.parse_method)
             md_text = await client.fetch_markdown(
                 task_id,
                 poll_interval=spec.poll_interval_seconds,
                 poll_timeout=spec.poll_timeout_seconds,
             )
-            return md_text.encode("utf-8")
-
-        async def _upload(content: bytes) -> tuple[str, int]:
-            res = await blob_store.put(BytesIO(content), declared_size=len(content))
+            md_bytes = md_text.encode("utf-8")
+            res = await blob_store.put(
+                BytesIO(md_bytes), declared_size=len(md_bytes)
+            )
             return res.sha256, res.size
 
         files: list[IngestFileRef] = []
@@ -125,8 +125,7 @@ class PdfMineruProcessor:
             if not isinstance(raw, bytes):
                 raw = bytes(raw)
             filename = Path(src_path).name
-            md_bytes = asyncio.run(_convert_one(raw, filename))
-            sha, size = asyncio.run(_upload(md_bytes))
+            sha, size = asyncio.run(_process_one(raw, filename))
             out_path = str(Path(src_path).with_suffix(".md"))
             files.append(IngestFileRef(path=out_path, sha256=sha))
             bytes_written += size

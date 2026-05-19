@@ -3,9 +3,9 @@ change_id: processor-pdf-mineru-20260519
 title: PDF→MD via MinerU Processor
 owner: application-owner-agent
 started_at: 2026-05-19T08:56:58Z
-stage: coding
+stage: unit_test
 status: in_progress
-last_updated: 2026-05-19T10:10:00Z
+last_updated: 2026-05-19T10:50:00Z
 related_changes: []                      # 依赖或被依赖的其他 change id
 ---
 
@@ -40,8 +40,8 @@ related_changes: []                      # 依赖或被依赖的其他 change id
 |---|---|---|---|---|---|
 | 1 需求分析 | done | v2 | — | 3537913 | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
 | 2 需求评审 | done | v2 | APPROVED (spec+tasks) | 3537913 | v1: [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) <br>v2: [spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v2.md](request_analysis/review/tasks_review_v2.md) |
-| 3 编码实现 | pending (待用户确认是否启动) | — | — | — | [coding_report_v1.md](coding/coding_report_v1.md) |
-| 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
+| 3 编码实现 | done | v1 | — | 6e726e5 | [coding_report_v1.md](coding/coding_report_v1.md) |
+| 4 编码评审 | done | v1 | APPROVED (0 MUST / 2 SHOULD) | 59ea59e | [code_review_v1.md](coding/review/code_review_v1.md) |
 | 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
 | 6 单测评审 | | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
 | 7 代码推送 | | | | | _branch / push ref_ |
