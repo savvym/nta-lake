@@ -1,15 +1,18 @@
 ---
 change_id: tree-nested-domain-20260520
-version: 2
+version: 3
 authored_at: 2026-05-19T14:00:00Z
-revised_at: 2026-05-19T14:25:00Z
+revised_at: 2026-05-19T14:40:00Z
 status: draft
 revision_notes: |
+  v3 修 stage 2 reviewer v2 报的 1 条新 MUST FIX：
+  - AC-6 表行"描述"列仍说"算法不变"，与 §范围 v2 文本不一致；同步更新表行描述。
+
   v2 修 stage 2 reviewer v1 报的 4 条 spec MUST FIX：
-  - MUST FIX-1（AC-5 grep 假阳性）：grep 对 `all_trees` 全文搜，命中注释/变量声明仍 PASS。改用 dry-import + 函数调用断言。
-  - MUST FIX-2（AC-3 路径校验遗漏）：补 trailing `/` 和空白 segment 两类。
-  - MUST FIX-3（AC-6 措辞模糊）：改为"算法实现代码不改，entry_type 可为 'tree' 故 hash 输入空间扩大"。
-  - MUST FIX-4（mode 约束缺失）：AC-3 补强约束 `entry_type=='tree' 时 mode 必须 == 16384`。
+  - MUST FIX-1（AC-5 grep 假阳性）→ inspect.getsource + string 断言
+  - MUST FIX-2（AC-3 路径校验遗漏）→ 补 trailing/leading "/" + 空白 segment
+  - MUST FIX-3（AC-6 措辞模糊）→ §范围改为"代码实现不改、输入空间扩大；dedup 仅 per-repo"（**v3 同步表行**）
+  - MUST FIX-4（mode 约束缺失）→ AC-3 §范围补强 mode==16384 约束
 ---
 
 # Spec：Tree 嵌套支持（后端域 / Soft mode / 类 git 递归 GET）
@@ -100,7 +103,7 @@ In scope（与下方 AC 对齐）：
 | AC-3 | static | services/commit.py 含 _validate_tree_paths | `grep -q "_validate_tree_paths" apps/api/dataplat_api/services/commit.py` | 命令退出 0 |
 | AC-4 | static | _normalize_to_nested 输出 root_hash 与多 tree 列表（dry-import + 微 fixture） | `cd apps/api && uv run python -c "from dataplat_api.services.commit import _normalize_to_nested; from dataplat_api.schemas.tree import TreeEntryCreate as T; root, trees = _normalize_to_nested([T(name='images/a.jpg', mode=33188, entry_type='blob', target_hash='a'*64), T(name='paper.md', mode=33188, entry_type='blob', target_hash='b'*64)]); assert isinstance(root, str) and len(trees) >= 2"` | 命令退出 0 |
 | AC-5 | static | create_commit 步骤 4 真调 _normalize_to_nested 且 upsert 多 tree（dry-import + signature 检查；不靠纯 grep 防假阳性） | `cd apps/api && uv run python -c "import inspect; from dataplat_api.services.commit import CommitService, _normalize_to_nested; src = inspect.getsource(CommitService.create_commit); assert '_normalize_to_nested' in src, 'create_commit 未调用 _normalize_to_nested'; assert src.count('TreeORM(') >= 1, 'TreeORM 写入路径丢失'"` | 命令退出 0 |
-| AC-6 | static | _canonical_tree_bytes / _tree_hash 算法不变（grep 函数签名锚定） | `grep -q "def _canonical_tree_bytes" apps/api/dataplat_api/services/commit.py && grep -q "def _tree_hash" apps/api/dataplat_api/services/commit.py` | 命令退出 0 |
+| AC-6 | static | _canonical_tree_bytes / _tree_hash 代码实现不改，entry_type 可为 "tree" 故 hash 输入空间扩大；dedup 仅 per-repo（TreeORM PK=(hash, repo_id)） | `grep -q "def _canonical_tree_bytes" apps/api/dataplat_api/services/commit.py && grep -q "def _tree_hash" apps/api/dataplat_api/services/commit.py` | 命令退出 0 |
 | AC-7 | static | GET /tree/{commit_hash} 路由含 recursive 参数 | `grep -q "recursive" apps/api/dataplat_api/routers/commits.py` | 命令退出 0 |
 | AC-8 | static | 新路由 GET /repos/{owner}/{name}/trees/{tree_hash} 存在 | `grep -q "/{owner}/{name}/trees/{tree_hash}" apps/api/dataplat_api/routers/commits.py` | 命令退出 0 |
 | AC-9 | behavioral | 旧扁平 commit 行为不回归（test_get_tree_legacy_flat_unchanged） | `cd apps/api && uv run pytest -q --tb=no tests/test_tree_nested.py::test_get_tree_legacy_flat_unchanged` | PASS |
