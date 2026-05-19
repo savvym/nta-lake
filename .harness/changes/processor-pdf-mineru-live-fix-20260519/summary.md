@@ -68,8 +68,8 @@ session_deviation:
 > 关闭本变更时填写。
 
 - Branch：`change/processor-pdf-mineru-live-fix-20260519`
-- PR：<链接>
-- Merge commit：TBD（合并 PR 后填）
+- PR：跳过 PR（PAT 缺 pull-requests scope）→ 直接 no-ff merge 到 main
+- Merge commit：`56f51f8`
 - 部署版本（如有）：`<image tag / release tag>`
 - 用户确认：<人 / 时间>
 - 关闭时间：TBD（stage 10 用户确认后填）

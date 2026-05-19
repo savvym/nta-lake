@@ -69,8 +69,8 @@ session_deviation:
 ## 交付
 
 - Branch：`change/processor-pdf-mineru-assets-20260520`（基于 `change/processor-pdf-mineru-live-fix-20260519`）
-- PR：TBD（push 后开）
-- Merge commit：TBD（合并 PR 后填）
+- PR：跳过 PR（PAT 缺 pull-requests scope）→ 直接 no-ff merge 到 main
+- Merge commit：`d4b0759`
 - 部署版本：n/a（stage 9 noop）
 - 用户确认：2026-05-19 演示会话内确认
 - 关闭时间：2026-05-19T13:30:00Z

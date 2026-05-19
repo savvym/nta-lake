@@ -76,8 +76,8 @@ related_changes: []                      # 依赖或被依赖的其他 change id
 > 关闭本变更时填写。
 
 - Branch：`change/processor-pdf-mineru-20260519`（已 push 到 origin）
-- PR：待用户开（`gh` 未鉴权；URL：https://github.com/savvym/nta-lake/pull/new/change/processor-pdf-mineru-20260519）
-- Merge commit：TBD（合并 PR 后填）
+- PR：跳过 PR（PAT 缺 pull-requests scope）→ 直接 no-ff merge 到 main，与 PR #1 风格一致
+- Merge commit：`4faaa5e`（main 上的 merge commit）
 - 部署版本（如有）：n/a（stage 9 SKIPPED noop；env vars 由部署侧注入 `MINERU_API_URL` + 可选 `MINERU_API_TOKEN`）
 - 用户确认：TBD（等用户实测后填）
 - 关闭时间：TBD（stage 10 用户确认后填）
