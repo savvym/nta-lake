@@ -1,8 +1,19 @@
 ---
 change_id: processor-pdf-mineru-20260519
-version: 1
+version: 2
 authored_at: 2026-05-19T09:10:00Z
+revised_at: 2026-05-19T09:55:00Z
 status: draft
+revision_notes: |
+  v2 修复 stage 2 reviewer v1 报出的 MUST FIX 1/2/3 + SHOULD FIX：
+  - MUST FIX-1：AC-8 grep ERE `\|` 字面化错误 → 改为 `with_suffix|\[:-4\]`
+  - MUST FIX-2：Processor Protocol 含 `config_schema` 数据属性，AC-1 isinstance
+    runtime_checkable 校验若缺该属性会 False；AC-1 命令 + T-2 描述明确要求
+    `config_schema: dict[str, Any]` 字段（参考 markdown_normalize.py:51）
+  - MUST FIX-3：AC-10 内嵌管道符被错误转义 `2>&1 \| grep` → 改为 `2>&1 | grep`
+  - SHOULD FIX：AC-5 描述里 "端到端体现在 AC-9 失败分支" 与 AC-9 内容不符
+    （AC-9 测 poll status=failed，不测 env URL 缺失）→ 改为 "AC-10 行为测试中
+    test_run_env_missing_url 用例覆盖"
 ---
 
 # Spec：PdfMineruProcessor（PDF → MD via MinerU 异步 API）
@@ -26,14 +37,14 @@ status: draft
 
 In scope（与下方 AC 编号对齐）：
 
-- AC-1: `PdfMineruProcessor` 实现 `Processor` Protocol
+- AC-1: `PdfMineruProcessor` 实现 `Processor` Protocol（含 `name` / `version` / `config_schema` / `accepts` / `produces` 五项必备数据属性 + `run()`；runtime_checkable isinstance 命中）
 - AC-2: `PdfMineruSpec` Pydantic（extra=forbid）
 - AC-3: `processors/__init__.py` 注册 `pdf-mineru` v0.1
 - AC-4: `_mineru_client.py` 含 `MinerUClient` 类，方法 `submit` / `poll` / `fetch_markdown`，使用 `httpx.AsyncClient`
-- AC-5: `pdf_mineru.py` 显式读 env `MINERU_API_URL`（空/缺失 → ValueError，端到端体现在 AC-9 失败分支）
+- AC-5: `pdf_mineru.py` 显式读 env `MINERU_API_URL`（空/缺失 → ValueError，端到端体现在 AC-10 行为测试 `test_run_env_missing_url` 用例）
 - AC-6: `PdfMineruProcessor.produces` = `RepoSpec(layer="silver", subtype="pdf-markdown")`
 - AC-7: `pdf_mineru.py` 显式过滤 `.pdf`（大小写不敏感）；非 PDF 文件被跳过（不落入产出 tree）
-- AC-8: `pdf_mineru.py` 输出文件名 pattern `<basename>.md`（同名替换 .pdf → .md）
+- AC-8: `pdf_mineru.py` 输出文件名 pattern `<basename>.md`（用 `pathlib.Path(...).with_suffix(".md")` 把 .pdf 后缀替换为 .md）
 - AC-9: behavioral —— pytest 行为：mock httpx，跑完 `pdf-mineru` processor 对一个 1-PDF 仓产出含 `<basename>.md` 的 commit，且轮询失败分支 raise ValueError
 - AC-10: `tests/test_pdf_mineru.py` ≥ 6 测试 + 全 PASS
 - AC-11: ruff + mypy 全 PASS（含 worker/src）
@@ -59,21 +70,32 @@ In scope（与下方 AC 编号对齐）：
 
 | ID | kind | 描述 | 验证方式 | 期望 |
 |---|---|---|---|---|
-| AC-1 | static | PdfMineruProcessor 类存在 + 实现 Processor Protocol | `test -f apps/api/dataplat_api/processors/pdf_mineru.py && cd apps/api && uv run python -c "from dataplat_core.protocols.processor import Processor; from dataplat_api.processors.pdf_mineru import PdfMineruProcessor; assert isinstance(PdfMineruProcessor(), Processor)"` | 命令退出 0 |
+| AC-1 | static | PdfMineruProcessor 类存在 + 实现 Processor Protocol（runtime_checkable isinstance 覆盖 5 项数据属性 `name` / `version` / `config_schema` / `accepts` / `produces` + `run`） | `test -f apps/api/dataplat_api/processors/pdf_mineru.py && cd apps/api && uv run python -c "from dataplat_core.protocols.processor import Processor; from dataplat_api.processors.pdf_mineru import PdfMineruProcessor; p=PdfMineruProcessor(); assert isinstance(p, Processor) and isinstance(p.config_schema, dict)"` | 命令退出 0 |
 | AC-2 | static | PdfMineruSpec extra=forbid | `cd apps/api && uv run python -c "from dataplat_api.processors.pdf_mineru import PdfMineruSpec; assert PdfMineruSpec.model_config.get('extra')=='forbid'"` | 命令退出 0 |
 | AC-3 | static | registry 注册 pdf-mineru v0.1 | `cd apps/api && uv run python -c "import dataplat_api.processors; from dataplat_api.runner.processor_registry import get_processor_registry; assert get_processor_registry().get('pdf-mineru','0.1') is not None"` | 命令退出 0 |
 | AC-4 | static | MinerUClient 三方法齐全 + 用 httpx（test -f + 正向 grep + dry-import） | `test -f apps/api/dataplat_api/processors/_mineru_client.py && grep -q "httpx" apps/api/dataplat_api/processors/_mineru_client.py && cd apps/api && uv run python -c "from dataplat_api.processors._mineru_client import MinerUClient; assert all(hasattr(MinerUClient, m) for m in ['submit','poll','fetch_markdown'])"` | 命令退出 0 |
 | AC-5 | static | pdf_mineru.py 显式读 MINERU_API_URL + 缺失时 raise ValueError（正向双 grep） | `grep -q "MINERU_API_URL" apps/api/dataplat_api/processors/pdf_mineru.py && grep -qE "raise[[:space:]]+ValueError" apps/api/dataplat_api/processors/pdf_mineru.py` | 命令退出 0 |
 | AC-6 | static | produces = silver/pdf-markdown | `cd apps/api && uv run python -c "from dataplat_api.processors.pdf_mineru import PdfMineruProcessor; p=PdfMineruProcessor(); assert p.produces.layer=='silver' and p.produces.subtype=='pdf-markdown'"` | 命令退出 0 |
 | AC-7 | static | pdf_mineru.py 过滤 .pdf（_PDF_SUFFIXES 常量含 .pdf） | `grep -q "_PDF_SUFFIXES" apps/api/dataplat_api/processors/pdf_mineru.py && grep -F -q ".pdf" apps/api/dataplat_api/processors/pdf_mineru.py` | 命令退出 0 |
-| AC-8 | static | 输出文件名 pattern `<basename>.md`（grep `.md` + 路径变换 hint：`with_suffix` 或 `[:-4]`） | `grep -F -q ".md" apps/api/dataplat_api/processors/pdf_mineru.py && grep -qE "with_suffix\|\[:-4\]" apps/api/dataplat_api/processors/pdf_mineru.py` | 命令退出 0 |
+| AC-8 | static | 输出文件名 pattern `<basename>.md`（grep `.md` + 锚定 `with_suffix` 调用，规约路径变换方式） | `grep -F -q ".md" apps/api/dataplat_api/processors/pdf_mineru.py && grep -q "with_suffix" apps/api/dataplat_api/processors/pdf_mineru.py` | 命令退出 0 |
 | AC-9 | behavioral | mock httpx，跑 pdf-mineru 成功路径产出 `<basename>.md` blob，且轮询返 status=failed 时 processor raise ValueError | `cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py::test_run_success tests/test_pdf_mineru.py::test_run_poll_failed_raises` | pytest 2 case PASS |
-| AC-10 | behavioral | tests/test_pdf_mineru.py ≥ 6 + 全 PASS | `[ "$(cd apps/api && uv run pytest --collect-only -q tests/test_pdf_mineru.py 2>&1 \| grep -cE 'test_pdf_mineru\.py::')" -ge 6 ] && (cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py)` | ≥ 6 + 全 PASS |
+| AC-10 | behavioral | tests/test_pdf_mineru.py ≥ 6 + 全 PASS（含 test_run_env_missing_url）；命令含管道符，T-5 落到 self_check.sh 时按下方 fenced block 原样写入 | 见 AC 表下方 `bash` fenced block | ≥ 6 + 全 PASS |
 | AC-11 | static | ruff + mypy 全 PASS（含 worker/src） | `uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src` | 命令退出 0 |
 | AC-12 | behavioral | MINERU_API_TOKEN 存在时请求头含 Authorization Bearer；不存在时无 | `cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py::test_client_token_header_present tests/test_pdf_mineru.py::test_client_token_header_absent` | pytest 2 case PASS |
 | AC-13 | static | AC-13 自递归（self_check 含 run_processor_pdf_mineru） | `grep -q "run_processor_pdf_mineru" scripts/_self_check.sh` | 命令退出 0 |
 
 > behavioral AC 数 = 3（AC-9 / AC-10 / AC-12），满足 stage 1/2 SKILL § "AC 分层规约" 至少 1 条 behavioral 的硬规则。
+
+### AC-10 完整验证命令（避免 markdown 表格管道符歧义）
+
+```bash
+# 1) 收集用例数 ≥ 6
+[ "$(cd apps/api && uv run pytest --collect-only -q tests/test_pdf_mineru.py 2>&1 | grep -cE 'test_pdf_mineru\.py::')" -ge 6 ] && \
+# 2) 全部 PASS
+(cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py)
+```
+
+T-5 把这段原样落到 `scripts/_self_check.sh` 的 `run_processor_pdf_mineru` 函数里（管道符 `|` 不要加反斜杠转义）。
 
 ## 风险
 
