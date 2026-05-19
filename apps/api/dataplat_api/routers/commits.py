@@ -12,6 +12,7 @@ Auth + visibility 矩阵：
 from __future__ import annotations
 
 import tempfile
+import uuid
 from collections.abc import AsyncIterator
 
 from dataplat_core.domain.lineage import Lineage
@@ -22,15 +23,17 @@ from fastapi import (
     Depends,
     HTTPException,
     Path,
+    Query,
     Request,
     status,
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from dataplat_api.auth.deps import get_optional_user, require_admin
 from dataplat_api.db import get_session
-from dataplat_api.models import CommitORM, RepositoryORM
+from dataplat_api.models import CommitORM, RepositoryORM, TreeEntryORM, TreeORM
 from dataplat_api.schemas.blob import BlobMetaResponse, BlobUploadResponse
 from dataplat_api.schemas.commit import CommitCreate, CommitRead
 from dataplat_api.schemas.tree import TreeEntryRead, TreeRead
@@ -208,6 +211,91 @@ async def get_commit(
     return _commit_to_read(commit, deduplicated=False)
 
 
+async def _load_subtree_entries(
+    session: AsyncSession,
+    repo_id: uuid.UUID,
+    tree_hash: str,
+) -> list[TreeEntryORM] | None:
+    """按 (tree_hash, repo_id) 取该层 entries（含子 tree entry）；不存在 → None。"""
+    from sqlalchemy import select  # local import 减少 module-level deps
+
+    tree_stmt = (
+        select(TreeORM)
+        .where(TreeORM.hash == tree_hash, TreeORM.repo_id == repo_id)
+        .options(selectinload(TreeORM.entries))
+    )
+    tree = (await session.execute(tree_stmt)).scalar_one_or_none()
+    if tree is None:
+        return None
+    return sorted(tree.entries, key=lambda x: x.position)
+
+
+_MAX_TREE_RECURSION_DEPTH = 64
+
+
+async def _expand_tree_recursive(
+    session: AsyncSession,
+    repo_id: uuid.UUID,
+    root_tree_hash: str,
+) -> list[TreeEntryRead]:
+    """BFS 批量展开嵌套 tree → leaf blob entry 列表（name 为扁平全路径）。
+
+    O(depth) 查询而非 O(tree_count)：每层用 `WHERE hash IN (...)` 一次批量取所有 subtree。
+    递归深度上限 _MAX_TREE_RECURSION_DEPTH（防恶意 / 异常的深嵌套耗 DB）。
+    """
+    from sqlalchemy import select
+
+    out: list[TreeEntryRead] = []
+    # 待处理：(tree_hash, prefix_for_children) 列表，按层批量取
+    pending: list[tuple[str, str]] = [(root_tree_hash, "")]
+    depth = 0
+    while pending:
+        if depth >= _MAX_TREE_RECURSION_DEPTH:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"tree 嵌套深度 > {_MAX_TREE_RECURSION_DEPTH}，拒绝展开",
+            )
+        # 同 hash 可对应多 prefix（ML 数据集 train/val/test 等内容相同的子目录会共享
+        # subtree hash）；按 hash 聚合所有 prefix，避免重复迭代造成输出膨胀。
+        prefix_map: dict[str, list[str]] = {}
+        for h, p in pending:
+            prefix_map.setdefault(h, []).append(p)
+        # 单次 batch SELECT 取本层所有 unique tree hash
+        stmt = (
+            select(TreeORM)
+            .where(
+                TreeORM.repo_id == repo_id,
+                TreeORM.hash.in_(list(prefix_map.keys())),
+            )
+            .options(selectinload(TreeORM.entries))
+        )
+        trees = (await session.execute(stmt)).scalars().all()
+        tree_by_hash = {t.hash: t for t in trees}
+        next_pending: list[tuple[str, str]] = []
+        for h, prefixes in prefix_map.items():
+            tree = tree_by_hash.get(h)
+            if tree is None:
+                continue
+            sorted_entries = sorted(tree.entries, key=lambda x: x.position)
+            for prefix in prefixes:
+                for e in sorted_entries:
+                    full_name = f"{prefix}{e.name}" if prefix else e.name
+                    if e.entry_type == "tree":
+                        next_pending.append((e.target_hash, f"{full_name}/"))
+                    else:
+                        out.append(
+                            TreeEntryRead(
+                                name=full_name,
+                                mode=e.mode,
+                                entry_type=e.entry_type,  # type: ignore[arg-type]
+                                target_hash=e.target_hash,
+                            )
+                        )
+        pending = next_pending
+        depth += 1
+    return out
+
+
 @router.get(
     "/{owner}/{name}/tree/{commit_hash}",
     response_model=TreeRead,
@@ -216,6 +304,7 @@ async def get_tree(
     owner: str,
     name: str,
     commit_hash: str = Path(pattern=_SHA256_PATTERN),
+    recursive: bool = Query(False, description="True: 递归展开所有 type=tree entry 为 leaf blob 列表"),
     current_user: AuthenticatedUser | None = Depends(get_optional_user),
     session: AsyncSession = Depends(get_session),
 ) -> TreeRead:
@@ -226,6 +315,43 @@ async def get_tree(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Tree for commit {commit_hash} 在 {owner}/{name} 不存在",
         )
+    if recursive:
+        entries = await _expand_tree_recursive(session, repo.id, tree.hash)
+    else:
+        entries = [
+            TreeEntryRead(
+                name=e.name,
+                mode=e.mode,
+                entry_type=e.entry_type,  # type: ignore[arg-type]
+                target_hash=e.target_hash,
+            )
+            for e in sorted(tree.entries, key=lambda x: x.position)
+        ]
+    return TreeRead(hash=tree.hash, entries=entries)
+
+
+@router.get(
+    "/{owner}/{name}/trees/{tree_hash}",
+    response_model=TreeRead,
+)
+async def get_subtree_by_hash(
+    owner: str,
+    name: str,
+    tree_hash: str = Path(pattern=_SHA256_PATTERN),
+    current_user: AuthenticatedUser | None = Depends(get_optional_user),
+    session: AsyncSession = Depends(get_session),
+) -> TreeRead:
+    """按任意 tree hash（root 或 subtree）取该层 entries。
+
+    跨 repo 不暴露：即便 hash 相同，请求 repo 与 owner 不匹配 → 404。
+    """
+    repo = await _resolve_repo(session, owner, name, current_user)
+    entries_orm = await _load_subtree_entries(session, repo.id, tree_hash)
+    if entries_orm is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tree {tree_hash} 在 {owner}/{name} 不存在",
+        )
     entries = [
         TreeEntryRead(
             name=e.name,
@@ -233,6 +359,6 @@ async def get_tree(
             entry_type=e.entry_type,  # type: ignore[arg-type]
             target_hash=e.target_hash,
         )
-        for e in sorted(tree.entries, key=lambda x: x.position)
+        for e in entries_orm
     ]
-    return TreeRead(hash=tree.hash, entries=entries)
+    return TreeRead(hash=tree_hash, entries=entries)

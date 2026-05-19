@@ -70,6 +70,155 @@ def _tree_hash(entries: list[TreeEntryCreate]) -> str:
     return hashlib.sha256(_canonical_tree_bytes(entries)).hexdigest()
 
 
+# ---------- tree-nested-domain-20260520: 路径校验 + nested 化 ----------
+
+_DIR_MODE = 0o040000  # 16384
+
+
+def _validate_tree_paths(entries: list[TreeEntryCreate]) -> None:
+    """校验扁平 entries 的 name 合法性 + entry_type 必须为 blob。
+
+    任一命中 → ValueError 含详细错误（路由层翻 400）。
+    本函数是**唯一校验边界**：所有非 blob 输入应在这里被拒，_normalize_to_nested
+    不再做 entry_type 二次校验（仅信任 blob 输入）。
+    """
+    seen_full_names: set[str] = set()
+    for e in entries:
+        name = e.name
+        if e.entry_type != "blob":
+            raise ValueError(
+                f"tree entry {name!r} 只接受 entry_type='blob' 扁平输入；"
+                f"嵌套结构由 service 内部生成，调用方不要直接传 type='tree'；"
+                f"实收 type={e.entry_type!r}"
+            )
+        if name == "":
+            raise ValueError("tree entry name 不能为空字符串")
+        if name.startswith("/") or name.endswith("/"):
+            raise ValueError(
+                f"tree entry name {name!r} 不能以 '/' 起或结尾"
+            )
+        if "//" in name:
+            raise ValueError(f"tree entry name {name!r} 含连续 '/'")
+        if name in seen_full_names:
+            raise ValueError(f"tree entry name {name!r} 重复")
+        seen_full_names.add(name)
+
+        segments = name.split("/")
+        for seg in segments:
+            if seg in (".", ".."):
+                raise ValueError(
+                    f"tree entry name {name!r} 含非法 segment {seg!r}"
+                )
+            if seg.strip() == "":
+                raise ValueError(
+                    f"tree entry name {name!r} 含空白 segment {seg!r}"
+                )
+
+    # blob 名等于另一个 entry 的目录前缀
+    for e in entries:
+        prefix_parts = e.name.split("/")
+        # 取所有真前缀（不含本身）
+        for i in range(1, len(prefix_parts)):
+            prefix = "/".join(prefix_parts[:i])
+            if prefix in seen_full_names:
+                raise ValueError(
+                    f"tree entry {prefix!r} 同时作为 blob 与 {e.name!r} 的目录前缀冲突"
+                )
+
+
+def _normalize_to_nested(
+    entries: list[TreeEntryCreate],
+) -> tuple[str, list[tuple[str, list[TreeEntryCreate]]]]:
+    """把扁平 entries（name 可含 `/`）转为嵌套 tree。
+
+    返 (root_tree_hash, all_trees)。
+    all_trees: list of (tree_hash, entries_at_that_level)；子 tree 在前，root 最后。
+    持久化时按这个顺序 upsert，FK 引用不会断。
+
+    空 entries 视为合法空 root tree：返 (_tree_hash([]), [(root_hash, [])])。
+    """
+    # in-memory trie
+    # 节点：{"_blobs": list[TreeEntryCreate]（叶子）, "<seg>": <子节点>}
+    root_node: dict[str, object] = {"_blobs": []}
+
+    for e in entries:
+        # entry_type 已在 _validate_tree_paths 校验为 "blob"；此处不重复
+        segments = e.name.split("/")
+        node = root_node
+        # 走前 N-1 个 segment（中间目录）
+        for seg in segments[:-1]:
+            children = node  # alias
+            if seg in children:
+                sub = children[seg]
+                if not isinstance(sub, dict):
+                    raise ValueError(
+                        f"path conflict at segment {seg!r} (already a blob leaf)"
+                    )
+                node = sub
+            else:
+                new_node: dict[str, object] = {"_blobs": []}
+                children[seg] = new_node
+                node = new_node
+        # 末段：作为 blob 挂在当前节点
+        last_seg = segments[-1]
+        if last_seg in node:
+            raise ValueError(
+                f"path conflict: {e.name!r} segment {last_seg!r} 已被占用（同名子目录或 blob）"
+            )
+        # 把 entry 改为"只含末 segment 的 name"
+        leaf_entry = TreeEntryCreate(
+            name=last_seg,
+            mode=e.mode,
+            entry_type="blob",
+            target_hash=e.target_hash,
+        )
+        blobs = node["_blobs"]
+        assert isinstance(blobs, list)
+        blobs.append(leaf_entry)
+        # 保留 last_seg 以触发同层重名检测
+        # 直接 mark 该 segment 已被占用（同 dict key）；用 "_blobs" list 已经记，
+        # 这里加 mark 以便子目录段重复使用同名时 path conflict 触发
+        node[last_seg] = leaf_entry
+
+    all_trees: list[tuple[str, list[TreeEntryCreate]]] = []
+
+    def _walk(node: dict[str, object]) -> str:
+        """递归算节点的 tree hash；emit 子 tree 到 all_trees；返该层 hash。"""
+        level_entries: list[TreeEntryCreate] = []
+        # blob 叶子
+        blobs = node["_blobs"]
+        assert isinstance(blobs, list)
+        for leaf in blobs:
+            level_entries.append(leaf)
+        # 子目录
+        for key, child in node.items():
+            if key == "_blobs":
+                continue
+            if isinstance(child, dict):
+                sub_hash = _walk(child)
+                level_entries.append(
+                    TreeEntryCreate(
+                        name=key,
+                        mode=_DIR_MODE,
+                        entry_type="tree",
+                        target_hash=sub_hash,
+                    )
+                )
+            # 否则是 mark 过的 blob leaf，已在 _blobs 里处理过；跳过
+        # 同层 name 不能重（在 trie 结构里 dict key 已天然唯一；这里防御一次）
+        names = [e.name for e in level_entries]
+        if len(names) != len(set(names)):
+            raise ValueError(
+                f"_normalize_to_nested 内部错误：同层 name 重复 {names!r}"
+            )
+        h = _tree_hash(level_entries)
+        all_trees.append((h, level_entries))
+        return h
+
+    root_hash = _walk(root_node)
+    return root_hash, all_trees
+
+
 def _lineage_to_canonical(lineage_obj: object) -> dict[str, object] | None:
     if lineage_obj is None:
         return None
@@ -138,8 +287,18 @@ class CommitService:
                 detail={"missing_hashes": missing},
             )
 
-        # 步骤 2：算 tree_hash + commit_hash
-        tree_hash = _tree_hash(payload.tree.entries)
+        # 步骤 2：路径校验 → nested 化 → 算 tree_hash + commit_hash
+        # 注意：步骤 1 blob 存在性校验保持原位（对扁平 entries 校验；
+        # 全 type=blob，target_hash 全是 blob hash）。不要把校验移到 normalize
+        # 之后，否则会用子 tree hash 调 store.exists 永远 miss → 400。
+        try:
+            _validate_tree_paths(payload.tree.entries)
+            tree_hash, all_trees = _normalize_to_nested(payload.tree.entries)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
         lineage_canonical = _lineage_to_canonical(payload.lineage)
         commit_hash = _commit_hash(
             tree_hash,
@@ -156,19 +315,19 @@ class CommitService:
 
         # 步骤 4：单事务写（auto-begin；commit 收尾；race → rollback）
         try:
-            # upsert tree
-            tree = await session.get(TreeORM, tree_hash)
-            if tree is None:
-                tree = TreeORM(hash=tree_hash, repo_id=repo_id)
-                session.add(tree)
-                # bulk add entries（按 name 升序，position 同步）
+            # upsert 所有层 tree（子 tree 在前；遍历 all_trees 按顺序写）
+            for sub_tree_hash, entries_at_level in all_trees:
+                existing_tree = await session.get(TreeORM, sub_tree_hash)
+                if existing_tree is not None:
+                    continue
+                session.add(TreeORM(hash=sub_tree_hash, repo_id=repo_id))
                 sorted_entries = sorted(
-                    payload.tree.entries, key=lambda e: e.name
+                    entries_at_level, key=lambda e: e.name
                 )
                 for pos, e in enumerate(sorted_entries):
                     session.add(
                         TreeEntryORM(
-                            tree_hash=tree_hash,
+                            tree_hash=sub_tree_hash,
                             position=pos,
                             name=e.name,
                             mode=e.mode,

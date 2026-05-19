@@ -1,6 +1,8 @@
-"""Tree HTTP schemas（spec commit-api-mvp-20260517 AC-1）。
+"""Tree HTTP schemas（spec commit-api-mvp-20260517 AC-1；tree-nested-domain-20260520 放宽）。
 
-MVP 仅支持单层 entry_type='blob'；嵌套 tree 留 follow-up tree-nested-*。
+Soft mode：调用方仍可传扁平 name（含 `/`，如 "images/abc.jpg"），CommitService
+内部把扁平 entries 自动转为嵌套 tree（递归子 tree + sha256 hash）。entry_type
+支持 "blob" / "tree" 两种；type=tree 时 mode = 0o040000 (16384)。
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ class TreeEntryCreate(BaseModel):
 
     name: str
     mode: int
-    entry_type: Literal["blob"] = "blob"
+    entry_type: Literal["blob", "tree"] = "blob"
     target_hash: SHA256
 
 
@@ -31,7 +33,7 @@ class TreeEntryRead(BaseModel):
 
     name: str
     mode: int
-    entry_type: Literal["blob"]
+    entry_type: Literal["blob", "tree"]
     target_hash: SHA256
 
 
