@@ -18,11 +18,24 @@
 
 所有产物按 `.harness/changes/<change-id>/` 下的对应子目录归档；`summary.md` 实时反映当前阶段与门禁状态。
 
+### 自检分层
+
+- **阶段内快检**：`bash scripts/_self_check.sh quick [change-id]`，只跑 reviewer/ac-kind 轻量守门和阶段产物 preflight。
+- **当前 change 检查**：`bash scripts/_self_check.sh current [change-id]`，等价于 quick + 当前 change 已注册的 AC block；新 change 尚未注册 block 时只记 SKIP，不阻塞阶段内迭代。
+- **最终门禁**：`bash scripts/_self_check.sh full`，跑全部历史回归。无参数入口为兼容旧流程，等价于 `full`，不要在阶段内循环使用。
+- 全量 `ruff` / `mypy` / web build / 历史回归默认放到阶段 8；阶段 3/5 只跑与本次改动面直接相关的最小命令集。
+
+### Git 边界
+
+- 每个 change 只对应一个 `change/<change-id>` 分支。
+- 每个阶段 Quality Gate 通过后提交一次该阶段产物，并把 commit SHA 记录到 `summary.md`。
+- 阶段之间评估改动优先用 `git diff <上一阶段commit>...HEAD`；reviewer 不再靠人工翻历史文件判断增量。
+
 ---
 
 ## 阶段 1 · 需求分析（request_analysis）
 
-- **Entry Criteria**：用户已提出明确诉求；`.harness/changes/<id>/` 目录已创建并复制自 `_template/`。
+- **Entry Criteria**：用户已提出明确诉求；已通过 `bash scripts/harness_new_change.sh <change-id> [title]` 创建 `.harness/changes/<change-id>/` 并切到 `change/<change-id>` 分支。
 - **Skill Injection**：`skills/request-analysis/SKILL.md`。
 - **产出物**：
   - `request_analysis/spec.md`：背景、问题陈述、范围、非范围、验收标准、风险。
@@ -59,7 +72,7 @@
   - `coding/coding_report_v{N}.md`：改了哪些文件、为何这样改、tasks.md 中对应任务状态。
 - **Quality Gate**：
   - 改动文件清单与 `tasks.md` 任务对得上（每个任务有对应改动或显式标记 "deferred 见 xxx"）。
-  - 本地 lint / type check 通过（`ruff check`、`mypy`、`tsc --noEmit`、`pnpm lint` 按 stack 适用）。
+  - 本地最小校验通过：与本次改动面直接相关的 lint / type check / 测试为 0 错误，并通过 `bash scripts/_self_check.sh current <change-id>`。
   - 没有引入未在 spec 中授权的依赖或目录。
 - **Rollback Route**：
   - 编译/类型错误未修 → 留在本阶段。
@@ -112,13 +125,13 @@
 - **Entry Criteria**：阶段 6 通过；本地 git 状态干净（无未追踪的应入库文件）。
 - **Skill Injection**：无（直接 git 操作）。
 - **产出物**：
-  - 一次或多次 commit；推送到远端分支。
-  - `git push origin main`（本仓库策略允许单作者直 push main；非单作者项目可改用 feature branch + PR 流程，需在项目 README 显式声明）。
+  - 已按阶段形成的一组 commit；推送到远端分支。
+  - `git push -u origin change/<change-id>`；禁止将未完成 change 直接推到 `main`。
   - `summary.md` 更新 commit SHA、分支名。
 - **Quality Gate**：
   - commit message 遵循约定（详见 `coding-style.md` §git）。
-  - 本仓库策略：允许直 push main（单作者项目；新协作者加入需重审此策略）。
-  - `git status` 显示 `up to date with 'origin/main'`（验证本地与 remote 同步）。
+  - 当前分支名匹配 `change/<change-id>`。
+  - `git status` 显示当前分支 up to date with `origin/change/<change-id>`（验证本地与 remote 同步）。
 - **Rollback Route**：
   - 推送失败（鉴权 / 网络）→ 检查 ssh-agent / remote URL，重试；不解决前不进入下一阶段。
   - 推送被拒（remote 有新 commit 未 pull）→ `git pull --rebase` 解决冲突后重试。
@@ -126,11 +139,12 @@
 ## 阶段 8 · CI 验证（ci_result）
 
 - **Entry Criteria**：阶段 7 完成。
-- **本项目策略（self-attest 默认）**：**本地 pytest + `bash scripts/_self_check.sh` 等价 CI**；**不引入 GitHub Actions / GitLab CI 等远程 CI**（理由：等价覆盖 + 反馈快 + 单作者无 PR review 摩擦）。新 change 标 stage 8 = `self-attest` 时**必须**引用本节理由文案（"本项目策略：本地 pytest + self_check.sh 等价 CI..."）；**禁用**早期"无远程"系列旧理由（详 `harness-remote-push-onboarding-20260518` 撤销说明）。
+- **本项目策略（self-attest 默认）**：**本地 pytest + `bash scripts/_self_check.sh full` 等价 CI**；**不引入 GitHub Actions / GitLab CI 等远程 CI**（理由：等价覆盖 + 反馈快 + 单作者无 PR review 摩擦）。新 change 标 stage 8 = `self-attest` 时**必须**引用本节理由文案（"本项目策略：本地 pytest + self_check.sh full 等价 CI..."）；**禁用**早期"无远程"系列旧理由（详 `harness-remote-push-onboarding-20260518` 撤销说明）。
 - **Skill Injection**：`skills/unit-test-ci/SKILL.md`（仅当未来引入远程 CI 时启用）。
 - **产出物**（仅在引入远程 CI 时）：
   - `ci_result/ci_result_v{N}.md`：CI 运行链接、status、total_tests、passed_tests、failed_tests、coverage（如有）。
   - self-attest 路径：在 `summary.md` 阶段 8 行填 `self-attest`，notes 引用本节策略。
+- **本地等价 CI 命令**：`bash scripts/_self_check.sh full` 必须通过；如本 change 涉及 Python/TS 代码，还需跑对应 workspace 的全量 lint/typecheck/build/test 命令并记录结果。
 - **Quality Gate**（**机械化**，仅远程 CI 路径）：
   ```text
   status == SUCCESS

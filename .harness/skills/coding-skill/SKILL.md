@@ -30,7 +30,7 @@ outputs:
 
 ### 1. 准备工作区
 
-- 确认所在分支符合 `coding-style.md` §4.1（`<author>/<change-id>`）。
+- 确认所在分支符合 `coding-style.md` §4.1（`change/<change-id>`）。
 - 拉取 main 并 rebase（或 merge，看团队约定）。
 - 起本地中间件 / 起 mock（看是否需要）。
 
@@ -74,26 +74,30 @@ llm/       →  LLM Gateway，全部 LLM 调用入口
 
 ### 6. 增量提交
 
-- 每完成 1-2 个任务做一次 commit，message 按 `coding-style.md` §4.2。
+- 每完成 1-2 个任务可做工作中 commit；每个阶段 Quality Gate 通过后必须有阶段边界 commit，message 按 `coding-style.md` §4.2。
 - 不要把 lint/format 改动与业务改动混在同一 commit；先单独 commit 一次"chore: format X" 再做业务。
 - **本阶段不需要 push**——push 在阶段 7。
 
 ### 7. 本地校验
 
-每次进入 review 前必须本地跑：
+每次进入 review 前必须跑阶段内最小校验：
 
 ```bash
-# Python
-uv run ruff check apps/api packages/core
-uv run mypy apps/api/dataplat_api
-uv run pytest apps/api  # 暂时不要求覆盖率，但必须不报错
+# harness 快检 + 当前 change AC（如已注册）
+bash scripts/_self_check.sh current <change-id>
 
-# TS
+# Python：只跑本次改动面直接相关的 lint/typecheck/test
+uv run ruff check <changed-python-paths>
+uv run mypy <changed-python-packages>
+uv run pytest <changed-test-files>
+
+# TS：只跑本次改动面直接相关的 lint/typecheck/test
 pnpm --filter web lint
 pnpm --filter web typecheck
+pnpm --filter web test -- <changed-test-files>
 ```
 
-失败先修，不要带病进 review。
+失败先修，不要带病进 review。全量 `ruff` / `mypy` / web build / 历史回归放到阶段 8 的 `bash scripts/_self_check.sh full`。
 
 ### 8. 写 coding_report
 
@@ -115,7 +119,7 @@ pnpm --filter web typecheck
 ```text
 coding_report_v{latest}.md 存在
 报告中"改动文件列表" 与 git diff --name-only main...HEAD 一致
-本地 ruff / mypy / pnpm lint / pnpm typecheck 全部 0 错误
+本地最小 lint / typecheck / test 与 bash scripts/_self_check.sh current <change-id> 全部 0 错误
 未引入未在 spec/tasks 中授权的目录或顶层依赖
 所有改动属于本 change 的 scope（用 git log 抽查不出无关 commit）
 ```

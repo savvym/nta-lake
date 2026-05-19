@@ -68,7 +68,7 @@
 
 1. 用户提出诉求（无论大小）。
 2. **你必须先决定**：这是新建变更，还是接续某个已有 change？
-   - 新建：在 `.harness/changes/<feature-slug>-<yyyymmdd>/` 复制 `_template/`，初始化 `summary.md`。
+   - 新建：执行 `bash scripts/harness_new_change.sh <change-id> [title]`，自动创建 `.harness/changes/<change-id>/` 并切到 `change/<change-id>`。
    - 接续：读 `summary.md` 看停在哪一阶段。
 3. 进入 `request_analysis` 阶段，加载 Skill `request-analysis`。
 
@@ -85,8 +85,9 @@
 1. 查 **Entry Criteria**，不达标就回退。
 2. 加载对应 **Skill**，按 SOP 执行。
 3. 把产出物写到 `changes/<id>/<阶段目录>/`，同步刷新 `summary.md`。
-4. 通过 **Quality Gate**（必须可程序化检查）才能进入下一阶段。
-5. 失败按 **Rollback Route** 回退，不要硬推。
+4. 阶段内先跑 `bash scripts/_self_check.sh quick <change-id>`；已有当前 change AC block 时跑 `bash scripts/_self_check.sh current <change-id>`。
+5. 通过 **Quality Gate**（必须可程序化检查）后提交该阶段 commit，并把 SHA 写回 `summary.md`。
+6. 失败按 **Rollback Route** 回退，不要硬推；阶段 8 才跑 `bash scripts/_self_check.sh full` 作为最终门禁。
 
 ### 4.3 执行者与评判者分离
 
@@ -131,9 +132,9 @@
 
 ```text
 1. 想清楚一句话："我想完成什么？验收标准是什么？"
-2. mkdir .harness/changes/<slug>-<yyyymmdd>/
-3. cp -r .harness/changes/_template/* .harness/changes/<slug>-<yyyymmdd>/
-4. 编辑 summary.md：填 stage=request_analysis, title, owner, started_at
+2. 执行 `bash scripts/harness_new_change.sh <change-id> [title]`
+3. 确认当前分支为 `change/<change-id>`
+4. 编辑 summary.md：补充范围摘要、阶段进度、关键决策
 5. 加载 Skill: .harness/skills/request-analysis/SKILL.md
 6. 产出 spec.md + tasks.md
 7. 启动 review：**spawn 独立 reviewer 子 agent**（见 §7.5）；产出 spec_review_v1.md / tasks_review_v1.md
