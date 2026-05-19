@@ -76,13 +76,21 @@ _DIR_MODE = 0o040000  # 16384
 
 
 def _validate_tree_paths(entries: list[TreeEntryCreate]) -> None:
-    """校验扁平 entries 的 name 合法性（路径形态、conflict、mode 约束）。
+    """校验扁平 entries 的 name 合法性 + entry_type 必须为 blob。
 
     任一命中 → ValueError 含详细错误（路由层翻 400）。
+    本函数是**唯一校验边界**：所有非 blob 输入应在这里被拒，_normalize_to_nested
+    不再做 entry_type 二次校验（仅信任 blob 输入）。
     """
     seen_full_names: set[str] = set()
     for e in entries:
         name = e.name
+        if e.entry_type != "blob":
+            raise ValueError(
+                f"tree entry {name!r} 只接受 entry_type='blob' 扁平输入；"
+                f"嵌套结构由 service 内部生成，调用方不要直接传 type='tree'；"
+                f"实收 type={e.entry_type!r}"
+            )
         if name == "":
             raise ValueError("tree entry name 不能为空字符串")
         if name.startswith("/") or name.endswith("/"):
@@ -105,11 +113,6 @@ def _validate_tree_paths(entries: list[TreeEntryCreate]) -> None:
                 raise ValueError(
                     f"tree entry name {name!r} 含空白 segment {seg!r}"
                 )
-
-        if e.entry_type == "tree" and e.mode != _DIR_MODE:
-            raise ValueError(
-                f"tree entry {name!r} 声明 entry_type='tree' 但 mode={oct(e.mode)} != {oct(_DIR_MODE)}"
-            )
 
     # blob 名等于另一个 entry 的目录前缀
     for e in entries:
@@ -139,12 +142,7 @@ def _normalize_to_nested(
     root_node: dict[str, object] = {"_blobs": []}
 
     for e in entries:
-        if e.entry_type != "blob":
-            # 调用方手写 type=tree：当前 soft mode 路径不支持（应只传 blob）
-            raise ValueError(
-                f"_normalize_to_nested 只接受 entry_type='blob' 的扁平输入；"
-                f"收到 {e.name!r} type={e.entry_type!r}"
-            )
+        # entry_type 已在 _validate_tree_paths 校验为 "blob"；此处不重复
         segments = e.name.split("/")
         node = root_node
         # 走前 N-1 个 segment（中间目录）

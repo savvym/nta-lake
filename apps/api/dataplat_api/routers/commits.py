@@ -230,33 +230,69 @@ async def _load_subtree_entries(
     return sorted(tree.entries, key=lambda x: x.position)
 
 
+_MAX_TREE_RECURSION_DEPTH = 64
+
+
 async def _expand_tree_recursive(
     session: AsyncSession,
     repo_id: uuid.UUID,
-    tree_hash: str,
-    prefix: str = "",
+    root_tree_hash: str,
 ) -> list[TreeEntryRead]:
-    """递归展开嵌套 tree → leaf blob entry 列表（name 为扁平全路径）。"""
-    entries = await _load_subtree_entries(session, repo_id, tree_hash)
-    if entries is None:
-        return []
+    """BFS 批量展开嵌套 tree → leaf blob entry 列表（name 为扁平全路径）。
+
+    O(depth) 查询而非 O(tree_count)：每层用 `WHERE hash IN (...)` 一次批量取所有 subtree。
+    递归深度上限 _MAX_TREE_RECURSION_DEPTH（防恶意 / 异常的深嵌套耗 DB）。
+    """
+    from sqlalchemy import select
+
     out: list[TreeEntryRead] = []
-    for e in entries:
-        full_name = f"{prefix}{e.name}" if prefix else e.name
-        if e.entry_type == "tree":
-            sub = await _expand_tree_recursive(
-                session, repo_id, e.target_hash, prefix=f"{full_name}/"
+    # 待处理：(tree_hash, prefix_for_children) 列表，按层批量取
+    pending: list[tuple[str, str]] = [(root_tree_hash, "")]
+    depth = 0
+    while pending:
+        if depth >= _MAX_TREE_RECURSION_DEPTH:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"tree 嵌套深度 > {_MAX_TREE_RECURSION_DEPTH}，拒绝展开",
             )
-            out.extend(sub)
-        else:
-            out.append(
-                TreeEntryRead(
-                    name=full_name,
-                    mode=e.mode,
-                    entry_type=e.entry_type,  # type: ignore[arg-type]
-                    target_hash=e.target_hash,
-                )
+        hashes_this_layer = [h for h, _ in pending]
+        prefix_map: dict[str, list[str]] = {}
+        for h, p in pending:
+            prefix_map.setdefault(h, []).append(p)
+        # 单次 batch SELECT 取本层所有 tree
+        stmt = (
+            select(TreeORM)
+            .where(
+                TreeORM.repo_id == repo_id,
+                TreeORM.hash.in_(hashes_this_layer),
             )
+            .options(selectinload(TreeORM.entries))
+        )
+        trees = (await session.execute(stmt)).scalars().all()
+        tree_by_hash = {t.hash: t for t in trees}
+        next_pending: list[tuple[str, str]] = []
+        for h in hashes_this_layer:
+            tree = tree_by_hash.get(h)
+            if tree is None:
+                continue
+            sorted_entries = sorted(tree.entries, key=lambda x: x.position)
+            # 该 hash 可能对应多个 prefix（同子树被多处引用，理论上极少）
+            for prefix in prefix_map[h]:
+                for e in sorted_entries:
+                    full_name = f"{prefix}{e.name}" if prefix else e.name
+                    if e.entry_type == "tree":
+                        next_pending.append((e.target_hash, f"{full_name}/"))
+                    else:
+                        out.append(
+                            TreeEntryRead(
+                                name=full_name,
+                                mode=e.mode,
+                                entry_type=e.entry_type,  # type: ignore[arg-type]
+                                target_hash=e.target_hash,
+                            )
+                        )
+        pending = next_pending
+        depth += 1
     return out
 
 
