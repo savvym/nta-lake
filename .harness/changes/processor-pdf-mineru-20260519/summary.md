@@ -3,9 +3,9 @@ change_id: processor-pdf-mineru-20260519
 title: PDF→MD via MinerU Processor
 owner: application-owner-agent
 started_at: 2026-05-19T08:56:58Z
-stage: unit_test
+stage: ci_result
 status: in_progress
-last_updated: 2026-05-19T10:50:00Z
+last_updated: 2026-05-19T11:35:00Z
 related_changes: []                      # 依赖或被依赖的其他 change id
 ---
 
@@ -42,8 +42,8 @@ related_changes: []                      # 依赖或被依赖的其他 change id
 | 2 需求评审 | done | v2 | APPROVED (spec+tasks) | 3537913 | v1: [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) <br>v2: [spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v2.md](request_analysis/review/tasks_review_v2.md) |
 | 3 编码实现 | done | v1 | — | 6e726e5 | [coding_report_v1.md](coding/coding_report_v1.md) |
 | 4 编码评审 | done | v1 | APPROVED (0 MUST / 2 SHOULD) | 59ea59e | [code_review_v1.md](coding/review/code_review_v1.md) |
-| 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
-| 6 单测评审 | | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
+| 5 单测编写 | done | v1 | — | d7a6fe1 | [test_report_v1.md](unit_test/test_report_v1.md) |
+| 6 单测评审 | done | v1 | APPROVED (0 MUST / 2 SHOULD) | d7a6fe1 | [test_review_v1.md](unit_test/review/test_review_v1.md) |
 | 7 代码推送 | | | | | _branch / push ref_ |
 | 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
 | 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
@@ -67,7 +67,9 @@ related_changes: []                      # 依赖或被依赖的其他 change id
 
 | 类型 | 描述 | 跟进位置 |
 |---|---|---|
-| SHOULD FIX | _e.g. 加更细的并发测试_ | _follow-up change <id> 或 task <id>_ |
+| stage4 SHOULD FIX S-2 | `_mineru_client.py` 解析失败错误消息用 `payload!r` 全量，poll 含大 markdown 时异常体积膨胀且可能漏 doc 内容到日志 | follow-up change `processor-pdf-mineru-live-*`（联调时一并 truncate payload + 调整错误消息） |
+| stage4 NICE TO HAVE | RepoView Protocol 漏 `iter_paths` 声明（系统性，跨多 processor） | follow-up change `core-repoview-protocol-iter-paths-*`（独立 change） |
+| stage6 SHOULD FIX | `test_run_poll_timeout` 依赖 wallclock（asyncio.sleep 0.01）；当前 <1s 不阻塞 | follow-up change `processor-pdf-mineru-test-clock-mock-*`（接 CI flake 监控真出现再做） |
 
 ## 交付
 
