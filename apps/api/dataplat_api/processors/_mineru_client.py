@@ -152,15 +152,20 @@ def _extract_status_string(payload: dict[str, Any]) -> str:
 
 
 def _parse_result_payload(payload: dict[str, Any], task_id: str) -> str:
-    """MinerU /result 响应提 markdown 文本。
+    """MinerU /result 响应提 markdown 文本（兼容多 layout）。
 
-    多 layout fallback：
-    1) 顶层 `markdown`：MVP 假设
-    2) 顶层 `md_content`：mineru-cli 风格
-    3) `results[0].markdown` / `results[0].md_content`：批处理风格
-    4) 顶层 `data.markdown` / `data.md_content`：包了一层 data 的风格
+    MinerU 3.1.x 实测真实 layout：
+        {"backend": "...", "version": "...",
+         "results": {"<filename_stem>": {"md_content": "...", ...}}}
 
-    全失败 → 抛 ValueError 列出 keys，便于联调时定位真实 layout。
+    fallback 顺序（首个非空命中即返）：
+    1) 顶层 `markdown` / `md_content`：MVP 假设
+    2) 顶层 `data.markdown` / `data.md_content`：包了一层 data
+    3) `results` 是 list：`results[0].markdown` / `results[0].md_content`
+    4) `results` 是 dict：取首个 value 的 `md_content` / `markdown`（MinerU 3.1.x 实测）
+
+    若所有 layout 都未命中、或命中但内容为空字符串 → 抛 ValueError，
+    错误消息含已尝试的路径与顶层 keys，便于真服务联调。
     """
     md = payload.get("markdown") or payload.get("md_content")
     if isinstance(md, str) and md:
@@ -175,8 +180,16 @@ def _parse_result_payload(payload: dict[str, Any], task_id: str) -> str:
         md = results[0].get("markdown") or results[0].get("md_content")
         if isinstance(md, str) and md:
             return md
+    if isinstance(results, dict):
+        for val in results.values():
+            if isinstance(val, dict):
+                md = val.get("md_content") or val.get("markdown")
+                if isinstance(md, str) and md:
+                    return md
+            elif isinstance(val, str) and val:
+                return val
     raise ValueError(
-        f"MinerU task {task_id} /result 无 markdown 字段；"
-        f"已尝试 markdown / md_content / data.* / results[0].* 全 miss；"
+        f"MinerU task {task_id} /result 无 markdown 字段（或字段为空）；"
+        f"已尝试 markdown / md_content / data.* / results[0].* / results[*].md_content；"
         f"top-level keys={list(payload.keys())}"
     )
