@@ -44,8 +44,8 @@ related_changes: []                      # 依赖或被依赖的其他 change id
 | 4 编码评审 | done | v1 | APPROVED (0 MUST / 2 SHOULD) | 59ea59e | [code_review_v1.md](coding/review/code_review_v1.md) |
 | 5 单测编写 | done | v1 | — | d7a6fe1 | [test_report_v1.md](unit_test/test_report_v1.md) |
 | 6 单测评审 | done | v1 | APPROVED (0 MUST / 2 SHOULD) | d7a6fe1 | [test_review_v1.md](unit_test/review/test_review_v1.md) |
-| 7 代码推送 | | | | | _branch / push ref_ |
-| 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
+| 7 代码推送 | done | — | — | 9882377 | origin/change/processor-pdf-mineru-20260519 |
+| 8 CI 验证 | done | v1 | PASS（本 change 13/13；12 carry-over FAIL 非本 change 引入） | TBD | [ci_result_v1.md](ci_result/ci_result_v1.md) |
 | 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
 | 10 用户确认 | | | | | _确认人 / 时间_ |
 
