@@ -4,8 +4,8 @@ title: Tree 嵌套支持（soft mode + recursive GET）
 owner: application-owner-agent
 started_at: 2026-05-19T13:54:24Z
 stage: user_confirmation
-status: waiting_review
-last_updated: 2026-05-19T16:20:00Z
+status: done
+last_updated: 2026-05-19T16:35:00Z
 related_changes:
   - commit-api-mvp-20260517            # 现状来源（"MVP 仅支持单层"声明）
   - processor-framework-20260517       # 引入 follow-up `tree-nested-*` 的 change
@@ -31,14 +31,14 @@ related_changes:
 |---|---|---|---|---|---|
 | 1 需求分析 | done | spec v3 / tasks v2 | — | 986e0a0 | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
 | 2 需求评审 | done | v3 | APPROVED (spec v3 + tasks v2) | 986e0a0 | v1: [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) <br>v2: [spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v2.md](request_analysis/review/tasks_review_v2.md) <br>v3: [spec_review_v3.md](request_analysis/review/spec_review_v3.md) |
-| 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
-| 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
-| 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
-| 6 单测评审 | done | v1 | APPROVED | — | [test_review_v1.md](unit_test/review/test_review_v1.md)（MUST FIX 0 / SHOULD FIX 2 / NICE TO HAVE 3） |
-| 7 代码推送 | | | | | _branch / push ref_ |
-| 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
-| 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
-| 10 用户确认 | | | | | _确认人 / 时间_ |
+| 3 编码实现 | done | v2 | — | dc10a7d → d3b3099 | [coding_report_v1.md](coding/coding_report_v1.md) |
+| 4 编码评审 | done | v3 | APPROVED (v1 报 2 MUST / v2 抓 prefix dedup bug / v3 全 RESOLVED) | d3b3099 | v1: [code_review_v1.md](coding/review/code_review_v1.md) <br>v2: [code_review_v2.md](coding/review/code_review_v2.md) <br>v3: [code_review_v3.md](coding/review/code_review_v3.md) |
+| 5 单测编写 | done | v1 | 9/9 PASS | bd83de2 → f5a1e0c | [test_report_v1.md](unit_test/test_report_v1.md) |
+| 6 单测评审 | done | v1 | APPROVED (0 MUST / 2 SHOULD 已处理) | f5a1e0c | [test_review_v1.md](unit_test/review/test_review_v1.md) |
+| 7 代码推送 | done | — | — | 888c2ac | origin/change/tree-nested-domain-20260520（已合并并删除） |
+| 8 CI 验证 | done | v1 | PASS (14/14 + 9 preflight = 23/23) | 888c2ac | [ci_result_v1.md](ci_result/ci_result_v1.md) |
+| 9 部署验证 | done | v1 | SKIPPED (noop) | 888c2ac | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
+| 10 用户确认 | done | — | PASS（用户 2026-05-19 演示会话确认 merge） | b0ac18f | 用户：2026-05-19 |
 
 ## 关键决策
 
@@ -52,7 +52,7 @@ related_changes:
 
 ## 当前阻塞
 
-- 无；等 stage 2 reviewer
+- 无（change 已关闭，合并到 main b0ac18f）
 
 ## Deferred 项
 
@@ -66,9 +66,9 @@ related_changes:
 
 > 关闭本变更时填写。
 
-- Branch：`change/tree-nested-domain-20260520`（基于 main）
-- PR：TBD（push 后开；若 PAT 仍缺 PR scope 走直 merge）
-- Merge commit：TBD
-- 部署版本：n/a（无部署面）
-- 用户确认：TBD
-- 关闭时间：TBD
+- Branch：`change/tree-nested-domain-20260520`（已合并到 main，远端/本地分支均已删除）
+- PR：跳过 PR（PAT 缺 pull-requests scope）→ 直接 no-ff merge 到 main
+- Merge commit：`b0ac18f`
+- 部署版本：n/a（stage 9 SKIPPED noop；无 schema / 部署面变化）
+- 用户确认：2026-05-19 演示会话内确认
+- 关闭时间：2026-05-19T16:35:00Z
