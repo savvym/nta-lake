@@ -4,8 +4,8 @@ title: PDF→MD via MinerU Processor
 owner: application-owner-agent
 started_at: 2026-05-19T08:56:58Z
 stage: user_confirmation
-status: waiting_review
-last_updated: 2026-05-19T12:00:00Z
+status: done
+last_updated: 2026-05-19T13:30:00Z
 related_changes: []                      # 依赖或被依赖的其他 change id
 ---
 

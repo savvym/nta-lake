@@ -4,8 +4,8 @@ title: MinerU 真实 API 对齐（X-API-Key + 202 + files 数组 + /result）
 owner: application-owner-agent
 started_at: 2026-05-19T10:07:54Z
 stage: user_confirmation
-status: waiting_review
-last_updated: 2026-05-19T12:55:00Z
+status: done
+last_updated: 2026-05-19T13:30:00Z
 related_changes:
   - processor-pdf-mineru-20260519   # 上游 change；本 change 是 spec § "deferred to coding 阶段" 的兑现
 session_deviation:
@@ -45,7 +45,7 @@ session_deviation:
 | 7 代码推送 | | | | | _branch / push ref_ |
 | 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
 | 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
-| 10 用户确认 | | | | | _确认人 / 时间_ |
+| 10 用户确认 | done | — | PASS（被 assets follow-up 端到端覆盖；用户 2026-05-19 确认整个链路闭环） | 5de6a7d | 用户：2026-05-19 演示会话；assets change AC-11 显式回归验证本 change 不被破坏 |
 
 ## 关键决策
 

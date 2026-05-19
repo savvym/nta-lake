@@ -18,6 +18,7 @@ layout：顶层 `markdown` / `md_content` / `results[0].markdown` 三种 fallbac
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import time
 from typing import Any
@@ -57,10 +58,17 @@ class MinerUClient:
         filename: str,
         parse_method: str = "auto",
         backend: str = "hybrid-auto-engine",
+        return_images: bool = False,
+        return_content_list: bool = False,
     ) -> str:
         url = f"{self._base_url}/tasks"
         files = [("files", (filename, pdf_bytes, "application/pdf"))]
-        data = {"parse_method": parse_method, "backend": backend}
+        data = {
+            "parse_method": parse_method,
+            "backend": backend,
+            "return_images": "true" if return_images else "false",
+            "return_content_list": "true" if return_content_list else "false",
+        }
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.post(
                 url, files=files, data=data, headers=self._headers()
@@ -90,6 +98,23 @@ class MinerUClient:
                 f"MinerU fetch_result 非 200：status={resp.status_code} task_id={task_id}"
             )
         return _parse_result_payload(resp.json(), task_id)
+
+    async def fetch_full_result(self, task_id: str) -> dict[str, Any]:
+        """取 markdown + images（解码后 bytes）+ content_list（JSON 字符串）。
+
+        返：
+          {"markdown": str,
+           "images": dict[str, bytes],   # filename → decoded bytes（空 dict 表示无）
+           "content_list": str | None}    # MinerU 序列化好的 JSON；None 表示未返
+        """
+        url = f"{self._base_url}/tasks/{task_id}/result"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.get(url, headers=self._headers())
+        if resp.status_code != 200:
+            raise ValueError(
+                f"MinerU fetch_full_result 非 200：status={resp.status_code} task_id={task_id}"
+            )
+        return _parse_full_result_payload(resp.json(), task_id)
 
     async def fetch_markdown(
         self,
@@ -149,6 +174,89 @@ def _extract_status_string(payload: dict[str, Any]) -> str:
         if isinstance(val, str) and val:
             return val.lower()
     return ""
+
+
+def _decode_image_data_uri(value: str) -> bytes:
+    """解 MinerU images dict 里的 value。
+
+    兼容两种形态：
+    1) 标准 data URI：`data:image/jpeg;base64,/9j/...` → 取逗号后 base64 解码
+    2) 裸 base64 字符串：直接 b64decode
+
+    解码失败 → ValueError。
+    """
+    if not isinstance(value, str) or not value:
+        raise ValueError("image data 不是非空字符串")
+    payload = value
+    if value.startswith("data:"):
+        comma = value.find(",")
+        if comma == -1:
+            raise ValueError("data URI 缺逗号分隔符")
+        payload = value[comma + 1 :]
+    try:
+        return base64.b64decode(payload, validate=False)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"image base64 解码失败: {exc}") from exc
+
+
+def _select_first_file_result(payload: dict[str, Any], task_id: str) -> dict[str, Any]:
+    """从 MinerU /result 响应里取首个文件对应的 dict。
+
+    兼容 results=dict（3.1.x 实测）/ results=list / 顶层（旧 MVP 假设）几种 layout。
+    """
+    if "md_content" in payload or "markdown" in payload:
+        return payload
+    results = payload.get("results")
+    if isinstance(results, dict):
+        for val in results.values():
+            if isinstance(val, dict):
+                return val
+    if isinstance(results, list) and results and isinstance(results[0], dict):
+        return results[0]
+    data = payload.get("data")
+    if isinstance(data, dict):
+        return data
+    raise ValueError(
+        f"MinerU task {task_id} /result 无法定位 file result dict；"
+        f"top-level keys={list(payload.keys())}"
+    )
+
+
+def _parse_full_result_payload(payload: dict[str, Any], task_id: str) -> dict[str, Any]:
+    """从 MinerU /result 提 markdown + images + content_list。
+
+    返 {"markdown": str, "images": dict[str, bytes], "content_list": str | None}。
+    markdown 缺失 → ValueError；images / content_list 可空。
+    """
+    file_result = _select_first_file_result(payload, task_id)
+    md = file_result.get("md_content") or file_result.get("markdown")
+    if not isinstance(md, str) or not md:
+        raise ValueError(
+            f"MinerU task {task_id} 缺 md_content / markdown；keys={list(file_result.keys())}"
+        )
+    images_raw = file_result.get("images") or {}
+    images: dict[str, bytes] = {}
+    if isinstance(images_raw, dict):
+        for fname, value in images_raw.items():
+            if not isinstance(fname, str) or not fname:
+                continue
+            try:
+                images[fname] = _decode_image_data_uri(value)
+            except ValueError as exc:
+                _logger.warning(
+                    "MinerU task %s image %s 解码失败 → 跳过: %s",
+                    task_id,
+                    fname,
+                    exc,
+                )
+    content_list = file_result.get("content_list")
+    if not isinstance(content_list, str) or not content_list:
+        content_list = None
+    return {
+        "markdown": md,
+        "images": images,
+        "content_list": content_list,
+    }
 
 
 def _parse_result_payload(payload: dict[str, Any], task_id: str) -> str:

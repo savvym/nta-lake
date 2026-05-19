@@ -107,8 +107,19 @@ def _reset_fake() -> None:
     _FakeAsyncClient.poll_sequence = [
         _FakeResponse(payload={"status": "succeeded"})
     ]
+    # MinerU 3.1.x 真实 layout：results = {filename_stem: {md_content, images, content_list}}
     _FakeAsyncClient.result_response = _FakeResponse(
-        payload={"markdown": "# Hello\n"}
+        payload={
+            "backend": "hybrid-auto-engine",
+            "version": "3.1.14",
+            "results": {
+                "sample": {
+                    "md_content": "# Hello\n",
+                    "images": {},
+                    "content_list": None,
+                }
+            },
+        }
     )
     _FakeAsyncClient.submit_calls = []
     _FakeAsyncClient.poll_calls = []
@@ -213,7 +224,7 @@ def test_run_success(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_run_poll_failed_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     _reset_fake()
     _FakeAsyncClient.poll_sequence = [
-        _FakeResponse(payload={"status": "failed", "error": "ocr crashed"})
+        _FakeResponse(payload={"status": "failed", "message": "ocr crashed"})
     ]
     monkeypatch.setenv("MINERU_API_URL", "http://mineru.test")
     _patch_httpx(monkeypatch)
@@ -313,6 +324,85 @@ def test_run_poll_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     config = {"poll_interval_seconds": 0.01, "poll_timeout_seconds": 0.05}
     with pytest.raises(ValueError, match="轮询超时"):
         proc.run([view], config, Path("/tmp"), ctx)
+
+
+def test_run_with_assets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """assets change：fake httpx 返 2 image + content_list → ≥ 4 IngestFileRef。"""
+    import base64
+
+    _reset_fake()
+    img1 = b"\x89PNG-fake-1"
+    img2 = b"\xff\xd8-fake-jpeg-2"
+    cl_json = '[{"type":"text","text":"hi","page_idx":0}]'
+    _FakeAsyncClient.result_response = _FakeResponse(
+        payload={
+            "backend": "hybrid-auto-engine",
+            "version": "3.1.14",
+            "results": {
+                "sample": {
+                    "md_content": (
+                        "# Title\n\n![](images/aaa.png) ![](images/bbb.jpg)\n"
+                    ),
+                    "images": {
+                        "aaa.png": "data:image/png;base64,"
+                        + base64.b64encode(img1).decode(),
+                        "bbb.jpg": base64.b64encode(img2).decode(),  # 裸 base64
+                    },
+                    "content_list": cl_json,
+                }
+            },
+        }
+    )
+    monkeypatch.setenv("MINERU_API_URL", "http://mineru.test")
+    monkeypatch.delenv("MINERU_API_TOKEN", raising=False)
+    _patch_httpx(monkeypatch)
+
+    view = _FakeRepoView({"sample.pdf": b"%PDF-1.4 fake bytes"})
+    ctx = _make_ctx()
+    proc = PdfMineruProcessor()
+    result = proc.run([view], {}, Path("/tmp"), ctx)
+
+    # 至少 4 个产物：md + 2 image + content_list.json
+    assert result.file_count >= 4
+    paths = [f.path for f in result.files]
+    assert "sample.md" in paths
+    assert "images/aaa.png" in paths
+    assert "images/bbb.jpg" in paths
+    assert "sample.content_list.json" in paths
+
+    # blob_store 收到的字节也应正确
+    blob_store = ctx.blob_store
+    assert isinstance(blob_store, _FakeBlobStore)
+    # markdown + 2 image + content_list = 4 puts
+    assert len(blob_store.puts) == 4
+    assert img1 in blob_store.puts  # PNG 裸 base64 解码后 = img1
+    assert img2 in blob_store.puts
+    assert cl_json.encode("utf-8") in blob_store.puts
+
+    # client.submit 透传了 return_images / return_content_list
+    submit_data = _FakeAsyncClient.submit_calls[0]["data"]
+    assert submit_data["return_images"] == "true"
+    assert submit_data["return_content_list"] == "true"
+
+
+def test_data_uri_base64_decode() -> None:
+    """直接单测 _decode_image_data_uri：prefix + 裸 base64 双路径。"""
+    import base64
+
+    from dataplat_api.processors._mineru_client import _decode_image_data_uri
+
+    raw = b"hello-bytes-\x00\x01\x02"
+    b64 = base64.b64encode(raw).decode()
+
+    # 1) 标准 data URI
+    assert _decode_image_data_uri(f"data:image/png;base64,{b64}") == raw
+    # 2) 裸 base64
+    assert _decode_image_data_uri(b64) == raw
+    # 3) 错误 → ValueError
+    with pytest.raises(ValueError):
+        _decode_image_data_uri("")
+    with pytest.raises(ValueError):
+        _decode_image_data_uri("data:image/png;base64")  # 缺逗号
 
 
 # 防止 unused import 警告（io.BytesIO 在 _FakeRepoView.open 用到）
