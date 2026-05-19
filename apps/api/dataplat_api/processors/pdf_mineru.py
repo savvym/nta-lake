@@ -5,7 +5,7 @@
 约束：
 - 严格串行（不并发多 PDF）
 - env MINERU_API_URL 必需；缺失 → ValueError
-- env MINERU_API_TOKEN 可选；存在则 Authorization: Bearer <token>
+- env MINERU_API_TOKEN 可选；存在则 X-API-Key: <token>（MinerU 3.1.x 鉴权）
 - 输出文件名用 Path(path).with_suffix(".md")
 - 非 .pdf 文件被跳过（不进产出 tree）
 - 上游无 .pdf → ValueError
@@ -45,6 +45,7 @@ class PdfMineruSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     parse_method: str = "auto"
+    backend: str = "hybrid-auto-engine"
     poll_interval_seconds: float = 5.0
     poll_timeout_seconds: float = 600.0
 
@@ -54,6 +55,7 @@ _CONFIG_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
     "properties": {
         "parse_method": {"type": "string"},
+        "backend": {"type": "string"},
         "poll_interval_seconds": {"type": "number", "exclusiveMinimum": 0},
         "poll_timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
     },
@@ -105,7 +107,9 @@ class PdfMineruProcessor:
         client = MinerUClient(base_url=api_url, token=api_token)
 
         async def _process_one(pdf_bytes: bytes, filename: str) -> tuple[str, int]:
-            task_id = await client.submit(pdf_bytes, filename, spec.parse_method)
+            task_id = await client.submit(
+                pdf_bytes, filename, spec.parse_method, spec.backend
+            )
             md_text = await client.fetch_markdown(
                 task_id,
                 poll_interval=spec.poll_interval_seconds,

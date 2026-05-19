@@ -3,9 +3,9 @@ change_id: processor-pdf-mineru-live-fix-20260519
 title: MinerU 真实 API 对齐（X-API-Key + 202 + files 数组 + /result）
 owner: application-owner-agent
 started_at: 2026-05-19T10:07:54Z
-stage: coding
-status: in_progress
-last_updated: 2026-05-19T12:35:00Z
+stage: user_confirmation
+status: waiting_review
+last_updated: 2026-05-19T12:55:00Z
 related_changes:
   - processor-pdf-mineru-20260519   # 上游 change；本 change 是 spec § "deferred to coding 阶段" 的兑现
 session_deviation:

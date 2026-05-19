@@ -45,14 +45,20 @@ class _FakeResponse:
 class _FakeAsyncClient:
     """按 method+url 路由到预设响应。
 
-    submit_calls / poll_calls 记录每次请求的 headers，便于断言 Authorization。
-    poll_sequence: list[dict]，每次 GET 取下一个；用完后保持最后一个。
+    routes:
+      submit (POST /tasks)   → submit_response，默认 status_code=202, payload={"task_id":"task-xyz"}
+      poll   (GET /tasks/{id})→ poll_sequence 依次取（用完保持最后一个）
+      result (GET /tasks/{id}/result) → result_response，默认 200 + {"markdown":"# Hello\\n"}
+    submit_calls / poll_calls / result_calls 记录每次请求的 headers，
+    便于断言 X-API-Key（MinerU 3.1.x 鉴权方式）。
     """
 
     submit_response: _FakeResponse = _FakeResponse()
     poll_sequence: list[_FakeResponse] = []
+    result_response: _FakeResponse = _FakeResponse()
     submit_calls: list[dict[str, Any]] = []
     poll_calls: list[dict[str, Any]] = []
+    result_calls: list[dict[str, Any]] = []
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         del args, kwargs
@@ -78,6 +84,11 @@ class _FakeAsyncClient:
     async def get(
         self, url: str, headers: dict[str, str] | None = None
     ) -> _FakeResponse:
+        if url.endswith("/result"):
+            type(self).result_calls.append(
+                {"url": url, "headers": dict(headers or {})}
+            )
+            return type(self).result_response
         type(self).poll_calls.append(
             {"url": url, "headers": dict(headers or {})}
         )
@@ -91,13 +102,17 @@ class _FakeAsyncClient:
 
 def _reset_fake() -> None:
     _FakeAsyncClient.submit_response = _FakeResponse(
-        payload={"task_id": "task-xyz"}
+        status_code=202, payload={"task_id": "task-xyz"}
     )
     _FakeAsyncClient.poll_sequence = [
-        _FakeResponse(payload={"status": "succeeded", "markdown": "# Hello\n"})
+        _FakeResponse(payload={"status": "succeeded"})
     ]
+    _FakeAsyncClient.result_response = _FakeResponse(
+        payload={"markdown": "# Hello\n"}
+    )
     _FakeAsyncClient.submit_calls = []
     _FakeAsyncClient.poll_calls = []
+    _FakeAsyncClient.result_calls = []
 
 
 def _fake_httpx() -> Any:
@@ -181,10 +196,18 @@ def test_run_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(blob_store, _FakeBlobStore)
     assert blob_store.puts == [b"# Hello\n"]
     assert result.bytes_written == len(b"# Hello\n")
-    # submit + poll 都被调过
+    # submit + poll + result 都被调过
     assert len(_FakeAsyncClient.submit_calls) == 1
     assert _FakeAsyncClient.submit_calls[0]["url"] == "http://mineru.test/tasks"
+    # MinerU v3 multipart 字段名为 files（数组），非 file 单数
+    submit_files = _FakeAsyncClient.submit_calls[0]["files"]
+    assert isinstance(submit_files, list)
+    assert submit_files[0][0] == "files"
+    # submit 也透传 backend 字段
+    assert _FakeAsyncClient.submit_calls[0]["data"]["backend"] == "hybrid-auto-engine"
     assert len(_FakeAsyncClient.poll_calls) == 1
+    assert len(_FakeAsyncClient.result_calls) == 1
+    assert _FakeAsyncClient.result_calls[0]["url"].endswith("/tasks/task-xyz/result")
 
 
 def test_run_poll_failed_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -218,15 +241,21 @@ def test_client_token_header_present(monkeypatch: pytest.MonkeyPatch) -> None:
     _reset_fake()
     _patch_httpx(monkeypatch)
 
-    client = MinerUClient(base_url="http://mineru.test", token="secret-token")
+    client = MinerUClient(base_url="http://mineru.test", token="secret-key")
     task_id = asyncio.run(client.submit(b"%PDF-1.4", "x.pdf", "auto"))
     assert task_id == "task-xyz"
     submit_call = _FakeAsyncClient.submit_calls[0]
-    assert submit_call["headers"].get("Authorization") == "Bearer secret-token"
+    # MinerU 3.1.x 用 X-API-Key 头，非 Authorization Bearer
+    assert submit_call["headers"].get("X-API-Key") == "secret-key"
+    assert "Authorization" not in submit_call["headers"]
 
     asyncio.run(client.poll(task_id))
     poll_call = _FakeAsyncClient.poll_calls[0]
-    assert poll_call["headers"].get("Authorization") == "Bearer secret-token"
+    assert poll_call["headers"].get("X-API-Key") == "secret-key"
+
+    asyncio.run(client.fetch_result(task_id))
+    result_call = _FakeAsyncClient.result_calls[0]
+    assert result_call["headers"].get("X-API-Key") == "secret-key"
 
 
 def test_client_token_header_absent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -236,11 +265,12 @@ def test_client_token_header_absent(monkeypatch: pytest.MonkeyPatch) -> None:
     client = MinerUClient(base_url="http://mineru.test", token=None)
     asyncio.run(client.submit(b"%PDF-1.4", "x.pdf", "auto"))
     submit_call = _FakeAsyncClient.submit_calls[0]
+    assert "X-API-Key" not in submit_call["headers"]
     assert "Authorization" not in submit_call["headers"]
 
     asyncio.run(client.poll("task-xyz"))
     poll_call = _FakeAsyncClient.poll_calls[0]
-    assert "Authorization" not in poll_call["headers"]
+    assert "X-API-Key" not in poll_call["headers"]
 
 
 def test_run_skips_non_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
