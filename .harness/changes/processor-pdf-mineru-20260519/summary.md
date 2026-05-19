@@ -3,9 +3,9 @@ change_id: processor-pdf-mineru-20260519
 title: PDF→MD via MinerU Processor
 owner: application-owner-agent
 started_at: 2026-05-19T08:56:58Z
-stage: request_analysis
-status: waiting_review
-last_updated: 2026-05-19T09:25:00Z
+stage: coding
+status: in_progress
+last_updated: 2026-05-19T10:10:00Z
 related_changes: []                      # 依赖或被依赖的其他 change id
 ---
 
@@ -38,9 +38,9 @@ related_changes: []                      # 依赖或被依赖的其他 change id
 
 | 阶段 | 状态 | 最新版本 | verdict | 阶段 commit | 产物 / 报告 |
 |---|---|---|---|---|---|
-| 1 需求分析 | done | v1 | — | d15e332 | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
-| 2 需求评审 | in_progress | v1 | — | — | [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) |
-| 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
+| 1 需求分析 | done | v2 | — | 3537913 | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
+| 2 需求评审 | done | v2 | APPROVED (spec+tasks) | 3537913 | v1: [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) <br>v2: [spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v2.md](request_analysis/review/tasks_review_v2.md) |
+| 3 编码实现 | pending (待用户确认是否启动) | — | — | — | [coding_report_v1.md](coding/coding_report_v1.md) |
 | 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
 | 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
 | 6 单测评审 | | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
