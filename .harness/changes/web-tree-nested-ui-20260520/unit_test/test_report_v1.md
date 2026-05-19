@@ -1,7 +1,7 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>
+change_id: web-tree-nested-ui-20260520
 version: 1
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+authored_at: 2026-05-19T18:50:00Z
 status: waiting_review
 ---
 
@@ -11,53 +11,50 @@ status: waiting_review
 
 | AC ID | 测试文件 | 测试函数 |
 |---|---|---|
-| AC-1 | apps/api/tests/api/test_repos.py | test_create_bronze_repo_returns_201 |
-| AC-2 | apps/api/tests/api/test_repos.py | test_commit_blob_dedup_works |
-
-> 每条 AC 必须在表里出现至少一次。
+| AC-4 (默认 root 渲染 + folder/blob 区分) | repos.files-section.test.tsx | "嵌套 commit：根级渲染 folder icon + blob 混合" |
+| AC-4 (点 folder 触发 setPath) | repos.files-section.test.tsx | "点 folder：URL ?path 更新" |
+| AC-4 (面包屑回退) | repos.files-section.test.tsx | "面包屑：path 非空时显示路径段 + 返回上一级；点段回退" |
+| AC-4 (error UI + 返根目录按钮) | repos.files-section.test.tsx | "path 不存在：渲染错误 message + 返根目录按钮" |
+| AC-5 (legacy 扁平兼容) | repos.files-section.test.tsx | "legacy 扁平 commit：渲染扁平 entry list，无 folder icon，下载链可用" |
+| AC-2 (queryFn 串行 fetch + null-guard + segment 校验) | queries.tree-nested.test.tsx | 5 用例（happy / null-guard / segment 不存在 / blob 而非 tree / "//" 空段过滤） |
+| AC-6 (≥ 4 新用例) | both files | 5 (files-section) + 5 (queries) = 10 新用例 |
+| AC-7 (现有不回归) | repos.tabs.test.tsx 等 | 26 - 5 + 5 = 26 上轮基线全通；现 31/31 PASS |
 
 ## 测试文件清单
 
 | 文件 | 类型 | 用例数 |
 |---|---|---|
-| apps/api/tests/api/test_repos.py | 集成 | 6 |
-| apps/web/src/components/RepoCard.test.tsx | 单元 | 3 |
+| apps/web/src/routes/repos.files-section.test.tsx | 集成（路由 + UI 渲染） | 5 |
+| apps/web/src/lib/api/queries.tree-nested.test.tsx | 单元（hook queryFn 直接跑） | 5 |
+| 其他现有文件 | 不变 | 21 (合计 26→31，新增 10 个用例覆盖本 change) |
 
-## Mock 范围声明
+## Mock 范围
 
-> 允许 mock：LLM provider（用 FakeLLMProvider）、外部 HTTP（msw / respx）、时间。
-> 禁止 mock：RepositoryService / BlobStore / LineageService 等数据访问层。
+- repos.files-section.test.tsx：mock 整个 `../lib/api/queries`（用 mockSubtreeState 闭包动态切换 data / isLoading / isError），让 UI 测试聚焦渲染逻辑而不被 fetch 链拖
+- queries.tree-nested.test.tsx：仅 spy `fetchJson`（client.ts），让 useSubtreeByPath 的 queryFn **真跑**（spawn reviewer 报的 MUST FIX-2 修复点）；覆盖 null-guard / segment 校验 / 串行 fetch 算法
 
-本轮 mock 了：
-
-- _e.g. anthropic provider → 用 FakeLLMProvider 返回 fixture._
-
-## 本地运行结果
+## 本地运行
 
 ```text
-$ uv run pytest apps/api -q
-.......... 24 passed in 12.34s
+$ pnpm test -- --run
+ Test Files  14 passed (14)
+      Tests  31 passed (31)
+   Duration  3.20s
 
-$ pnpm --filter web test
- PASS  src/components/RepoCard.test.tsx
- Tests: 3 passed, 3 total
+$ pnpm typecheck
+> tsc --noEmit -p tsconfig.json
+ success（0 errors）
 ```
 
 ## 已知 flaky / 跳过
 
-> 任何 skip 必须显式说明。
+无；31 PASS 0 fail 0 skip。
 
-- _无_
+## 偏离 spec / trade-off
 
-## 覆盖率（如已配置）
-
-```text
-apps/api/dataplat_api/services/repository.py    94%
-apps/api/dataplat_api/storage/blob.py            87%
-```
-
-> 覆盖率不达标本身**不阻塞**，但低于 60% 的核心模块会被评审标 MUST FIX。
+- **MUST FIX-2 增补 queryFn 单测**：stage 6 reviewer v1 抓到 useSubtreeByPath 的 queryFn 被 module-level mock 完全隐藏，未覆盖。新建 queries.tree-nested.test.tsx 用 spy + renderHook + 真 QueryClient 让 queryFn 真跑；5 用例覆盖 null-guard / 不存在 segment / blob-not-tree / 空段过滤 / happy path
+- **Test file extension .ts → .tsx**：JSX wrapper function 需要 .tsx 后缀；esbuild 否则 transform fail
 
 ## 下一步
 
-进入阶段 6 单测评审：加载 `.harness/skills/expert-reviewer/SKILL.md`（artifact 模式），写 `unit_test/review/test_review_v1.md`。
+stage 6 v2 reviewer 复检 MUST FIX-2 / MUST FIX-3 是否真修。
