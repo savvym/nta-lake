@@ -3,9 +3,9 @@ change_id: tree-nested-domain-20260520
 title: Tree 嵌套支持（soft mode + recursive GET）
 owner: application-owner-agent
 started_at: 2026-05-19T13:54:24Z
-stage: coding
-status: in_progress
-last_updated: 2026-05-19T14:45:00Z
+stage: user_confirmation
+status: waiting_review
+last_updated: 2026-05-19T16:20:00Z
 related_changes:
   - commit-api-mvp-20260517            # 现状来源（"MVP 仅支持单层"声明）
   - processor-framework-20260517       # 引入 follow-up `tree-nested-*` 的 change
