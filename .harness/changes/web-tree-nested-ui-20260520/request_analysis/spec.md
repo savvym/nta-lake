@@ -1,10 +1,14 @@
 ---
 change_id: web-tree-nested-ui-20260520
-version: 3
+version: 4
 authored_at: 2026-05-19T16:50:00Z
-revised_at: 2026-05-19T17:35:00Z
+revised_at: 2026-05-19T17:50:00Z
 status: draft
-revision_notes_v3: |
+revision_notes_v4: |
+  v4 修 stage 2 reviewer v3 报的 1 条残留 MUST FIX：
+  - AC-6 表格"期望"列措辞 `≥ 已有数+4`（v2 残留）与命令断言 `>=5` 不一致；
+    改为 `numTotalTests ≥ 5（baseline 1 + 新增 ≥ 4）`，与命令一致。
+
   v3 修 stage 2 reviewer v2 报的 3 条新 spec MUST FIX：
   - AC-6 numTotalTests 基线：当前 repos.files-section.test.tsx 已有 1 个 it，
     本 change 加 ≥ 4 新用例 → 期望 numTotalTests ≥ 5；JSON 解析改为断言这个数。
@@ -100,7 +104,7 @@ In scope（与下方 AC 对齐）：
 | AC-3 | static | 路由 validateSearch 含 path 字段（含 default 解析；dry-load 模块后断言 default === ""） | `grep -q "path" apps/web/src/routes/repos/\$owner.\$name.tsx && cd apps/web && pnpm exec tsc --noEmit -p tsconfig.json 2>&1 \| grep -qv "error TS"` | 命令退出 0 |
 | AC-4 | static | FilesSection 用 useSubtreeByPath（grep 锚定调用） | `grep -q "useSubtreeByPath(" apps/web/src/routes/repos/\$owner.\$name.tsx` | 命令退出 0 |
 | AC-5 | static | FilesSection 渲染逻辑区分 entry_type=tree / blob（grep "entry_type" 出现 ≥ 2 次） | `[ "$(grep -c 'entry_type' apps/web/src/routes/repos/\$owner.\$name.tsx)" -ge 2 ]` | 命令退出 0 |
-| AC-6 | behavioral | vitest 覆盖嵌套 + 点 folder + 面包屑 + legacy + 错误（≥ 4 新用例，全 PASS；JSON reporter 计数） | 见 § "AC-6 完整命令" | numTotalTests ≥ 已有数+4 且 numFailedTests == 0 |
+| AC-6 | behavioral | vitest 覆盖嵌套 + 点 folder + 面包屑 + legacy + 错误（≥ 4 新用例，全 PASS；JSON reporter 计数） | 见 § "AC-6 完整命令" | numTotalTests ≥ 5（baseline 1 + 新增 ≥ 4）且 numFailedTests == 0 |
 | AC-7 | behavioral | vitest run 现有 + 新用例不回归 | `pnpm --filter web test -- --run` | 全 PASS |
 | AC-8 | static | pnpm lint + pnpm typecheck 全 PASS（web filter） | `pnpm --filter web lint && pnpm --filter web typecheck` | 命令退出 0 |
 | AC-9 | static | self_check 含 run_web_tree_nested_ui（AC-9 也兼自递归） | `grep -q "run_web_tree_nested_ui" scripts/_self_check.sh` | 命令退出 0 |
