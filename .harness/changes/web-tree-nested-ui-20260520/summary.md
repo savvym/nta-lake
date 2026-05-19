@@ -3,9 +3,9 @@ change_id: web-tree-nested-ui-20260520
 title: Web Files tab 树形导航（HF 风 + ?path + 面包屑）
 owner: application-owner-agent
 started_at: 2026-05-19T14:56:03Z
-stage: request_analysis
-status: waiting_review
-last_updated: 2026-05-19T16:55:00Z
+stage: coding
+status: in_progress
+last_updated: 2026-05-19T17:55:00Z
 related_changes:
   - tree-nested-domain-20260520
   - repo-files-tab-20260517

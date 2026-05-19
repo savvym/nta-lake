@@ -52,6 +52,12 @@ vi.mock("../lib/api/queries", () => ({
     isLoading: false,
     isError: false,
   }),
+  useSubtreeByPath: () => ({
+    data: null,
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
   useUpdateRepo: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteRepo: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useEnqueueIngest: () => ({ mutateAsync: vi.fn(), isPending: false }),
