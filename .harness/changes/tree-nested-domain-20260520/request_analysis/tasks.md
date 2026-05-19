@@ -1,7 +1,12 @@
 ---
 change_id: tree-nested-domain-20260520
-version: 1
+version: 2
 authored_at: 2026-05-19T14:00:00Z
+revised_at: 2026-05-19T14:25:00Z
+revision_notes: |
+  v2 修 stage 2 reviewer v1 报的 2 条 tasks MUST FIX：
+  - MUST FIX-1（T-2 颗粒度违规）：拆为 T-2a（_validate_tree_paths）+ T-2b（_normalize_to_nested）。
+  - MUST FIX-2（T-3 步骤 1 blob 校验范围未明）：显式注明"步骤 1 blob 存在性校验保持原位（在 normalize 之前对全扁平 entries 调用，全是 type=blob，target_hash 全是 blob hash），不要移到 normalize 之后"。
 ---
 
 # Tasks
@@ -19,41 +24,66 @@ tasks:
     covers_ac: [AC-1]
     status: pending
 
-  - id: T-2
-    title: services/commit.py 新增 _validate_tree_paths + _normalize_to_nested
+  - id: T-2a
+    title: services/commit.py 新增 _validate_tree_paths
     description: |
-      _validate_tree_paths(entries) -> None：
+      _validate_tree_paths(entries: list[TreeEntryCreate]) -> None：
+        遍历 entries，对每个 entry：
         - 拒 name == ""
-        - 拒 name 含 "//" / 以 "/" 起或结尾
-        - 拒 segment 是 "." 或 ".."
-        - 拒 blob 名等于另一个 entry 的目录前缀（如 name="a" 同 name="a/b"）
-        - 拒重名（同层 name 重复）
-        - 失败 raise ValueError(详细错误消息)
-      _normalize_to_nested(entries) -> tuple[str, list[tuple[str, list[TreeEntryCreate]]]]：
-        - 输入：扁平 entries（name 可含 /）
-        - 算法：
-          1. 构 in-memory trie：把每个 entry 按 / 切 segments，挂到 trie 节点
-          2. 自底向上递归：每个内部节点对应一个子 tree，其 entries 包含
-             (a) 该节点直接子 blob entry：name=最末 segment，type=blob，target_hash 不变
-             (b) 该节点直接子目录 entry：name=子目录 segment，mode=0o040000 (16384)，
-                 type=tree，target_hash=子 tree hash（递归计算）
-          3. 用 _canonical_tree_bytes + sha256 算每个子 tree 的 hash
-        - 返 (root_tree_hash, all_trees: list[(tree_hash, entries_at_that_level)])
-          all_trees 顺序：子 tree 在前，root 在后（持久化时按顺序 upsert 不会断引用）
+        - 拒 name 含 "//"
+        - 拒 name 以 "/" 起或结尾（如 "a/" / "/a" / "/" / "a/b/"）
+        - 按 "/" 切 segments，对每个 segment：
+          - segment == "." 或 ".." → ValueError
+          - segment.strip() == "" → ValueError（空白 segment：" a" / "a/ /b" / "a/  "）
+        - entry_type == "tree" 时 mode != 0o040000 (16384) → ValueError（防御性边界；soft mode 内部不会触发，但 API 直接 POST 嵌套结构时会）
+      全部 entries 遍历完后做交叉校验：
+        - 同名 blob 与目录冲突：扫所有 entries，对每个 entry 求其所有 prefix（"a/b/c" → ["a", "a/b"]）；若某 prefix 同时作为另一 entry 的整 name 出现（type=blob）→ ValueError
+        - normalize 后同层重名：在 _normalize_to_nested 内做（在该函数里也有 detect）
+      失败 raise ValueError 含详细错误消息（哪个 name 哪个 segment 为什么 reject），便于路由层 400 透传。
+      颗粒度估算：~1.5h（含 6 类校验 + crossover）
     depends_on: [T-1]
     estimated_stage: coding
-    covers_ac: [AC-2, AC-3, AC-4]
+    covers_ac: [AC-3]
+    status: pending
+
+  - id: T-2b
+    title: services/commit.py 新增 _normalize_to_nested
+    description: |
+      _normalize_to_nested(entries: list[TreeEntryCreate]) -> tuple[str, list[tuple[str, list[TreeEntryCreate]]]]：
+        - 输入：扁平 entries（name 可含 /）；已通过 _validate_tree_paths
+        - 算法：
+          1. 构 in-memory trie：把每个 entry 按 / 切 segments，挂到 trie 节点；
+             叶子节点存 (mode, target_hash)；内部节点是子目录
+          2. 自底向上递归：每个内部节点对应一个子 tree，其 entries 包含
+             (a) 该节点直接子 blob entry：name=最末 segment，mode/type/target_hash 沿用
+             (b) 该节点直接子目录 entry：name=子目录 segment，mode=0o040000 (16384)，
+                 type=tree，target_hash=子 tree hash（递归先算）
+          3. 同层重名再次 detect → ValueError（理论上 _validate_tree_paths 已经拒，但 normalize 内冗余检查兜底）
+          4. 用 _canonical_tree_bytes + sha256 算每个子 tree 的 hash
+        - 返 (root_tree_hash, all_trees: list[(tree_hash, entries_at_that_level)])
+          all_trees 顺序：子 tree 在前，root 在最后（持久化时按顺序 upsert 不会断 FK 引用）
+        - 空 entries → 返 _tree_hash([]) + [(root_hash, [])]（空 root tree 合法）
+      颗粒度估算：~2h（含 trie 构造 + 递归 hash + 顺序保证 + 空 tree 边界）
+    depends_on: [T-2a]
+    estimated_stage: coding
+    covers_ac: [AC-2, AC-4]
     status: pending
 
   - id: T-3
-    title: CommitService.create_commit 改步骤 2 + 步骤 4
+    title: CommitService.create_commit 改步骤 2 + 步骤 4（步骤 1 不动）
     description: |
-      步骤 2（算 tree_hash + commit_hash）：
-        - _validate_tree_paths(payload.tree.entries) → 失败抛 ValueError → 路由层 HTTPException 400
+      **步骤 1（blob 存在性校验）：保持原位不动**——在 _normalize_to_nested 之前对
+      payload.tree.entries（**全扁平、全 type=blob、target_hash 全是 blob hash**）调
+      store.exists；不要把这个校验移到 normalize 之后（移过去会用子 tree hash 调
+      store.exists 永远 miss → 400）。reviewer v1 MUST FIX-2 显式指出此风险。
+
+      **步骤 2（算 tree_hash + commit_hash）改为：**
+        - _validate_tree_paths(payload.tree.entries) → 失败抛 ValueError → 路由层 400
         - root_tree_hash, all_trees = _normalize_to_nested(payload.tree.entries)
         - tree_hash = root_tree_hash
         - 其余 _commit_hash 计算不变（基于 tree_hash）
-      步骤 4（事务内写）：
+
+      **步骤 4（事务内写）改为：**
         - 原逻辑：upsert 单个 tree + N 行 TreeEntryORM
         - 改为：遍历 all_trees：
             for tree_hash, entries_at_level in all_trees:
@@ -65,8 +95,10 @@ tasks:
                             target_hash=e.target_hash))
         - commit 那行不动
         - ref upsert / race 处理不动
-        - 注意：子 tree 的 entries 里 name 已经是"仅本级 segment"（不含 /），与 _normalize_to_nested 算法保持一致
-    depends_on: [T-2]
+        - 注意：子 tree 的 entries 里 name 已经是"仅本级 segment"（不含 /）
+
+      颗粒度估算：~1.5h（含步骤 2/4 改造 + 顺序保持事务一致性）
+    depends_on: [T-2b]
     estimated_stage: coding
     covers_ac: [AC-4, AC-5, AC-6]
     status: pending
@@ -180,16 +212,16 @@ process_tasks:
 
 ## DAG
 
-T-1 → T-2 → T-3 → T-4 → T-5 → T-6 → T-7（无环）
+T-1 → T-2a → T-2b → T-3 → T-4 → T-5 → T-6 → T-7（无环）
 
 ## 验收覆盖
 
 | AC | 任务 |
 |---|---|
 | AC-1 | T-1 |
-| AC-2 | T-2 |
-| AC-3 | T-2 |
-| AC-4 | T-2, T-3 |
+| AC-2 | T-2b |
+| AC-3 | T-2a |
+| AC-4 | T-2b, T-3 |
 | AC-5 | T-3 |
 | AC-6 | T-3 |
 | AC-7 | T-4 |

@@ -1,8 +1,15 @@
 ---
 change_id: tree-nested-domain-20260520
-version: 1
+version: 2
 authored_at: 2026-05-19T14:00:00Z
+revised_at: 2026-05-19T14:25:00Z
 status: draft
+revision_notes: |
+  v2 修 stage 2 reviewer v1 报的 4 条 spec MUST FIX：
+  - MUST FIX-1（AC-5 grep 假阳性）：grep 对 `all_trees` 全文搜，命中注释/变量声明仍 PASS。改用 dry-import + 函数调用断言。
+  - MUST FIX-2（AC-3 路径校验遗漏）：补 trailing `/` 和空白 segment 两类。
+  - MUST FIX-3（AC-6 措辞模糊）：改为"算法实现代码不改，entry_type 可为 'tree' 故 hash 输入空间扩大"。
+  - MUST FIX-4（mode 约束缺失）：AC-3 补强约束 `entry_type=='tree' 时 mode 必须 == 16384`。
 ---
 
 # Spec：Tree 嵌套支持（后端域 / Soft mode / 类 git 递归 GET）
@@ -49,10 +56,17 @@ In scope（与下方 AC 对齐）：
   - 输出：(root_tree_hash, 待持久化的所有 tree 列表[(hash, level_entries), ...]，含 root 在最后)
   - 算法：解析每个 entry 的 path segments → 构 in-memory trie → 自底向上递归算子 tree hash → 父 entry 引用子 tree hash
   - 子目录 entry：`name=<segment>` + `mode=0o040000` + `entry_type="tree"` + `target_hash=<subtree_hash>`
-- AC-3: `services/commit.py` 新增 `_validate_tree_paths(entries)`：拒 `""` / `/` 起头 / `//` 出现 / segments 含 `.` 或 `..` / 同名 blob 与目录冲突；冲突 → ValueError（路由层 400）
+- AC-3: `services/commit.py` 新增 `_validate_tree_paths(entries)`：拒以下所有形态（任一命中即 ValueError → 路由层 400）：
+  - `name == ""`
+  - 含 `//` 或以 `/` 起头 / 结尾（含 `"a/"`、`"/a"`、`"a//b"`）
+  - 任一 segment 是 `"."` 或 `".."`
+  - 任一 segment 经 `strip()` 后为空（覆盖 `" a"`、`"a/ /b"`、`"a/  "` 等空白 segment）
+  - 同名 blob 与目录冲突（如 entries 含 `name="a"` 同 `name="a/b"`）
+  - 同层重名（normalize 后某中间 tree 的两个 entries 同 segment）
+  - `entry_type == "tree"` 时 `mode != 0o040000`（16384）：即调用方手动提交 type=tree 但 mode 不对，拒；正常 soft-mode 路径不会触发（service 内部 normalize 强制设 16384），但作为防御边界
 - AC-4: `CommitService.create_commit` 步骤 2 改为先 `_validate_tree_paths` → `_normalize_to_nested` 得 (root_hash, all_trees) → tree_hash = root_hash
 - AC-5: `CommitService.create_commit` 步骤 4 改为**遍历 all_trees 列表 upsert**（每个子 tree 也是 TreeORM 行；按 hash dedup）；保持事务性
-- AC-6: `_canonical_tree_bytes` 不变（per-level entries → JSON bytes → sha256）；语义保证：同一层 entries 完全相同 → 同 hash → 跨 commit / 跨 repo 自然 dedup 子 tree
+- AC-6: `_canonical_tree_bytes` / `_tree_hash` **代码实现不改**（仍是 sorted entries → JSON bytes → sha256）；但**输入空间扩大**——entries 现在可含 `entry_type == "tree"`，导致同样 4 个 entries 在嵌套模式下产生的 root hash 与扁平模式下完全不同。语义保证：**同一 repo 内**、**同一层** entries 完全相同 → 同 hash → 子 tree 自然 dedup（注意 TreeORM 主键为 (hash, repo_id)，**dedup 仅 per-repo**，跨 repo 各存一行——这是 commit-api-mvp 的既有 model 决策，本 change 不改）
 - AC-7: `routers/commits.py` `GET /tree/{commit_hash}` 加 `?recursive: bool = False` 查询参数
   - 默认 false：返当前根 tree 的直接 entries（含 type=tree 的子目录 entry，`target_hash` 为子 tree hash）
   - true：递归展开所有 type=tree entry，输出全为 type=blob 的 leaf 列表；entry 的 `name` 字段为"扁平全路径"（与旧扁平 commit 的 name 形式一致——**软兼容门面**）
@@ -85,7 +99,7 @@ In scope（与下方 AC 对齐）：
 | AC-2 | static | services/commit.py 含 _normalize_to_nested | `grep -q "_normalize_to_nested" apps/api/dataplat_api/services/commit.py` | 命令退出 0 |
 | AC-3 | static | services/commit.py 含 _validate_tree_paths | `grep -q "_validate_tree_paths" apps/api/dataplat_api/services/commit.py` | 命令退出 0 |
 | AC-4 | static | _normalize_to_nested 输出 root_hash 与多 tree 列表（dry-import + 微 fixture） | `cd apps/api && uv run python -c "from dataplat_api.services.commit import _normalize_to_nested; from dataplat_api.schemas.tree import TreeEntryCreate as T; root, trees = _normalize_to_nested([T(name='images/a.jpg', mode=33188, entry_type='blob', target_hash='a'*64), T(name='paper.md', mode=33188, entry_type='blob', target_hash='b'*64)]); assert isinstance(root, str) and len(trees) >= 2"` | 命令退出 0 |
-| AC-5 | static | create_commit 步骤 4 含 all_trees / 多 TreeORM upsert（grep 锚定） | `grep -qE "all_trees\|for[[:space:]]+\(?[a-z_]+,[[:space:]]+entries_at_level\|for[[:space:]]+sub_tree" apps/api/dataplat_api/services/commit.py` | 命令退出 0 |
+| AC-5 | static | create_commit 步骤 4 真调 _normalize_to_nested 且 upsert 多 tree（dry-import + signature 检查；不靠纯 grep 防假阳性） | `cd apps/api && uv run python -c "import inspect; from dataplat_api.services.commit import CommitService, _normalize_to_nested; src = inspect.getsource(CommitService.create_commit); assert '_normalize_to_nested' in src, 'create_commit 未调用 _normalize_to_nested'; assert src.count('TreeORM(') >= 1, 'TreeORM 写入路径丢失'"` | 命令退出 0 |
 | AC-6 | static | _canonical_tree_bytes / _tree_hash 算法不变（grep 函数签名锚定） | `grep -q "def _canonical_tree_bytes" apps/api/dataplat_api/services/commit.py && grep -q "def _tree_hash" apps/api/dataplat_api/services/commit.py` | 命令退出 0 |
 | AC-7 | static | GET /tree/{commit_hash} 路由含 recursive 参数 | `grep -q "recursive" apps/api/dataplat_api/routers/commits.py` | 命令退出 0 |
 | AC-8 | static | 新路由 GET /repos/{owner}/{name}/trees/{tree_hash} 存在 | `grep -q "/{owner}/{name}/trees/{tree_hash}" apps/api/dataplat_api/routers/commits.py` | 命令退出 0 |
