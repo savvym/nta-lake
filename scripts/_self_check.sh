@@ -1129,11 +1129,42 @@ run_processor_pdf_mineru() {
   run_ac AC-11 "ruff + mypy 全 PASS（含 worker/src）" \
     bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
 
-  run_ac AC-12 "MINERU_API_TOKEN 在/不在 → Authorization Bearer 头注入与否（pytest 行为）" \
+  run_ac AC-12 "MINERU_API_TOKEN 在/不在 → 鉴权头注入与否（pytest 行为；live-fix change 把头从 Authorization Bearer 切到 X-API-Key）" \
     bash -c 'cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py::test_client_token_header_present tests/test_pdf_mineru.py::test_client_token_header_absent'
 
   run_ac AC-13 "AC-13 自递归（self_check 含 run_processor_pdf_mineru）" \
     bash -c 'grep -q "run_processor_pdf_mineru" scripts/_self_check.sh'
+}
+
+run_processor_pdf_mineru_live_fix() {
+  echo "=== processor-pdf-mineru-live-fix-20260519 :: 9 AC ==="
+
+  run_ac AC-1 "_mineru_client.py 含 X-API-Key；无 Authorization/Bearer 残留" \
+    bash -c 'grep -q "X-API-Key" apps/api/dataplat_api/processors/_mineru_client.py && ! grep -qE "Authorization|Bearer" apps/api/dataplat_api/processors/_mineru_client.py'
+
+  run_ac AC-2 'submit 用 "files" 字段（双引号包裹 grep）' \
+    bash -c 'grep -F -q "\"files\"" apps/api/dataplat_api/processors/_mineru_client.py'
+
+  run_ac AC-3 "submit 接受 200 或 202（双码 grep）" \
+    bash -c 'grep -qE "200,[[:space:]]*202|\(200,[[:space:]]*202\)" apps/api/dataplat_api/processors/_mineru_client.py'
+
+  run_ac AC-4 "client 含 fetch_result + /result 路径" \
+    bash -c 'grep -q "/result" apps/api/dataplat_api/processors/_mineru_client.py && cd apps/api && uv run python -c "from dataplat_api.processors._mineru_client import MinerUClient; assert hasattr(MinerUClient, \"fetch_result\")"'
+
+  run_ac AC-5 "PdfMineruSpec.backend 默认 hybrid-auto-engine" \
+    bash -c 'cd apps/api && uv run python -c "from dataplat_api.processors.pdf_mineru import PdfMineruSpec; assert PdfMineruSpec.model_fields[\"backend\"].default == \"hybrid-auto-engine\""'
+
+  run_ac AC-6 "tests/test_pdf_mineru.py ≥ 7 + 全 PASS（fake 同步新协议）" \
+    bash -c '[ "$(cd apps/api && uv run pytest --collect-only -q tests/test_pdf_mineru.py 2>&1 | grep -cE "test_pdf_mineru\.py::")" -ge 7 ] && (cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py)'
+
+  run_ac AC-7 "ruff + mypy 全 PASS" \
+    bash -c 'uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src'
+
+  run_ac AC-8 "上游 run_processor_pdf_mineru 关键 behavioral 测试不回归（AC-9 + AC-12）" \
+    bash -c 'cd apps/api && uv run pytest -q --tb=no tests/test_pdf_mineru.py::test_run_success tests/test_pdf_mineru.py::test_run_poll_failed_raises tests/test_pdf_mineru.py::test_client_token_header_present tests/test_pdf_mineru.py::test_client_token_header_absent'
+
+  run_ac AC-9 "self_check 含本 change AC block" \
+    bash -c 'grep -q "run_processor_pdf_mineru_live_fix" scripts/_self_check.sh'
 }
 
 run_sdk_cli_mvp() {
@@ -1663,6 +1694,9 @@ run_change_block() {
     processor-pdf-mineru|processor-pdf-mineru-20260519)
       run_processor_pdf_mineru
       ;;
+    processor-pdf-mineru-live-fix|processor-pdf-mineru-live-fix-20260519)
+      run_processor_pdf_mineru_live_fix
+      ;;
     sdk-cli-mvp|sdk-cli-mvp-20260518)
       run_sdk_cli_mvp
       ;;
@@ -1739,6 +1773,8 @@ run_full() {
   run_llm_qa_gen
   echo
   run_processor_pdf_mineru
+  echo
+  run_processor_pdf_mineru_live_fix
   echo
   run_sdk_cli_mvp
   echo
