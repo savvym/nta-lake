@@ -1,83 +1,53 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>
+change_id: processor-pdf-mineru-20260519
 version: 1
-env: dev           # dev | staging | prod
-deployed_at: <YYYY-MM-DDTHH:MM:SSZ>
-image_tag: <tag>
-commit_sha: <sha>
-verifier: <name>
-verdict: PASS      # PASS | FAIL
+env: n/a
+deployed_at: 2026-05-19T11:55:00Z
+image_tag: n/a (no deploy surface)
+commit_sha: 9a8d4a3
+verifier: claude-agent:processor-pdf-mineru-20260519-application-owner
+verdict: SKIPPED (noop)
 ---
 
-# Deploy Verification v1
+# Deploy Verification v1（noop）
 
-> 如本变更**不涉及部署面**（纯文档 / 纯 harness），删除本目录并在 `summary.md` 阶段 9 行写 "skipped: no deploy surface"。
+## 为什么 noop
 
-## 验证矩阵
+按 spec.md `processor-pdf-mineru-20260519` §范围 / §非范围：
 
-| ID | 验收项 / 必查项 | 验证方式 | 期望 | 实际 | 证据 |
-|---|---|---|---|---|---|
-| AC-1 | _e.g. POST /repos 返回 201_ | `curl -i ...` | 201 + repo_id | 201 | [evidence](#ac-1) |
-| AC-2 | _e.g. 上传同文件去重_ | 集成 smoke | blob_count == 1 | 1 | [evidence](#ac-2) |
-| DEP-1 | 服务 healthz 200 | `curl /healthz` | 200 OK | 200 | [evidence](#dep-1) |
-| DEP-2 | DB 迁移落地 | `alembic current` | == head | head | [evidence](#dep-2) |
-| DEP-3 | worker 在线 | `rq info` | active > 0 | 2 | [evidence](#dep-3) |
-| DEP-4 | 前端可加载 | 浏览器 / Playwright smoke | 主页面无 5xx | OK | [evidence](#dep-4) |
-| DEP-5 | metrics / 日志无新 ERROR | grafana / `kubectl logs` | 0 新 ERROR | OK | [evidence](#dep-5) |
+- 本变更**只新增 1 个 Processor + 1 个薄 HTTP 客户端 + 1 个测试文件**，不动：
+  - FastAPI 路由（`routers/process.py` 等）
+  - DB schema / Alembic migrations
+  - Worker 注册流程（`worker/main.py`）
+  - Web 前端
+  - Recipe / Pipeline 配置
+  - K8s manifests / Docker images
+- Processor 通过 `processors/__init__.py` 的 import 自动注册到 in-process Registry，无需独立部署步骤。
+- MinerU 服务**已在集群中部署**（stage 0 用户确认），本变更不部署 MinerU。
+- env vars（`MINERU_API_URL` / `MINERU_API_TOKEN`）由部署侧通过 Helm values / K8s Secret 注入；本变更只 document 其名字，不动 deployment manifest。
 
-## 证据
+因此本 change 没有"部署面"，stage 9 = noop。
 
-### AC-1
+## 部署 readiness checklist（供未来 follow-up 启用 pipeline 时参考）
 
-```text
-$ curl -i -X POST https://dev.dataplat.internal/api/repos \
-    -H 'Cookie: access=...' \
-    -d '{"owner":"my","name":"foo","layer":"bronze","subtype":"pdf-collection"}'
-HTTP/1.1 201 Created
-...
-{"repo_id":"...", ...}
-```
-
-### AC-2
-
-```text
-(粘贴集成 smoke 脚本输出)
-```
-
-### DEP-1
-
-```text
-$ curl -i https://dev.dataplat.internal/healthz
-HTTP/1.1 200 OK
-```
-
-### DEP-2
-
-```text
-$ alembic current
-0042_xxx (head)
-```
-
-### DEP-3 / DEP-4 / DEP-5
-
-```text
-...
-```
+| 项 | 状态 | 说明 |
+|---|---|---|
+| 代码合并后 worker 镜像需重 build | ⚠️ 需要 | processors/__init__.py 改动 = worker 进程要看到 PdfMineruProcessor |
+| api 镜像需重 build | ⚠️ 需要 | api 通过 ProcessorRegistry 解析 processor，需看到 pdf-mineru |
+| env vars 注入 MINERU_API_URL | ⏳ 部署侧 | 在 Helm values 或 deployment.yaml 加 MINERU_API_URL（无认证则不加 TOKEN） |
+| MinerU 服务可达性 | ✅ stage 0 已确认 | 用户声明已部署 |
+| live 联调 | ⏳ follow-up | 见 `processor-pdf-mineru-live-*`（spec deferred） |
 
 ## 风险评估
 
-- [ ] 涉及 schema 不兼容？_是 / 否_。如是：附迁移回滚脚本测试结果。
-- [ ] 涉及不可回滚操作（数据删除、外部副作用）？_是 / 否_。
-- [ ] 需要 follow-up？_是 / 否_。如是：列 follow-up change / task id。
+- [x] 涉及 schema 不兼容？**否**。无 DB schema / API schema 变化。
+- [x] 涉及不可回滚操作？**否**。本变更纯增量（新文件 + 新 register call）；移除即回到原状态。
+- [x] 需要 follow-up？**是**。spec deferred + reviewer SHOULD FIX 已落 summary.md Deferred 表。
 
 ## Verdict
 
-PASS / FAIL
+**SKIPPED (noop)**：本 change 无部署面；门禁不适用。
 
 ## 处理动作
 
-- PASS → 进入阶段 10 用户确认。
-- FAIL → 决断：回滚 or 修复。
-  - 选择回滚 → 附回滚命令 / 镜像 tag。
-  - 选择修复 → 回退到对应阶段（3 / 5 / 8）。
-- 在 `summary.md` 同步更新。
+→ 进入阶段 10 用户确认（无需部署回归测试；本地 self_check current 22/22 已是最终行为证据）。

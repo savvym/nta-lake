@@ -4,7 +4,7 @@ version: 1
 run_id: local-self_check-2026-05-19
 run_url: local:self_check/full
 branch: change/processor-pdf-mineru-20260519
-commit_sha: 9882377
+commit_sha: 9a8d4a3
 triggered_at: 2026-05-19T11:50:00Z
 finished_at: 2026-05-19T11:54:00Z
 status: SUCCESS
