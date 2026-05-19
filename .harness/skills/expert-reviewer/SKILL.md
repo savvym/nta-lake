@@ -171,7 +171,7 @@ reviewer 评 stage 2 spec.md 时**必须**核对以下 3 项；任一不满足 �
 2. **至少 1 行 AC 的 kind 单元格真值为 `behavioral`**：用 `awk ... | grep -qE '^\|[[:space:]]*AC-[0-9]+[a-z]?[[:space:]]*\|[[:space:]]*(\*\*)?behavioral(\*\*)?[[:space:]]*\|'`。**不接受裸字串 `grep -q behavioral`**——会被描述里 "behavioral 三层" 等字串误命中，机械化保护失效。
 3. **若 spec frontmatter 声明 `ac_kind_lint: exempt`**：reviewer **必跑** `git diff --stat origin/main..HEAD` 并**把结果粘贴到 review 文件**，验证所有改动文件 path 仅在 `.harness/*` / `wiki/*` / `scripts/*` / `*.md` 范围内。任一文件不满足 → MUST FIX（"声明 exempt 但有非豁免范围改动"）。
 
-详细规约见 `.harness/skills/request-analysis/SKILL.md` § "AC 分层规约"。
+默认硬约束见 `.harness/skills/request-analysis/SKILL.md` § "硬规则摘要"；历史背景和豁免清单见 `.harness/skills/request-analysis/references/ac-kind-lint.md`。
 
 ### MUST FIX 模板措辞
 
@@ -187,6 +187,6 @@ reviewer 评 stage 2 spec.md 时**必须**核对以下 3 项；任一不满足 �
 `bash scripts/_self_check.sh ac-kind-lint`：
 
 - 对所有未豁免 change 跑双条件断言（kind 列存在 + AC 行 kind=behavioral 锚定 regex）
-- 永久豁免 2 个 + grandfather 暂豁免 17 个（详 `.harness/skills/request-analysis/SKILL.md` § "豁免清单"）
+- 永久豁免 2 个 + grandfather 暂豁免 17 个（详 `.harness/skills/request-analysis/references/ac-kind-lint.md`）
 - 自声明 `ac_kind_lint: exempt` 通过 frontmatter 解析跳过 lint，但 reviewer 必查 git diff（本 SKILL 上方第 3 项）
 - FAIL 立 exit 1，阻止其他 block 跑

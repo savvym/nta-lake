@@ -24,18 +24,18 @@ related_changes: []                      # 依赖或被依赖的其他 change id
 
 ## 阶段进度
 
-| 阶段 | 状态 | 最新版本 | verdict | 产物 / 报告 |
-|---|---|---|---|---|
-| 1 需求分析 | _pending / in_progress / done_ | _v1_ | _APPROVED / REVISION REQUIRED / —_ | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
-| 2 需求评审 | | | | [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) |
-| 3 编码实现 | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
-| 4 编码评审 | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
-| 5 单测编写 | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
-| 6 单测评审 | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
-| 7 代码推送 | | | | _branch / commit SHA_ |
-| 8 CI 验证 | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
-| 9 部署验证 | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
-| 10 用户确认 | | | | _确认人 / 时间_ |
+| 阶段 | 状态 | 最新版本 | verdict | 阶段 commit | 产物 / 报告 |
+|---|---|---|---|---|---|
+| 1 需求分析 | _pending / in_progress / done_ | _v1_ | _APPROVED / REVISION REQUIRED / —_ | _sha_ | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
+| 2 需求评审 | | | | | [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) |
+| 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
+| 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
+| 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
+| 6 单测评审 | | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
+| 7 代码推送 | | | | | _branch / push ref_ |
+| 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
+| 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
+| 10 用户确认 | | | | | _确认人 / 时间_ |
 
 ## 关键决策
 
@@ -57,7 +57,7 @@ related_changes: []                      # 依赖或被依赖的其他 change id
 
 > 关闭本变更时填写。
 
-- Branch：`<author>/<change-id>`
+- Branch：`change/<change-id>`
 - PR：<链接>
 - Merge commit：`<sha>`
 - 部署版本（如有）：`<image tag / release tag>`

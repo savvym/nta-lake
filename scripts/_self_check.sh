@@ -6,14 +6,18 @@
 #
 # 设计意图：
 # - 每个变更在 stage 5 单测编写阶段把自己的 AC 落到这里（追加块）；
-# - stage 8 CI 调用本脚本作为统一 smoke gate；
+# - 阶段内使用 quick/current 快检，stage 8 CI 使用 full 作为统一 smoke gate；
 # - 后续 follow-up `harness-script-productize-<yyyymmdd>` 会把 harness-bootstrap-20260516
 #   的 12 条 AC（当前在 .harness/changes/harness-bootstrap-20260516/unit_test/
 #   check_harness.sh）也搬进来，形成单一入口。
 #
 # 用法：
-#   bash scripts/_self_check.sh                    # 跑全部
-#   bash scripts/_self_check.sh bootstrap-monorepo # 只跑指定 change 的块
+#   bash scripts/_self_check.sh                    # 兼容旧入口：跑 full
+#   bash scripts/_self_check.sh quick [change-id]  # 阶段内快检：全局轻量 lint + stage preflight
+#   bash scripts/_self_check.sh current [change-id]# quick + 当前 change block（如已注册）
+#   bash scripts/_self_check.sh change <change-id> # current 的显式别名
+#   bash scripts/_self_check.sh full               # 最终 gate：跑全部历史回归
+#   bash scripts/_self_check.sh <change-id>        # 只跑指定 change 的块
 #
 # 退出码：0 全过 / 1 至少一条 FAIL。
 #
@@ -130,7 +134,7 @@ run_bootstrap_monorepo() {
     bash -c 'test -f scripts/export_openapi.py && python3 -c "import ast; ast.parse(open(\"scripts/export_openapi.py\").read())"'
 
   # AC-15（ci.yml 合法 + 5 job + concurrency）由 harness-remote-push-onboarding-20260518 撤销：
-  # 项目策略不引入远程 CI（本地 pytest + self_check.sh 等价 CI）。
+  # 项目策略不引入远程 CI（本地 pytest + self_check.sh full 等价 CI）。
   # bootstrap-monorepo 原 spec AC-15 保留作为历史记录；机械化检查在本 self_check 中删除。
 
   run_ac AC-16 "apps/api pytest test_health.py exit 0" \
@@ -1224,6 +1228,7 @@ run_ac_kind_lint() {
   #   AC_KIND_LINT_SCAN_DIR     默认 .harness/changes（fixture 注入）
   #   AC_KIND_LINT_EXEMPT_OVERRIDE  逗号分隔 change_id（fixture 注入）
 
+  local fail_before="$FAIL"
   run_ac "ac-kind-lint" "AC 分层规约守门（kind 列存在 + AC 行 kind=behavioral 锚定 regex）" \
     bash -c '
       set -e
@@ -1273,10 +1278,10 @@ run_ac_kind_lint() {
     '
 
   # fail-fast: 若 FAIL，立即 exit 1（阻止后续 block 跑）
-  if [ "$FAIL" -gt 0 ]; then
+  if [ "$FAIL" -gt "$fail_before" ]; then
     echo
     echo "ac-kind-lint FAIL → exit 1（fail-fast；不跑后续 block）"
-    echo "修复参考：.harness/skills/request-analysis/SKILL.md § AC 分层规约"
+    echo "修复参考：.harness/skills/request-analysis/SKILL.md § AC 分层规约；细节见 .harness/skills/request-analysis/references/ac-kind-lint.md"
     exit 1
   fi
 }
@@ -1421,7 +1426,7 @@ run_harness_ac_behavioral_tier() {
     bash -c 'test -f scripts/_self_check.sh && grep -q "run_ac_kind_lint" scripts/_self_check.sh && SPEC=.harness/changes/harness-ac-behavioral-tier-20260518/request_analysis/spec.md && test -f "$SPEC" && SEG=$(awk "/^## 验收标准/{p=1;next} p && /^## /{exit} p" "$SPEC") && echo "$SEG" | grep -qE "^\|[^|]*\|[[:space:]]*kind[[:space:]]*\|" && [ "$(echo "$SEG" | grep -cE "^\|[[:space:]]*AC-[0-9]+[a-z]?[[:space:]]*\|[[:space:]]*(\*\*)?behavioral(\*\*)?[[:space:]]*\|")" -ge 2 ] && grep -q "kind" .harness/changes/_template/request_analysis/spec.md'
 
   run_ac AC-7 "SKILL.md 豁免清单分两类（永久 2 + 暂豁免 17）且 19 个 ID 全命中" \
-    bash -c 'test -f .harness/skills/request-analysis/SKILL.md && for cid in harness-bootstrap-20260516 harness-reviewer-agent-separation-20260518 bootstrap-monorepo-20260516 core-domain-model-20260516 cas-storage-20260517 auth-scaffold-20260517 repo-api-mvp-20260517 commit-api-mvp-20260517 rq-worker-skeleton-20260517 processor-framework-20260517 adapter-framework-20260517 llm-gateway-mvp-20260517 adapter-firecrawl-20260517 llm-qa-gen-20260518 web-mvp-pages-20260517 web-write-flows-20260517 repo-files-tab-20260517 sdk-cli-mvp-20260518 pipeline-orchestrator-mvp-20260518; do grep -q "$cid" .harness/skills/request-analysis/SKILL.md || exit 1; done && grep -q "永久豁免" .harness/skills/request-analysis/SKILL.md && grep -q "暂豁免" .harness/skills/request-analysis/SKILL.md'
+    bash -c 'test -f .harness/skills/request-analysis/SKILL.md && test -f .harness/skills/request-analysis/references/ac-kind-lint.md && for cid in harness-bootstrap-20260516 harness-reviewer-agent-separation-20260518 bootstrap-monorepo-20260516 core-domain-model-20260516 cas-storage-20260517 auth-scaffold-20260517 repo-api-mvp-20260517 commit-api-mvp-20260517 rq-worker-skeleton-20260517 processor-framework-20260517 adapter-framework-20260517 llm-gateway-mvp-20260517 adapter-firecrawl-20260517 llm-qa-gen-20260518 web-mvp-pages-20260517 web-write-flows-20260517 repo-files-tab-20260517 sdk-cli-mvp-20260518 pipeline-orchestrator-mvp-20260518; do grep -q "$cid" .harness/skills/request-analysis/SKILL.md .harness/skills/request-analysis/references/ac-kind-lint.md || exit 1; done && grep -q "永久豁免" .harness/skills/request-analysis/references/ac-kind-lint.md && grep -q "暂豁免" .harness/skills/request-analysis/references/ac-kind-lint.md'
 
   run_ac AC-8 "self_check 含 run_harness_ac_behavioral_tier 调用（自递归确认本 block 在 main 调用链中）" \
     bash -c 'test -f scripts/_self_check.sh && grep -q "run_harness_ac_behavioral_tier" scripts/_self_check.sh'
@@ -1432,6 +1437,7 @@ run_reviewer_lint() {
 
   # 内部 3 grep；任一失败 → 整个 AC FAIL
   # 等价于：! grep application-owner-agent && ! grep template-placeholder && grep -E claude|self-attest
+  local fail_before="$FAIL"
   run_ac "reviewer-lint" "reviewer 字段独立性守门（反向×2 + 白名单）" \
     bash -c '
       set -e
@@ -1460,7 +1466,7 @@ run_reviewer_lint() {
     '
 
   # fail-fast: 若 FAIL，立即 exit 1（阻止后续 block 跑）
-  if [ "$FAIL" -gt 0 ]; then
+  if [ "$FAIL" -gt "$fail_before" ]; then
     echo
     echo "reviewer-lint FAIL → exit 1（fail-fast；不跑后续 block）"
     echo "修复参考：.harness/skills/expert-reviewer/SKILL.md § reviewer 字段填写规约"
@@ -1468,127 +1474,267 @@ run_reviewer_lint() {
   fi
 }
 
+current_change_id() {
+  local explicit="${1:-}"
+  if [ -n "$explicit" ]; then
+    printf "%s\n" "$explicit"
+    return 0
+  fi
+
+  local branch
+  branch="$(git branch --show-current 2>/dev/null || true)"
+  case "$branch" in
+    change/*)
+      printf "%s\n" "${branch#change/}"
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+run_stage_preflight() {
+  local cid="${1:-}"
+
+  echo "=== global :: stage-preflight ==="
+
+  run_ac "script-syntax" "self_check 与 harness_new_change bash 语法" \
+    bash -c 'bash -n scripts/_self_check.sh && bash -n scripts/harness_new_change.sh'
+
+  if [ -z "$cid" ]; then
+    printf "SKIP  %-10s  %s\n" "change-pre" "未提供 change-id；跳过 change 产物快检"
+    SKIP=$((SKIP + 1))
+    SKIPPED_ACS+=("change-pre")
+    return 0
+  fi
+
+  run_ac "change-dir" "change 目录存在：${cid}" \
+    test -d ".harness/changes/${cid}"
+
+  if [ ! -d ".harness/changes/${cid}" ]; then
+    return 0
+  fi
+
+  run_ac "branch-name" "change 分支命名与 change-id 一致（非 change 分支跳过）" \
+    bash -c '
+      branch="$(git branch --show-current 2>/dev/null || true)"
+      case "$branch" in
+        change/*) [ "$branch" = "change/$1" ] ;;
+        *) exit 0 ;;
+      esac
+    ' _ "$cid"
+
+  run_ac "stage-files" "summary/spec/tasks 三个阶段入口文件存在" \
+    bash -c '
+      d=".harness/changes/$1"
+      test -f "$d/summary.md" &&
+      test -f "$d/request_analysis/spec.md" &&
+      test -f "$d/request_analysis/tasks.md"
+    ' _ "$cid"
+
+  run_ac "summary-fill" "summary.md 已替换关键模板占位符" \
+    bash -c '
+      f=".harness/changes/$1/summary.md"
+      test -f "$f" &&
+      ! grep -qE "<(feature-slug|change-id|YYYY-MM-DDTHH:MM:SSZ|复述|bullet list|负责人|sha)>" "$f" &&
+      ! grep -qE "change_id:[[:space:]]*<|branch:[[:space:]]*change/<" "$f"
+    ' _ "$cid"
+
+  run_ac "spec-shape" "spec.md 含背景/问题陈述/范围/非范围/验收标准/风险" \
+    bash -c '
+      spec=".harness/changes/$1/request_analysis/spec.md"
+      test -f "$spec" || exit 1
+      for heading in 背景 问题陈述 范围 非范围 验收标准 风险; do
+        grep -qE "^## +${heading}" "$spec" || exit 1
+      done
+    ' _ "$cid"
+
+  run_ac "tasks-shape" "tasks.md 含可识别任务清单" \
+    bash -c '
+      tasks=".harness/changes/$1/request_analysis/tasks.md"
+      test -f "$tasks" &&
+      grep -qE "(^tasks:|^process_tasks:|^## +T-|^- \[[ xX]\])" "$tasks"
+    ' _ "$cid"
+}
+
+run_quick() {
+  local cid="${1:-}"
+
+  run_reviewer_lint
+  echo
+  run_ac_kind_lint
+  echo
+  run_stage_preflight "$cid"
+}
+
+run_change_block() {
+  local change="$1"
+
+  case "$change" in
+    bootstrap-monorepo|bootstrap-monorepo-20260516)
+      run_bootstrap_monorepo
+      ;;
+    core-domain-model|core-domain-model-20260516)
+      run_core_domain_model
+      ;;
+    cas-storage|cas-storage-20260517)
+      run_cas_storage
+      ;;
+    auth-scaffold|auth-scaffold-20260517)
+      run_auth_scaffold
+      ;;
+    repo-api-mvp|repo-api-mvp-20260517)
+      run_repo_api_mvp
+      ;;
+    commit-api-mvp|commit-api-mvp-20260517)
+      run_commit_api_mvp
+      ;;
+    adapter-framework|adapter-framework-20260517)
+      run_adapter_framework
+      ;;
+    web-mvp-pages|web-mvp-pages-20260517)
+      run_web_mvp_pages
+      ;;
+    rq-worker-skeleton|rq-worker-skeleton-20260517)
+      run_rq_worker_skeleton
+      ;;
+    web-write-flows|web-write-flows-20260517)
+      run_web_write_flows
+      ;;
+    repo-files-tab|repo-files-tab-20260517)
+      run_repo_files_tab
+      ;;
+    processor-framework|processor-framework-20260517)
+      run_processor_framework
+      ;;
+    llm-gateway-mvp|llm-gateway-mvp-20260517)
+      run_llm_gateway_mvp
+      ;;
+    adapter-firecrawl|adapter-firecrawl-20260517)
+      run_adapter_firecrawl
+      ;;
+    llm-qa-gen|llm-qa-gen-20260518)
+      run_llm_qa_gen
+      ;;
+    sdk-cli-mvp|sdk-cli-mvp-20260518)
+      run_sdk_cli_mvp
+      ;;
+    pipeline-orchestrator-mvp|pipeline-orchestrator-mvp-20260518)
+      run_pipeline_orchestrator_mvp
+      ;;
+    reviewer-lint)
+      run_reviewer_lint
+      ;;
+    stage9-followup-cleanup|stage9-followup-cleanup-20260518)
+      run_stage9_followup_cleanup
+      ;;
+    pipeline-ui-tab|pipeline-ui-tab-20260518)
+      run_pipeline_ui_tab
+      ;;
+    repo-files-tab-v2|repo-files-tab-v2-20260518)
+      run_repo_files_tab_v2
+      ;;
+    harness-ac-behavioral-tier|harness-ac-behavioral-tier-20260518)
+      run_harness_ac_behavioral_tier
+      ;;
+    ac-kind-lint)
+      run_ac_kind_lint
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+
+run_current() {
+  local cid="$1"
+
+  run_quick "$cid"
+  echo
+  if ! run_change_block "$cid"; then
+    printf "SKIP  %-10s  %s\n" "change-ac" "当前 change 尚未在 _self_check 注册 block：${cid}"
+    SKIP=$((SKIP + 1))
+    SKIPPED_ACS+=("change-ac")
+  fi
+}
+
+run_full() {
+  run_reviewer_lint
+  echo
+  run_bootstrap_monorepo
+  echo
+  run_core_domain_model
+  echo
+  run_cas_storage
+  echo
+  run_auth_scaffold
+  echo
+  run_repo_api_mvp
+  echo
+  run_commit_api_mvp
+  echo
+  run_adapter_framework
+  echo
+  run_web_mvp_pages
+  echo
+  run_rq_worker_skeleton
+  echo
+  run_web_write_flows
+  echo
+  run_repo_files_tab
+  echo
+  run_processor_framework
+  echo
+  run_llm_gateway_mvp
+  echo
+  run_adapter_firecrawl
+  echo
+  run_llm_qa_gen
+  echo
+  run_sdk_cli_mvp
+  echo
+  run_pipeline_orchestrator_mvp
+  echo
+  run_stage9_followup_cleanup
+  echo
+  run_pipeline_ui_tab
+  echo
+  run_repo_files_tab_v2
+  echo
+  run_harness_ac_behavioral_tier
+  echo
+  run_ac_kind_lint
+}
+
 case "$FILTER" in
-  "")
-    run_reviewer_lint
-    echo
-    run_bootstrap_monorepo
-    echo
-    run_core_domain_model
-    echo
-    run_cas_storage
-    echo
-    run_auth_scaffold
-    echo
-    run_repo_api_mvp
-    echo
-    run_commit_api_mvp
-    echo
-    run_adapter_framework
-    echo
-    run_web_mvp_pages
-    echo
-    run_rq_worker_skeleton
-    echo
-    run_web_write_flows
-    echo
-    run_repo_files_tab
-    echo
-    run_processor_framework
-    echo
-    run_llm_gateway_mvp
-    echo
-    run_adapter_firecrawl
-    echo
-    run_llm_qa_gen
-    echo
-    run_sdk_cli_mvp
-    echo
-    run_pipeline_orchestrator_mvp
-    echo
-    run_stage9_followup_cleanup
-    echo
-    run_pipeline_ui_tab
-    echo
-    run_repo_files_tab_v2
-    echo
-    run_harness_ac_behavioral_tier
-    echo
-    run_ac_kind_lint
+  ""|full)
+    run_full
     ;;
-  bootstrap-monorepo|bootstrap-monorepo-20260516)
-    run_bootstrap_monorepo
+  quick)
+    run_quick "${2:-}"
     ;;
-  core-domain-model|core-domain-model-20260516)
-    run_core_domain_model
+  current)
+    if ! CURRENT_CHANGE="$(current_change_id "${2:-}")"; then
+      echo "无法推断 current change：请传入 change-id，或先切到 change/<change-id> 分支。" >&2
+      exit 2
+    fi
+    run_current "$CURRENT_CHANGE"
     ;;
-  cas-storage|cas-storage-20260517)
-    run_cas_storage
-    ;;
-  auth-scaffold|auth-scaffold-20260517)
-    run_auth_scaffold
-    ;;
-  repo-api-mvp|repo-api-mvp-20260517)
-    run_repo_api_mvp
-    ;;
-  commit-api-mvp|commit-api-mvp-20260517)
-    run_commit_api_mvp
-    ;;
-  adapter-framework|adapter-framework-20260517)
-    run_adapter_framework
-    ;;
-  web-mvp-pages|web-mvp-pages-20260517)
-    run_web_mvp_pages
-    ;;
-  rq-worker-skeleton|rq-worker-skeleton-20260517)
-    run_rq_worker_skeleton
-    ;;
-  web-write-flows|web-write-flows-20260517)
-    run_web_write_flows
-    ;;
-  repo-files-tab|repo-files-tab-20260517)
-    run_repo_files_tab
-    ;;
-  processor-framework|processor-framework-20260517)
-    run_processor_framework
-    ;;
-  llm-gateway-mvp|llm-gateway-mvp-20260517)
-    run_llm_gateway_mvp
-    ;;
-  adapter-firecrawl|adapter-firecrawl-20260517)
-    run_adapter_firecrawl
-    ;;
-  llm-qa-gen|llm-qa-gen-20260518)
-    run_llm_qa_gen
-    ;;
-  sdk-cli-mvp|sdk-cli-mvp-20260518)
-    run_sdk_cli_mvp
-    ;;
-  pipeline-orchestrator-mvp|pipeline-orchestrator-mvp-20260518)
-    run_pipeline_orchestrator_mvp
-    ;;
-  reviewer-lint)
-    run_reviewer_lint
-    ;;
-  stage9-followup-cleanup|stage9-followup-cleanup-20260518)
-    run_stage9_followup_cleanup
-    ;;
-  pipeline-ui-tab|pipeline-ui-tab-20260518)
-    run_pipeline_ui_tab
-    ;;
-  repo-files-tab-v2|repo-files-tab-v2-20260518)
-    run_repo_files_tab_v2
-    ;;
-  harness-ac-behavioral-tier|harness-ac-behavioral-tier-20260518)
-    run_harness_ac_behavioral_tier
-    ;;
-  ac-kind-lint)
-    run_ac_kind_lint
+  change)
+    if [ -z "${2:-}" ]; then
+      echo "用法：bash scripts/_self_check.sh change <change-id>" >&2
+      exit 2
+    fi
+    run_current "$2"
     ;;
   *)
-    echo "未知 change: $FILTER" >&2
-    echo "已知 change: bootstrap-monorepo / ... / web-write-flows / repo-files-tab / repo-files-tab-v2 / pipeline-ui-tab / harness-ac-behavioral-tier / stage9-followup-cleanup" >&2
-    exit 2
+    if ! run_change_block "$FILTER"; then
+      echo "未知 change: $FILTER" >&2
+      echo "已知 change: bootstrap-monorepo / ... / web-write-flows / repo-files-tab / repo-files-tab-v2 / pipeline-ui-tab / harness-ac-behavioral-tier / stage9-followup-cleanup" >&2
+      echo "新 change 阶段内可用：quick [change-id] / current [change-id]；最终门禁用：full" >&2
+      exit 2
+    fi
     ;;
 esac
 
@@ -1604,7 +1750,7 @@ if [ "$FAIL" -gt 0 ]; then
 fi
 
 if [ "$SKIP" -gt 0 ]; then
-  echo "跳过: ${SKIPPED_ACS[*]}（环境探针未通过，非测试失败）"
+  echo "跳过: ${SKIPPED_ACS[*]}（SKIP 不阻塞；通常是环境未就绪、未指定 change-id 或当前 change 尚无注册 block）"
 fi
 
 echo "全部通过（FAIL=0；SKIP 不阻塞）。"

@@ -134,10 +134,18 @@
 
 ## 4. Git
 
+### 4.0 变更边界
+
+- 一个 change 只在一个 `change/<change-id>` 分支上推进。
+- 每个阶段的产物在该阶段 Quality Gate 通过后单独 commit；不要把阶段 1 spec、阶段 3 代码、阶段 5 测试和阶段 8 验证结果揉进同一个 commit。
+- 阶段评审优先看 git diff：`git diff <上一阶段commit>...HEAD -- .harness/changes/<change-id>/` 或对应代码目录。
+- `summary.md` 的阶段进度必须记录该阶段最新 commit SHA，便于后续 reviewer 精准复核增量。
+
 ### 4.1 分支
 
 - 主干：`main`。
-- 功能分支：`<author>/<change-id>`，例如 `zh/bootstrap-monorepo-20260516`。
+- 功能分支：`change/<change-id>`，例如 `change/bootstrap-monorepo-20260516`。
+- 新 change 必须通过 `bash scripts/harness_new_change.sh <change-id> [title]` 创建；脚本会复制 `_template/` 并自动 `git switch -c change/<change-id>`。
 - **禁止 force push 到 main**。功能分支 force push 须在 PR 评论说明。
 
 ### 4.2 Commit message

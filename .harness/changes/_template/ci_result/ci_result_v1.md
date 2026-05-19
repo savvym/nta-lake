@@ -2,8 +2,8 @@
 change_id: <feature-slug>-<yyyymmdd>
 version: 1
 run_id: <gh run id>
-run_url: <link>
-branch: <author>/<change-id>
+run_url: local:self_check/full
+branch: change/<change-id>
 commit_sha: <sha>
 triggered_at: <YYYY-MM-DDTHH:MM:SSZ>
 finished_at: <YYYY-MM-DDTHH:MM:SSZ>
@@ -21,6 +21,7 @@ failed_tests: 0
 skipped_tests: 0
 duration_seconds: 0
 coverage_percent: n/a
+self_check_command: bash scripts/_self_check.sh full
 ```
 
 > 阶段 8 门禁判定：
@@ -29,6 +30,8 @@ coverage_percent: n/a
 > total_tests > 0
 > passed_tests == total_tests
 > ```
+>
+> 本地等价 CI 路径允许 `total_tests` 记录 pytest/vitest 汇总；`self_check_command` 必须为 `bash scripts/_self_check.sh full` 且退出码为 0。
 
 ## Job 概览
 

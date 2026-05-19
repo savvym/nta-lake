@@ -2,7 +2,7 @@
 change_id: <feature-slug>-<yyyymmdd>
 version: 1
 authored_at: <YYYY-MM-DDTHH:MM:SSZ>
-branch: <author>/<change-id>
+branch: change/<change-id>
 base_commit: <main 上的 base sha>
 head_commit: <当前 head sha>
 status: waiting_review
@@ -18,7 +18,7 @@ status: waiting_review
 | _apps/api/alembic/versions/0001_repository.py_ | new | 对应迁移 | T-1 |
 | _apps/api/dataplat_api/routers/repos.py_ | new | CRUD 路由 | T-2 |
 
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 一致。
+> **门禁**：本表必须与 `git diff --name-only main...HEAD` 一致；当前分支必须是 `change/<change-id>`。
 
 ## 与 tasks.md 的映射
 
@@ -37,11 +37,12 @@ status: waiting_review
 ## 本地校验结果
 
 ```text
-uv run ruff check apps/api packages/core           → 0 errors
-uv run mypy apps/api/dataplat_api packages/core    → 0 errors
-uv run pytest apps/api -q                           → 24 passed
-pnpm --filter web lint                              → 0 errors
-pnpm --filter web typecheck                         → 0 errors
+bash scripts/_self_check.sh current <change-id>    → PASS
+uv run ruff check <changed-python-paths>            → 0 errors
+uv run mypy <changed-python-packages>               → 0 errors
+uv run pytest <changed-test-files> -q               → <n> passed
+pnpm --filter web lint                              → 0 errors（如适用）
+pnpm --filter web typecheck                         → 0 errors（如适用）
 ```
 
 ## 已知未解决问题
