@@ -1,6 +1,6 @@
 ---
 rollout_id: north-star-rollout-20260520
-last_updated: 2026-05-20T21:25:00Z
+last_updated: 2026-05-20T22:00:00Z
 ---
 
 # Dashboard：北极星 rollout 进度
@@ -13,7 +13,7 @@ last_updated: 2026-05-20T21:25:00Z
 |---|---|---|---|---|
 | 0 | 编排准备 | 3 docs | **done** | 3 文档落地 + 代码扫描完成 |
 | 1 | 地基 | 4 | **done** (4/4) | end-to-end PDF demo 跑通新模型（W2-5 接 Loader 后真跑） |
-| 2 | 核心算子链 | 6 | **in_progress** (0/6; W2-1 next) | 完整 recipe v2 跑通 |
+| 2 | 核心算子链 | 6 | **in_progress** (1/6; W2-2 next) | 完整 recipe v2 跑通 |
 | 3 | 源覆盖 + 训练对接 | 7 | pending | 4 种格式跑通 + HF 导出 |
 | 4 | UI + 工程化 | 10 | pending | 用户完整 UI 流程跑通 |
 
@@ -25,8 +25,8 @@ last_updated: 2026-05-20T21:25:00Z
 | operator-protocol-20260520 | W1-2 | **merged** | APPROVED | change/operator-protocol-20260520 | af8a7d5 | — |
 | silver-schema-enforce-20260520 | W1-3 | **merged** | APPROVED | change/silver-schema-enforce-20260520 | 13abd0d | — |
 | loader-refactor-pdf-mineru-20260520 | W1-4 | **merged** | APPROVED | change/loader-refactor-pdf-mineru-20260520 | 999ca82 | — |
-| operator-suite-mvp-20260520 | W2-1 | **design** | — | — | — | — |
-| operator-chunker-20260520 | W2-2 | pending | — | — | — | depends W2-1 |
+| operator-suite-mvp-20260520 | W2-1 | **merged** | APPROVED | change/operator-suite-mvp-20260520 | 5d0ed99 | — |
+| operator-chunker-20260520 | W2-2 | **design** | — | — | — | — |
 | operator-image-to-text-suite-20260520 | W2-3 | pending | — | — | — | depends W2-1 |
 | operator-snapshot-mixer-20260520 | W2-4 | pending | — | — | — | depends W2-1 |
 | recipe-yaml-v2-20260520 | W2-5 | pending | — | — | — | depends W2-1..4 |
@@ -51,9 +51,9 @@ last_updated: 2026-05-20T21:25:00Z
 
 ## 当前活动
 
-- **active change**: `operator-suite-mvp-20260520` (W2-1)
-- **next action**: application-owner 自写 ≤ 50 行 mini-design（filter / dedup / score 三 Operator MVP，注册进 OperatorRegistry）→ sonnet 端到端 → opus verify
-- **Wave 1 Checkpoint 状态**：4/4 changes done。end-to-end PDF demo 现在拿不到（worker 仍调老 Processor；新 Loader 单测覆盖，待 W2-5 recipe v2 真接 Loader）。
+- **active change**: `operator-chunker-20260520` (W2-2)
+- **next action**: application-owner 自写 mini-design（ChunkerOperator 演示 1→N，按 max_chars 切 row.text 成多个新 row）→ sonnet 端到端 → opus verify
+- **Wave 1 Checkpoint 状态**：4/4 changes done。end-to-end PDF demo 待 W2-5 recipe v2 真接 Loader 后跑通。
 
 ## 代码扫描快照（2026-05-20 Wave 0）
 
@@ -72,12 +72,12 @@ last_updated: 2026-05-20T21:25:00Z
 
 ## 累计 metrics
 
-- Changes done: **4 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82）
-- Wave 1 全部 done（4/4）
+- Changes done: **5 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99）
+- Wave 1 全部 done（4/4）；Wave 2 进度 1/6
 - Phase 1 reviewer cycles: 1（W1-1；W1-2 起 v3 不再跑）
-- Phase 3 reviewer cycles: 4（W1-1, W1-2, W1-3, W1-4）
-- v3 mini-design 实测：W1-2 design 56 行 + 3 AC，W1-3 design 71 行 + 3 AC，W1-4 design 98 行 + 3 AC；全程 application-owner + sonnet + opus 各 1 次 spawn，verify ~3-7 min
-- W1-4 是 v3 流程首次 0 issue verify（无 MUST/SHOULD FIX）
+- Phase 3 reviewer cycles: 5（W1-1, W1-2, W1-3, W1-4, W2-1）
+- v3 mini-design 实测：W1-2..W2-1 design 56-107 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-7 min
+- W1-4 / W2-1 都是 0-issue APPROVED（设计 + 实现一次过的稳定区）
 - BIG REWRITE 次数: 0
 - MAJOR ISSUE 次数: 0
 - 用户介入次数（非验收）: 2（efficiency pivot → v3；self_check 取消）
