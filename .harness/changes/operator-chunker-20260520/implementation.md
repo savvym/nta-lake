@@ -7,7 +7,7 @@ author: sonnet-phase2-implementer
 model_used: sonnet
 branch: change/operator-chunker-20260520
 base_commit: 614b9dc99e299d196c6e44e9e090584e8acab15f
-head_commit: <回填 commit 后>
+head_commit: 9a6803f
 pr_url: n/a (gh PAT 缺 pr:write)
 ---
 
