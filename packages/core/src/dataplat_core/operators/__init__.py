@@ -6,8 +6,10 @@
     FilterOperator    — 按 min_chars 过滤行
     DedupOperator     — 按 text / source_blob 去重
     ScoreOperator     — 按 text_chars / alpha_ratio 打分
+    ChunkerOperator   — 按 max_chars 切分（1→N 语义）
 """
 
+from dataplat_core.operators.chunker import ChunkerOperator
 from dataplat_core.operators.dedup import DedupOperator
 from dataplat_core.operators.filter import FilterOperator
 from dataplat_core.operators.identity import IdentityOperator
@@ -20,14 +22,16 @@ __all__ = [
     "FilterOperator",
     "DedupOperator",
     "ScoreOperator",
+    "ChunkerOperator",
 ]
 
-# 模块级自动注册 4 个内置算子；try/except 防止模块重复 import 时重复注册。
+# 模块级自动注册 5 个内置算子；try/except 防止模块重复 import 时重复注册。
 for _name, _cls in [
     ("identity", IdentityOperator),
     ("filter", FilterOperator),
     ("dedup", DedupOperator),
     ("score", ScoreOperator),
+    ("chunker", ChunkerOperator),
 ]:
     try:
         OperatorRegistry.register(_name, _cls)
