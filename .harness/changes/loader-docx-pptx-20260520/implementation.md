@@ -1,103 +1,61 @@
 ---
 change_id: loader-docx-pptx-20260520
 phase: implementation
-status: <in_progress | done>
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+status: done
+authored_at: 2026-05-20T00:00:00Z
 author: sonnet-phase2-implementer
 model_used: sonnet
 branch: change/loader-docx-pptx-20260520
 base_commit: bf27a90
-head_commit: <sonnet push 后回填>
-pr_url: <gh pr URL 或 "n/a (gh PAT 缺 pr:write)">
+head_commit: (回填于 commit 后)
+pr_url: n/a
 ---
 
-# Implementation
-
-> Phase 2 sonnet 端到端产物。**一次 sonnet 调用内**完成：编码 + 单元测试 + 端到端验证 + commit + push（+ PR 如可用）。Application Owner spawn sonnet 后 sonnet 自管完整 Phase 2，结束写本文件。
+# Implementation：DocxLoader + PptxLoader (W3-5)
 
 ## 改动文件清单
 
-执行 `git diff --name-only main...HEAD`，列在这里：
+| 路径 | 类型 | 一句话说明 |
+|---|---|---|
+| `packages/core/pyproject.toml` | edit | +python-docx>=1.1,<2; +python-pptx>=0.6,<2 |
+| `packages/core/src/dataplat_core/loaders/docx.py` | new | DocxLoader（~80 行）：段落文本 + 图片真抓写 blob_store |
+| `packages/core/src/dataplat_core/loaders/pptx.py` | new | PptxLoader（~90 行）：slide 文本 + 图片真抓写 blob_store |
+| `packages/core/src/dataplat_core/loaders/__init__.py` | edit | +DocxLoader/PptxLoader import+register+__all__ |
+| `packages/core/tests/test_loader_docx.py` | new | 3 behavioral tests |
+| `packages/core/tests/test_loader_pptx.py` | new | 3 behavioral tests |
 
-| 路径 | 类型 (new/edit/delete/rename) | 一句话说明 | 关联 task |
-|---|---|---|---|
-| <path> | <type> | <说明> | T-1 |
+## 实现要点
 
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 完全一致。
-
-## 任务完成情况
-
-对照 design.md § 任务清单：
-
-| Task | 状态 | commit | 备注 |
-|---|---|---|---|
-| T-1 | done / partial / deferred | <sha> | <如 partial / deferred 必填理由> |
+- **DocxLoader**：`Document(BytesIO(data))` → `doc.paragraphs` 拼文本；`doc.part.related_parts` 过滤 `content_type.startswith("image/")` → `blob_store.put(BytesIO(part.blob))` 写图；stats: format/paragraph_count/image_count/char_count
+- **PptxLoader**：`Presentation(BytesIO(data))` → 遍历 slides/shapes，`shape.has_text_frame` 拼文本（`\n\n[slide N]\n\n` 分隔）；`shape.shape_type == 13`（PICTURE）抓 `shape.image.blob` → `blob_store.put` 写图；stats: format/slide_count/image_count/char_count
+- 图片 dict 含 `{filename, blob_sha, content_type}`；与 design.md AC 一致
+- `asyncio.run(_run())` 同 W3-4 HtmlMdLoader 模式；流式 get() 有 chunk 拼接兜底
+- auto-register：for 循环 + try/except ValueError；保持 html-md 已有注册不破裂
+- 测试 fixture：运行时 python-docx / python-pptx 构造二进制；_PNG_1x1_B64 内嵌 base64，无外部文件
 
 ## 测试通过证据
 
-### 单元测试
-
 ```text
-$ uv run pytest tests/test_xxx.py
-============================== N passed in M.Ms ==============================
+$ uv run pytest packages/core/tests/test_loader_docx.py packages/core/tests/test_loader_pptx.py -x -q
+......
+6 passed in 0.55s
 
-$ pnpm --filter web test
-   Test Files  N passed
-        Tests  M passed
+$ uv run pytest packages/core/tests/ -x -q
+84 passed in 0.78s
 ```
 
-### 自检 AC block
+## AC 覆盖
 
-```text
-$ bash scripts/_self_check.sh <change-id>
-=== <change-id> :: N AC ===
-PASS  AC-1  ...
-PASS  AC-2  ...
-...
-PASS: N / FAIL: 0 / SKIP: 0
-全部通过
-```
+| AC | 结果 |
+|---|---|
+| AC-1 LoaderRegistry 含 "docx"+"pptx" | PASS |
+| AC-2 DocxLoader happy（text+images+stats） | PASS |
+| AC-3 PptxLoader happy（text+images+stats.slide_count==1） | PASS |
+| AC-4 blob_store 缺失 → ValueError("ctx.blob_store") | PASS × 2 |
 
-### 端到端验证
+## 偏离 design.md
 
-> 如涉及 API：curl 真打一次新端点  
-> 如涉及 UI：vite dev server 起来 / build 不挂 / 关键页面 smoke  
-> 如涉及 CLI：跑一次实际命令
-
-```text
-$ curl -H "Cookie: ..." http://localhost:8080/api/new-endpoint
-{"ok": true, ...}
-
-$ pnpm --filter web build
-✓ built in N.Ns
-```
-
-## 偏离 design.md（如有）
-
-> 凡未在 design.md 声明的偏离，**全部**列在这里。Phase 3 reviewer 把"未声明的隐式偏离"算 MUST FIX。
-
-| # | 偏离点 | 原因 | 评审请关注 |
-|---|---|---|---|
-| D-1 | <e.g. 改用 folder routing 不是 spec 写的 flat dot 形态> | <技术原因> | <reviewer 是否接受> |
-
-## 跨 change / 上游回归
-
-- 全 web vitest：N/N PASS（M files）
-- 全 pytest 本 module：N/N PASS
-- self_check full（如已跑）：PASS 总 / FAIL 总 / FAIL 列表 + 标 pre-existing 或本 change 引入
-
-## PR 描述（用于 gh pr create body）
-
-```markdown
-## Summary
-<1-3 bullets>
-
-## Test plan
-- [ ] <bullet>
-- [ ] <bullet>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+なし（无偏离）。
 
 ## 下一步
 
