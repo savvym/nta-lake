@@ -1,9 +1,13 @@
 ---
 change_id: web-jobs-list-page-20260520
-version: 2
+version: 3
 authored_at: 2026-05-20T13:00:00Z
-revised_at: 2026-05-20T13:25:00Z
+revised_at: 2026-05-20T13:40:00Z
 status: draft
+revision_notes_v3: |
+  v3 修 stage 2 reviewer v2 报的 1 条残留 MUST FIX + 1 条 SHOULD：
+  - v2 升 T-4 用例下限 ≥5 但 spec AC-8 描述/命令仍 ≥4，不一致 → 全文统一 ≥5
+  - 自审第 6 条仍写 `path "/"`，与 v2 决策不符 → 改 `path ""`
 revision_notes: |
   v2 修 stage 2 reviewer v1 报的 1 条 MUST FIX + 3 条 SHOULD FIX：
   - MUST-1 (AC-3 grep 与 T-3 路径不一致)：统一选 `@router.get("")`（FastAPI
@@ -79,7 +83,7 @@ In scope（与下方 AC 对齐）：
 | AC-5 | static | jobs.tsx 路由文件 + createFileRoute + table 渲染 | `test -f apps/web/src/routes/jobs.tsx && grep -q 'createFileRoute("/jobs")' apps/web/src/routes/jobs.tsx` | 退出 0 |
 | AC-6 | static | 导航含 "Jobs" link 到 /jobs（grep "/jobs" 在 __root.tsx 或 NavBar） | `grep -rE 'to=["\x27]/jobs["\x27]' apps/web/src/routes/__root.tsx apps/web/src/components 2>/dev/null` | 命中 |
 | AC-7 | behavioral | vitest jobs.test.tsx ≥ 5 + 全 PASS | 见 § "AC-7 完整命令" | numTotalTests ≥ 5 + 0 fail |
-| AC-8 | behavioral | pytest test_jobs_list ≥ 4 + 全 PASS（admin / user 403 / 过滤 / 分页） | 见 § "AC-8 完整命令" | ≥ 4 + 全 PASS |
+| AC-8 | behavioral | pytest test_jobs_list ≥ 5 + 全 PASS（admin / user 403 / status 过滤 / limit+offset 分页 / 400 非白名单 status） | 见 § "AC-8 完整命令" | ≥ 5 + 全 PASS |
 | AC-9 | static | typecheck + ruff + mypy 全 PASS | `pnpm --filter web typecheck && uv run ruff check apps/api packages/core worker/src && uv run mypy apps/api/dataplat_api packages/core/src worker/src` | 退出 0 |
 | AC-10 | static | self_check 含 run_web_jobs_list_page | `grep -q "run_web_jobs_list_page" scripts/_self_check.sh` | 退出 0 |
 
@@ -102,7 +106,7 @@ export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${
   export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && \
   export DATAPLAT_COOKIE_SECURE=false && \
   (cd apps/api && uv run pytest -q --tb=no tests/test_jobs_list.py) && \
-  [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_jobs_list.py 2>&1 | grep -cE 'test_jobs_list\.py::' || true)" -ge 4 ]
+  [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_jobs_list.py 2>&1 | grep -cE 'test_jobs_list\.py::' || true)" -ge 5 ]
 ```
 
 ## 风险
@@ -124,7 +128,7 @@ export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${
 3. ✅ AC 全可机械化
 4. ✅ AC 分层：2 behavioral
 5. ✅ 非豁免
-6. ✅ AC-3 grep 精确（含 @router.get 锚定 path "/"）
+6. ✅ AC-3 grep 精确（含 @router.get 锚定 path ""——v2 起统一为空串）
 7. ✅ spec ↔ tasks ↔ self_check 一致
 8. ✅ process_tasks 7 节点
 
