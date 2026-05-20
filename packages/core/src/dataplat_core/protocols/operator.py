@@ -11,7 +11,7 @@ run() 返 list[SilverRow] 覆盖三种语义：
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
