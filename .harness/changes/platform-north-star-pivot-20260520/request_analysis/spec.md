@@ -1,7 +1,8 @@
 ---
 change_id: platform-north-star-pivot-20260520
-version: 1
+version: 2
 authored_at: 2026-05-20T15:00:00Z
+revised_at: 2026-05-20T15:30:00Z
 status: draft
 ac_kind_lint: exempt
 ac_kind_lint_exempt_reason: |
@@ -9,6 +10,16 @@ ac_kind_lint_exempt_reason: |
   无业务代码改动；reviewer 跑 `git diff --stat origin/main..HEAD` 验证。
   虽然 exempt，本 change 仍自带 1 条 behavioral AC（design.md 结构 lint 脚本），
   作为后续 change 引用本 doc 时的可机械化基线。
+revision_log:
+  - version: 2
+    fixed:
+      - MUST-FIX-1：把 awk 范围 pattern 从 `/^## X/,/^## [^#]/` 改为 flag-based
+        `awk 'found && /^## [^#]/{exit} /^## X/{found=1} found'`，影响 AC-1/2/3/4/5；
+        原 pattern 因 `## X` 自身满足 `/^## [^#]/` 终止条件导致区间在第一行即关闭。
+      - MUST-FIX-2：§ 问题陈述 "6 个具体地方" 改 "7 个"，与表中 C-1~C-7 对齐。
+      - SHOULD-FIX-1：§ 范围 D-11 描述里"6 条 AC"改"10 条 AC"。
+      - SHOULD-FIX-2：§ 风险新增 R-5（deprecated 标记导致锚点失效的具体方案）。
+      - SHOULD-FIX-3：§ 风险新增 R-6（21 个老 change 旧术语双轨并存的应对）。
 ---
 
 # Spec：北极星 pivot —— "数据加工厂"取代"data 上加 git"
@@ -31,7 +42,7 @@ ac_kind_lint_exempt_reason: |
 
 ## 问题陈述
 
-design.md 当前版本在 6 个具体地方与新北极星冲突：
+design.md 当前版本在 7 个具体地方与新北极星冲突：
 
 | # | 现 design.md 写的 | 新北极星该是的 |
 |---|---|---|
@@ -59,7 +70,7 @@ In scope（纯文档 / 治理）：
 - **D-8 新增 `.harness/rules/data-not-code-pivot.md`**：把"永不做清单"做成 rule 文件，所有未来 change 在 stage 2 评审时必须确认不违反
 - **D-9 更新 CLAUDE.md**：在"关键文件导航"表加一行指向新 design.md § 北极星；在"硬性约束"加一条引用 data-not-code-pivot rule
 - **D-10 新增 `scripts/lint/check_design_north_star.sh`**：design.md 结构 lint 脚本（验证 § 北极星 / § 三层算子 / § 永不做清单 / § 迁移路径 都存在且非空）
-- **D-11 self_check 新增 `run_platform_north_star_pivot` block**：6 条 AC 含 D-10 的 behavioral 调用
+- **D-11 self_check 新增 `run_platform_north_star_pivot` block**：10 条 AC 含 D-10 的 behavioral 调用
 
 ## 非范围
 
@@ -77,12 +88,12 @@ In scope（纯文档 / 治理）：
 
 | ID | kind | 描述 | 验证方式 | 期望 |
 |---|---|---|---|---|
-| AC-1 | static | design.md 含 § 北极星 + 一句话定位 + ≥ 4 条对应硬约束 bullet | `awk '/^## 北极星/,/^## [^#]/' .harness/design.md \| grep -qE '数据加工厂\|data prep' && [ "$(awk '/^## 北极星/,/^## [^#]/' .harness/design.md \| grep -cE '^- ')" -ge 4 ]` | grep 命中 + bullet ≥ 4 |
-| AC-2 | static | design.md 含 § 三层算子模型 + 三个子节（Adapter / Loader / Operator）+ 每节有 Protocol 草图 + 例子 | `for k in Adapter Loader Operator; do awk "/^### $k/,/^### [^#]/" .harness/design.md \| grep -qE 'Protocol\|protocol\|class ' \|\| exit 1; done` | 三节都命中 |
-| AC-3 | static | design.md 含 § 永不做清单 + ≥ 7 条粗体 bullet（branch / merge / cherry-pick / rollback / row-diff / blob→blob lineage / Asset / manifest.yaml 至少覆盖 7 项） | `[ "$(awk '/^## 永不做/,/^## [^#]/' .harness/design.md \| grep -cE '^- \*\*')" -ge 7 ]` | ≥ 7 条 |
-| AC-4 | static | design.md 含 § stats-first + Operator 接口声明 `reads_stats` / `writes_stats` | `awk '/^## stats-first/,/^## [^#]/' .harness/design.md \| grep -qE 'reads_stats' && awk '/^## stats-first/,/^## [^#]/' .harness/design.md \| grep -qE 'writes_stats'` | 两个 grep 都命中 |
-| AC-5 | static | design.md 含 § 行级血缘 + `source_ref` + `lineage_ops` 字段定义 | `awk '/^## 行级血缘/,/^## [^#]/' .harness/design.md \| grep -qE 'source_ref' && awk '/^## 行级血缘/,/^## [^#]/' .harness/design.md \| grep -qE 'lineage_ops'` | 两个字段都命中 |
-| AC-6 | static | design.md 含 § 迁移路径 + 表格涵盖 5 个 processor | `for p in pdf-mineru llm-qa-gen llm-summarize markdown-normalize firecrawl; do awk '/^## 迁移路径/,/^## [^#]/' .harness/design.md \| grep -q "$p" \|\| exit 1; done` | 5 个名字都命中 |
+| AC-1 | static | design.md 含 § 北极星 + 一句话定位（含"LLM 训练数据" + "工厂" 或英文"data prep"）+ ≥ 4 条对应硬约束 bullet | `awk 'found && /^## /{exit} /^## 北极星/{found=1} found' .harness/design.md \| grep -qE 'LLM 训练数据.{0,5}工厂\|data prep' && [ "$(awk 'found && /^## /{exit} /^## 北极星/{found=1} found' .harness/design.md \| grep -cE '^- ')" -ge 4 ]` | grep 命中 + bullet ≥ 4 |
+| AC-2 | static | design.md 含 § 三层算子模型 + 三个子节（Adapter / Loader / Operator）+ 每节有 Protocol 草图 + 例子 | `for k in Adapter Loader Operator; do awk -v k="$k" 'found && /^### /{exit} $0 ~ "^### "k{found=1} found' .harness/design.md \| grep -qE 'Protocol\|protocol\|class ' \|\| exit 1; done` | 三节都命中 |
+| AC-3 | static | design.md 含 § 永不做清单 + ≥ 7 条粗体 bullet（branch / merge / cherry-pick / rollback / row-diff / blob→blob lineage / Asset / manifest.yaml 至少覆盖 7 项） | `[ "$(awk 'found && /^## /{exit} /^## 永不做/{found=1} found' .harness/design.md \| grep -cE '^- \*\*')" -ge 7 ]` | ≥ 7 条 |
+| AC-4 | static | design.md 含 § stats-first + Operator 接口声明 `reads_stats` / `writes_stats` | `awk 'found && /^## /{exit} /^## stats-first/{found=1} found' .harness/design.md \| grep -qE 'reads_stats' && awk 'found && /^## /{exit} /^## stats-first/{found=1} found' .harness/design.md \| grep -qE 'writes_stats'` | 两个 grep 都命中 |
+| AC-5 | static | design.md 含 § 行级血缘 + `source_ref` + `lineage_ops` 字段定义 | `awk 'found && /^## /{exit} /^## 行级血缘/{found=1} found' .harness/design.md \| grep -qE 'source_ref' && awk 'found && /^## /{exit} /^## 行级血缘/{found=1} found' .harness/design.md \| grep -qE 'lineage_ops'` | 两个字段都命中 |
+| AC-6 | static | design.md 含 § 迁移路径 + 表格涵盖 5 个 processor | `for p in pdf-mineru llm-qa-gen llm-summarize markdown-normalize firecrawl; do awk 'found && /^## /{exit} /^## 迁移路径/{found=1} found' .harness/design.md \| grep -q "$p" \|\| exit 1; done` | 5 个名字都命中 |
 | AC-7 | static | `.harness/rules/data-not-code-pivot.md` 存在 + 含"永不做"硬约束 + 引用 design.md | `test -f .harness/rules/data-not-code-pivot.md && grep -q '永不做' .harness/rules/data-not-code-pivot.md && grep -q 'design.md' .harness/rules/data-not-code-pivot.md` | 三条都成立 |
 | AC-8 | static | CLAUDE.md 指针更新：含一行指向 design.md § 北极星 + 一条硬性约束引用 data-not-code-pivot.md | `grep -q '北极星' CLAUDE.md && grep -q 'data-not-code-pivot' CLAUDE.md` | 两个 grep 都命中 |
 | AC-9 | behavioral | `scripts/lint/check_design_north_star.sh` 存在且可独立运行 + 当前 design.md 上 exit 0 | `bash scripts/lint/check_design_north_star.sh` | exit 0 + stdout 含 `OK: design.md north-star structure complete` |
@@ -92,10 +103,12 @@ In scope（纯文档 / 治理）：
 
 | 风险 | 概率 | 影响 | 缓解 |
 |---|---|---|---|
-| 老 change 引用了 design.md 旧 anchor（如 §11.3 §monorepo） | 中 | 锚点 404 | § "deprecated 设计（v1）"保留旧锚点 |
-| 新 design.md 跟 .harness/rules/coding-style.md 冲突 | 低 | 评审困惑 | reviewer stage 2 必查交叉引用，本 spec § "交叉引用清单"已明示 |
-| Loader/Operator Protocol 草图被误读为"已经落地" | 中 | 后续 change 跳过实现 | § 三层算子开头加显眼标记"本节为契约草图，实现见 follow-up `operator-protocol-*` / `loader-refactor-*`" |
-| 永不做清单太硬，未来需要松绑 | 低 | 改 design 要再走一个 change | design 本身就是受版本控制的；松绑就走 pivot-v2 change，正常流程 |
+| R-1：老 change 引用了 design.md 旧 anchor（如 §11.3 §monorepo） | 中 | 锚点 404 | § "deprecated 设计（v1）"保留旧锚点（具体实现见 R-5） |
+| R-2：新 design.md 跟 .harness/rules/coding-style.md 冲突 | 低 | 评审困惑 | reviewer stage 2 必查交叉引用，本 spec § "交叉引用清单"已明示 |
+| R-3：Loader/Operator Protocol 草图被误读为"已经落地" | 中 | 后续 change 跳过实现 | § 三层算子开头加显眼标记"本节为契约草图，实现见 follow-up `operator-protocol-*` / `loader-refactor-*`" |
+| R-4：永不做清单太硬，未来需要松绑 | 低 | 改 design 要再走一个 change | design 本身就是受版本控制的；松绑就走 pivot-v2 change，正常流程 |
+| R-5：deprecated 标记导致 markdown 锚点失效 | 中 | 老 change 文档死链 | markdown 锚点是 `## section-name` 小写连字符自动生成；T-7 不动老 § 的二级标题文字（如 `## 1. 目标与设计原则`），只在该 § 顶端插入一个 `> ⚠ Deprecated 设计（v1）。v2 见 § <新章节链接>` quote 块。锚点不变，引用不会 404 |
+| R-6：21 个老 change 旧术语（Asset / Processor / commit DAG）双轨并存 | 中 | reviewer / 新 change 引用旧术语 | (a) `.harness/rules/data-not-code-pivot.md` 列旧→新术语对照表；(b) design.md § 迁移路径表标注 5 个 processor 当前用哪些旧术语；(c) 旧 change 文档**不改动**（避免 22 个改动），新 change 评审 reviewer 必须查"是否用了 v2 词汇"；(d) 持续 6 个月后视情况再决定要不要批量回写老 change |
 
 ## 交叉引用清单（reviewer 必查）
 
