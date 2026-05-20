@@ -3,9 +3,9 @@ change_id: loader-refactor-pdf-mineru-20260520
 title: PdfMineruLoader 实现 Loader Protocol + LoaderRegistry (W1-4)
 owner: application-owner-agent
 started_at: 2026-05-20T20:45:00Z
-phase: design
+phase: verify
 status: approved
-last_updated: 2026-05-20T20:45:00Z
+last_updated: 2026-05-20T21:15:00Z
 related_changes:
   - operator-protocol-20260520 (W1-2, Loader Protocol 来源)
   - silver-schema-enforce-20260520 (W1-3, silver-text-v1 schema 来源)
@@ -29,9 +29,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | _待填_ | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | _待填_ | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | 16825fb | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | daf820a (+nit e14f946) | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | (review only) | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
