@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 from io import BytesIO
 from typing import Any
@@ -24,8 +23,6 @@ from dataplat_core.protocols.runcontext import RunContext
 
 from dataplat_api.processors._mineru_client import MinerUClient
 from dataplat_api.processors.pdf_mineru import PdfMineruSpec, _wait_terminal
-
-_logger = logging.getLogger("dataplat.loader.pdf_mineru")
 
 _ENV_URL = "MINERU_API_URL"
 _ENV_TOKEN = "MINERU_API_TOKEN"
