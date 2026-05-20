@@ -3,9 +3,9 @@ change_id: operator-suite-mvp-20260520
 title: filter / dedup / score 三个 MVP Operator (W2-1)
 owner: application-owner-agent
 started_at: 2026-05-20T21:30:00Z
-phase: design
+phase: verify
 status: approved
-last_updated: 2026-05-20T21:30:00Z
+last_updated: 2026-05-20T21:50:00Z
 related_changes:
   - operator-protocol-20260520 (W1-2, Operator Protocol + IdentityOperator 标杆)
   - loader-refactor-pdf-mineru-20260520 (W1-4, auto-register 模式参考)
@@ -29,9 +29,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | _待填_ | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | _待填_ | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | 614ce13 | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | a4e5779 | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | (review only) | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
