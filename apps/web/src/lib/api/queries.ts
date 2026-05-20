@@ -438,6 +438,53 @@ export interface BlobMetaResponse {
   size: number;
 }
 
+// 新增 W4-1：snapshot rows 分页查询
+export interface SilverRowRead {
+  text: string;
+  images: unknown[];
+  source_ref: Record<string, unknown>;
+  stats: Record<string, unknown>;
+  lineage_ops: unknown[];
+}
+
+export interface SnapshotRowsResponse {
+  rows: SilverRowRead[];
+  total: number;
+  offset: number;
+  limit: number;
+  blob_sha: string;
+}
+
+export function useSnapshotRows(
+  owner: string,
+  name: string,
+  hash: string,
+  opts: { offset: number; limit: number; blobSha?: string },
+) {
+  return useQuery({
+    queryKey: [
+      "snapshot-rows",
+      owner,
+      name,
+      hash,
+      opts.offset,
+      opts.limit,
+      opts.blobSha ?? "",
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        offset: String(opts.offset),
+        limit: String(opts.limit),
+      });
+      if (opts.blobSha) params.set("blob_sha", opts.blobSha);
+      return fetchJson<SnapshotRowsResponse>(
+        `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/snapshots/${encodeURIComponent(hash)}/rows?${params.toString()}`,
+      );
+    },
+    enabled: !!hash && /^[0-9a-f]{64}$/.test(hash),
+  });
+}
+
 export function useBlobMeta(owner: string, name: string, sha256: string) {
   return useQuery({
     queryKey: ["blob-meta", owner, name, sha256],

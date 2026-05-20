@@ -42,6 +42,7 @@ from dataplat_api.models import CommitORM, RepositoryORM, TreeEntryORM, TreeORM
 from dataplat_api.schemas._commit_internal import CommitCreate
 from dataplat_api.schemas.blob import BlobMetaResponse, BlobUploadResponse
 from dataplat_api.schemas.snapshot import SnapshotCreate, SnapshotRead
+from dataplat_api.schemas.snapshot_rows import SilverRowRead, SnapshotRowsResponse
 from dataplat_api.schemas.tree import TreeEntryRead, TreeRead
 from dataplat_api.services.blob import BlobService
 from dataplat_api.services.commit import CommitService
@@ -389,6 +390,97 @@ async def get_subtree_by_hash(
         for e in entries_orm
     ]
     return TreeRead(hash=tree_hash, entries=entries)
+
+
+# ---------- W4-1: snapshot rows endpoint ----------
+
+
+@router.get(
+    "/{owner}/{name}/snapshots/{hash}/rows",
+    response_model=SnapshotRowsResponse,
+)
+async def get_snapshot_rows(
+    owner: str,
+    name: str,
+    hash: str = Path(pattern=_SHA256_PATTERN),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=500),
+    blob_sha: str | None = Query(None),
+    current_user: AuthenticatedUser | None = Depends(get_optional_user),
+    session: AsyncSession = Depends(get_session),
+    store: BlobStore = Depends(get_blob_store),
+) -> SnapshotRowsResponse:
+    """返回 silver snapshot 行数据（分页）。
+
+    步骤：
+    1. _resolve_repo + CommitService.get_with_tree 拿 snapshot（404 if 不存在）
+    2. 解析 blob_sha：若传入用之；否则从 root tree 找唯一 .jsonl entry
+    3. store.get(sha) 读 bytes
+    4. 按行 decode + SilverRow.model_validate_json
+    5. offset/limit slice 后返回 SnapshotRowsResponse
+    """
+    from dataplat_core.protocols.loader import SilverRow
+
+    repo = await _resolve_repo(session, owner, name, current_user)
+    commit = await CommitService.get_with_tree(session, repo.id, hash)
+    if commit is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Snapshot {hash} 在 {owner}/{name} 不存在",
+        )
+
+    # 解析 blob_sha：传入 → 直接用；否则从 root tree 找唯一 .jsonl entry
+    sha: str
+    if blob_sha is not None:
+        sha = blob_sha
+    else:
+        entries = await _load_subtree_entries(session, repo.id, commit.tree_hash)
+        if entries is None:
+            entries = []
+        jsonl_entries = [e for e in entries if e.name.lower().endswith(".jsonl")]
+        if len(jsonl_entries) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="silver_snapshot_no_jsonl_entry",
+            )
+        if len(jsonl_entries) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="silver_snapshot_ambiguous_blob_sha; pass ?blob_sha=",
+            )
+        sha = jsonl_entries[0].target_hash
+
+    # 读 blob bytes（store.get 返回 AsyncIterator[bytes]，concat 成 bytes）
+    try:
+        chunks: list[bytes] = []
+        async for chunk in store.get(sha):  # type: ignore[misc]
+            chunks.append(chunk)
+        data: bytes = b"".join(chunks)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Blob {sha} 不存在",
+        ) from exc
+
+    # 解析 JSONL 行
+    text = data.decode("utf-8", errors="replace")
+    raw_rows: list[SilverRow] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line:
+            raw_rows.append(SilverRow.model_validate_json(line))
+
+    total = len(raw_rows)
+    sliced = raw_rows[offset : offset + limit]
+    rows = [SilverRowRead(**row.model_dump()) for row in sliced]
+
+    return SnapshotRowsResponse(
+        rows=rows,
+        total=total,
+        offset=offset,
+        limit=limit,
+        blob_sha=sha,
+    )
 
 
 # ---------- T-3: 308 兼容端点（保留 1 个版本周期；cleanup 见 follow-up） ----------
