@@ -3,9 +3,9 @@ change_id: web-jobs-list-page-20260520
 title: GET /jobs admin 列表端点 + Web Jobs 页（过滤 + 分页）
 owner: application-owner-agent
 started_at: 2026-05-20T04:54:04Z
-stage: deployment
-status: waiting_user_confirmation
-last_updated: 2026-05-20T14:20:00Z
+stage: done
+status: closed
+last_updated: 2026-05-20T14:30:00Z
 related_changes:
   - rq-worker-skeleton-20260517
 ---
@@ -34,7 +34,7 @@ related_changes:
 | 7 代码推送 | done | — | — | 9bb50e2 / merge 45407ed | branch `change/web-jobs-list-page-20260520` pushed + merged --no-ff into main |
 | 8 CI 验证 | done | — | PASS | — | self_check `web-jobs-list-page` 10/10 PASS；full 链上其余 5 个 FAIL 均为 pre-existing flake（同 AC-13 标注） |
 | 9 部署验证 | done | v1 | PASS | — | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) — 5 项 curl 验证全过 |
-| 10 用户确认 | waiting | — | — | — | 等用户实测 /jobs 页 UI（filter / 翻页 / Refresh / 非 admin 看不到入口） |
+| 10 用户确认 | done | — | PASS | — | 用户回复"可以"（2026-05-20T14:30Z）— /jobs 页 UI 实测通过 |
 
 ## 关键决策
 
@@ -60,8 +60,8 @@ related_changes:
 ## 交付
 
 - Branch：`change/web-jobs-list-page-20260520`（基于 main）
-- PR：TBD（直 merge）
-- Merge commit：TBD
-- 部署版本：n/a
-- 用户确认：TBD
-- 关闭时间：TBD
+- PR：直 merge（gh PAT 缺 pr:write scope）
+- Merge commit：`45407ed`（feature commit `9bb50e2`；stage 7-9 docs `353a3b1`）
+- 部署版本：本地 dev（uvicorn :8080 + vite :5173）
+- 用户确认：2026-05-20T14:30Z — "可以"
+- 关闭时间：2026-05-20T14:30Z
