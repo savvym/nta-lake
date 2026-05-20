@@ -3,9 +3,9 @@ change_id: loader-html-md-20260520
 title: html/md loader (W3-4)
 owner: application-owner-agent
 started_at: 2026-05-21T05:00:00Z
-phase: design
-status: design_approved
-last_updated: 2026-05-21T05:00:00Z
+phase: verify
+status: verify_approved
+last_updated: 2026-05-20T12:42:13Z
 related_changes:
   - loader-refactor-pdf-mineru-20260520 (W1-4, Loader 实现模板)
   - operator-protocol-20260520 (W1-2, Loader Protocol + SilverRow)
@@ -30,9 +30,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待回填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | — | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | — | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | 7051395 | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | 8d71277 / 6d7030f | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | _本次 commit_ | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 

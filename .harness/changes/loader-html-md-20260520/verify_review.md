@@ -1,81 +1,61 @@
 ---
 change_id: loader-html-md-20260520
 phase: verify
-reviewer: claude-agent:opus-phase3-reviewer
-model_used: opus
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
-verdict: <APPROVED | MINOR FIX | MAJOR ISSUE>
+status: approved
+reviewer: opus
+reviewed_at: 2026-05-20T12:42:13Z
+verdict: APPROVED
 ---
 
-# Verify Review
+# Verify Review：html/md loader (W3-4)
 
-> Phase 3 reviewer 产物。对照 design.md（原始要求）+ implementation.md（声称的实现）+ `git diff main...change/<id>` 验 PR。
+## 验证结果
 
-## 输入
+| AC | kind | 结果 | 证据 |
+|---|---|---|---|
+| AC-1 | behavioral | PASS | `pytest tests/test_loader_html_md.py::test_html_md_auto_registered` → 1 passed |
+| AC-2 | behavioral | PASS | `pytest tests/test_loader_html_md.py::test_html_md_load_markdown_happy` → 1 passed |
+| AC-3 | behavioral | PASS | `pytest tests/test_loader_html_md.py::test_html_md_load_html_happy` → 1 passed |
+| AC-4 | behavioral | PASS | `pytest tests/test_loader_html_md.py::test_html_md_requires_blob_store` → 1 passed |
 
-- **Design**：`.harness/changes/<id>/design.md`（reviewer 必读）
-- **Implementation**：`.harness/changes/<id>/implementation.md`（reviewer 必读）
-- **Git diff**：`git diff main...change/<id>`
-- **PR**：<pr url 或 branch ref>
+## 全套测试
 
-## AC 对照表
+`packages/core/tests` 78 passed in 0.29s（74 旧 + 4 新，预期吻合）
 
-每条 AC 真去跑命令验证：
+## Diff 扫描
 
-| AC | kind | reviewer 跑的命令 | 结果 | PASS/FAIL/NOT-VERIFIABLE |
-|---|---|---|---|---|
-| AC-1 | static | `grep -q "..." apps/api/...` | 0 / exit 0 | PASS |
-| AC-2 | behavioral | `uv run pytest tests/test_x.py` | 2 passed | PASS |
-| AC-N | ... | ... | ... | ... |
+- 修改文件：
+  - `.harness/changes/loader-html-md-20260520/{design,design_review,implementation,summary,verify_review}.md`
+  - `packages/core/src/dataplat_core/loaders/html_md.py` (新)
+  - `packages/core/src/dataplat_core/loaders/__init__.py` (改)
+  - `packages/core/tests/test_loader_html_md.py` (新)
+- scope 内：YES（未触 apps/api/web、W1-* / W2-* / W3-1..3 产物、loaders/registry.py、protocols、adapters）
+- 永不做清单 grep：clean（命中均为 design/summary 元文本"不做 manifest"声明，非真实产物）
+- pyproject.toml 变化：none（决策 4：stdlib only，未引入 markdown-it-py / bs4）
 
-## 机械化检查日志
+## 不变量校验
 
-```text
-$ bash scripts/_self_check.sh <change-id>
-=== <change-id> :: N AC ===
-... (粘 reviewer 自己跑的输出)
+- name="html-md" / version="0.1" / input_subtype="html-md" / output_schema_id="silver-text-v1"：OK
+- ctx.blob_store 缺失早抛 ValueError，消息含 "ctx.blob_store"：OK
+- format 选择顺序：config["format"] → path 后缀（.html/.htm/.md/.markdown）→ 默认 "md"：OK
+- md 正则：`re.findall(r"^#{1,6}\s+.+$", re.MULTILINE)` + `r"!\[[^\]]*\]\([^)]+\)"`：OK
+- html 解析：`html.parser.HTMLParser` 子类，handle_starttag + handle_startendtag 双覆盖 h1-h6 + img：OK
+- decode utf-8 + errors="replace"：OK
+- SilverRow stats 4 字段（format / heading_count / char_count / image_ref_count）：OK
+- asyncio.run 包 async 内层（与 W1-4 PdfMineruLoader 同模式）：OK
+- loaders/__init__.py：try/except ValueError + register + `__all__` 含 "HtmlMdLoader"：OK
+- 测试用 `"html-md" in LoaderRegistry.list_names()`（W2-4 教训，未用 == N）：OK
 
-$ git diff --stat main...change/<change-id>
-... 
+## 既有产物回归
 
-$ curl <new-endpoint>（如适用）
-... 
-```
-
-## 隐式偏离审计
-
-> reviewer 对照 design.md vs implementation.md vs git diff，列出 implementation.md § 偏离 没声明但实际发生的偏离。**隐式偏离 = MUST FIX**。
-
-- <无 / 列出>
-
-## 问题列表
-
-### MUST FIX
-
-> Phase 3 reviewer 给 MAJOR ISSUE 时必含 MUST FIX；MINOR FIX 时一般不应有 MUST FIX，最多 SHOULD FIX；APPROVED 时为空。
-
-- <无 / 列出>
-
-### SHOULD FIX
-
-> 建议合入前修但不阻塞 merge。MINOR FIX verdict 下的"待 sonnet 一轮修"内容写在这里。
-
-- <无 / 列出>
-
-### NICE TO HAVE
-
-> 完全可选。可记入 follow-up change。
-
-- <无 / 列出>
+- W3-1 adapter-raw-upload + W3-2 adapter-folder-md-assets + W3-3 adapter-jsonl-import + LoaderRegistry 单测：13/13 PASS
 
 ## Verdict
 
-<APPROVED | MINOR FIX | MAJOR ISSUE>
+APPROVED
 
-- **APPROVED**：PR 兑现 design + 所有 AC PASS + 无隐式偏离 → merge to main + close change
-- **MINOR FIX**：1-3 个小问题 → spawn sonnet 一轮修 → 直接 merge，**不再 spawn Phase 3 reviewer**
-- **MAJOR ISSUE**：多个 AC 没兑现 / 实现与 design 严重偏离 / 引入回归 → 回 Phase 2 重做
+design.md 4 个 behavioral AC 100% 兑现；实现严格落在 design.md 决策框内（stdlib only、单 row、stats 4 字段、asyncio.run 模板）；未引入依赖、未触 scope 外文件、未踩永不做清单；测试断言遵循 W2-4 反脆弱模式。可直接 merge to main + close change。连续 0-issue verdict 计数 +1（目标 11，本次达成）。
 
-## 后续指引
+## NICE TO HAVE / Deferred
 
-<具体下一步>
+- 已在 design.md / summary.md Deferred 列出 5 个 follow-up（apps/api routes / XSS 净化 / frontmatter / async Protocol / 图片抓取），无需额外补登。
