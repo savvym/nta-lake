@@ -3,9 +3,9 @@ change_id: recipe-yaml-v2-20260520
 title: Recipe YAML v2 解析器 + 执行器 (W2-5)
 owner: application-owner-agent
 started_at: 2026-05-21T00:50:00Z
-phase: design
+phase: verify
 status: approved
-last_updated: 2026-05-21T00:50:00Z
+last_updated: 2026-05-21T01:30:00Z
 related_changes:
   - operator-protocol-20260520 (W1-2, Operator Protocol)
   - loader-refactor-pdf-mineru-20260520 (W1-4, Loader Protocol)
@@ -33,9 +33,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | _待填_ | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | _待填_ | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | 482ee20 | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | 6dcaf86 + 860ffcd | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | e7537e2 | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
