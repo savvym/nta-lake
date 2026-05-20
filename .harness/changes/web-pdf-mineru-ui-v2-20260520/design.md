@@ -58,7 +58,7 @@ In scope：
     - **(2) 流水线区**：固定 yaml fixture（pdf_mineru 单步）；按钮"跑 pdf_mineru on 上次 ingest"；调 `useCreatePipelineRun` + 轮询 `usePipelineRun`；完成后取 `pipeline_run.snapshot_hash` 写入 URL `?snapshot=`
     - **(3) 行展示区**：`?snapshot=` 存在时调 `useSnapshotRows`；渲染基础 `<table>`（无 react-virtual，行虚拟化留 W4-2）：列 `#` / `text` (truncate 200 字符 + "…") / `[详情]` 按钮；点行 → 下方/右侧 `<pre>` 展示完整 row JSON（包含 source_ref / stats / lineage_ops）；上下页按钮（offset ± limit）
 - **Tests Backend** `apps/api/dataplat_api/tests/routers/test_snapshot_rows.py`（新）：4 个 behavioral（happy 分页 / 404 snapshot / 422 no-jsonl / 422 ambiguous）
-- **Tests Frontend** `apps/web/src/routes/repos/$owner.$name.pdf-mineru.test.tsx`（新）：2 个 vitest+RTL+MSW（route 渲染 3 行表格 / 点行展开详情）
+- **Tests Frontend** `apps/web/src/routes/repos/$owner.$name.pdf-mineru.test.tsx`（新）：2 个 vitest+RTL（与现有 repos.tabs.test.tsx 同模式 `vi.mock("../lib/api/queries", ...)`）：route 渲染 3 行表格 / 点行展开详情
 
 Out of scope：
 
@@ -80,7 +80,7 @@ Out of scope：
 | AC-1 | behavioral | Backend happy：admin 用户先 POST 创建含 3 行 silver JSONL 的 snapshot（tree 含 1 个 `data.jsonl` entry）→ GET /repos/{o}/{n}/snapshots/{h}/rows?offset=0&limit=2 → 200 + rows=2 + total=3 + offset=0 + limit=2 + blob_sha 是该 entry 的 sha256；rows[0].text == 原 row 1 text | `cd apps/api && uv run pytest dataplat_api/tests/routers/test_snapshot_rows.py::test_rows_happy_paginated -x -q` | 1 passed |
 | AC-2 | behavioral | Backend 404：GET 不存在的 snapshot hash → 404 detail 含 "Snapshot" + "不存在" | `cd apps/api && uv run pytest dataplat_api/tests/routers/test_snapshot_rows.py::test_rows_snapshot_not_found -x -q` | 1 passed |
 | AC-3 | behavioral | Backend 422：snapshot tree 无 `.jsonl` entry → 422 detail 含 "no_jsonl_entry"；snapshot tree 有 ≥2 个 `.jsonl` entry 且未传 blob_sha → 422 detail 含 "ambiguous_blob_sha" | `cd apps/api && uv run pytest "dataplat_api/tests/routers/test_snapshot_rows.py::test_rows_jsonl_resolution_errors" -x -q` | 1 passed |
-| AC-4 | behavioral | Frontend：vitest+RTL+MSW mock `/api/repos/o/n/snapshots/h/rows` 返回 3 行；render `<PdfMineruRoute>` with URL `?snapshot=<64 hex>` → 表格 ≥3 行可见；点第 1 行 [详情] → 详情面板含 "source_ref" 字符串 | `cd apps/web && pnpm vitest run src/routes/repos/$owner.$name.pdf-mineru.test.tsx` | tests pass |
+| AC-4 | behavioral | Frontend：vitest+RTL；`vi.mock("../lib/api/queries", ...)` 让 useSnapshotRows 返回 3 行；render router with memory history at `/repos/o/n/pdf-mineru?snapshot=<64 hex>` → 表格 ≥3 行可见；点第 1 行 [详情] → 详情面板含 "source_ref" 字符串 | `cd apps/web && pnpm test -- src/routes/repos/\$owner.\$name.pdf-mineru.test.tsx` | tests pass |
 
 ## 决策
 
