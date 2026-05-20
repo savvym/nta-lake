@@ -1,60 +1,58 @@
 ---
 change_id: adapter-raw-upload-20260520
-title: raw-upload adapter (W3-1)
+title: raw-upload adapter port + AdapterRegistry (W3-1)
 owner: application-owner-agent
-started_at: 2026-05-20T11:51:32Z
-phase: design
-status: in_progress
-last_updated: 2026-05-20T11:51:32Z
-related_changes: []
+started_at: 2026-05-21T02:30:00Z
+phase: verify
+status: approved
+last_updated: 2026-05-21T02:50:00Z
+related_changes:
+  - operator-protocol-20260520 (W1-2, SourceAdapter Protocol)
+  - adapter-framework-20260517 (apps/api raw_upload 原版本)
+process_variant: v3-mini-design
 ---
 
 # Summary
 
-> 三阶段简化流程下，本文件是 SoT。每阶段开始 / 通过 / 失败都同步这里。
+> v3 mini-design 流程（D-13）。含 roadmap drift correction：drop dataset-card.yaml AC（违反 D-1 永不做清单）。
 
 ## 一句话目标
 
-<复述用户诉求>
+把 RawFileUploadAdapter 从 apps/api port 到 packages/core/src/dataplat_core/adapters/，新增 AdapterRegistry（与 LoaderRegistry / OperatorRegistry 同模式）。
 
 ## 范围摘要
 
-- **In scope**：<bullets>
-- **Out of scope**：<bullets>
+- **In scope**：adapters/registry.py + adapters/raw_upload.py + adapters/__init__.py + 4 个 behavioral pytest
+- **Out of scope**：不改 apps/api（私有副本短期保留）；不做 dataset-card.yaml（D-1 永不做清单）；不做新 adapter（W3-2/W3-3）；不做 e2e PDF/DOCX 测试
 
 ## 阶段进度
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus | _draft / reviewing / approved / small_revisions / big_rewrite_ | _APPROVED / SMALL REVISIONS / BIG REWRITE_ | _sha_ | [design.md](design.md) · [design_review.md](design_review.md) |
-| Phase 2 Implementation | sonnet | _in_progress / done_ | — | _sha_ | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | _reviewing / approved / minor_fix / major_issue_ | _APPROVED / MINOR FIX / MAJOR ISSUE_ | _sha_ | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | e57f1e0 | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | 1332034 + ea72428 | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | ca0f01c | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
 | 时间 | 决策 | 理由 | 关联 |
 |---|---|---|---|
-| _YYYY-MM-DD_ | _e.g. 选 A 方案_ | _原因_ | _design.md §x_ |
-
-## 当前阻塞
-
-<如有>
+| 2026-05-21 02:30 | core port 而非 in-place evolution | 与 W1-4 PdfMineruLoader 同模式 | design.md § 决策 1 |
+| 2026-05-21 02:30 | apps/api 私有副本保留不动 | backward-compat；切换留 follow-up | design.md § 决策 2 |
+| 2026-05-21 02:30 | AdapterRegistry 存实例非类 | 与 apps/api/runner/registry.py 既有约定一致 | design.md § 决策 3 |
+| 2026-05-21 02:30 | drop "dataset-card.yaml 自动生成" AC | 违反 D-1 永不做清单 manifest.yaml | design.md § 决策 7（drift correction） |
 
 ## Deferred 项
 
 | 类型 | 描述 | 跟进位置 |
 |---|---|---|
-| SHOULD FIX (verify) | <e.g. 加并发测试> | follow-up change <id> |
+| NICE TO HAVE (verify) | apps/api 切换到 core registry，删 apps/api 私有副本 | follow-up `adapter-raw-upload-api-bridge-*`（W3-2 前高优） |
+| NICE TO HAVE (verify) | "永不做清单" 自动 grep lint | follow-up `harness-data-not-code-grep-lint-*`（W3-2 前高优） |
+| NICE TO HAVE (verify) | 真二进制 PDF/DOCX/PPT/XLSX fixture e2e | follow-up `adapter-raw-upload-binary-e2e-*` |
+| NICE TO HAVE (verify) | firecrawl_url adapter 同步 port | follow-up `adapter-firecrawl-port-*` |
 
 ## 交付（merge 时回填）
 
 - Branch：`change/adapter-raw-upload-20260520`
-- PR：<链接>
-- Merge commit：`<sha>`
-- 用户确认（如适用）：<人 / 时间>
-- 关闭时间：<YYYY-MM-DDTHH:MM:SSZ>
-
-## 复盘（可选）
-
-- 哪些顺利
-- 哪些踩坑：根因 + 防复发（落到 .harness/rules/ 或 .harness/skills/）
+- Merge commit：_待 merge 后填_
+- 关闭时间：_待填_
