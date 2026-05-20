@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReposIndexRouteImport } from './routes/repos/index'
 import { Route as JobsIndexRouteImport } from './routes/jobs/index'
 import { Route as ReposNewRouteImport } from './routes/repos.new'
+import { Route as RecipesBuilderRouteImport } from './routes/recipes/builder'
 import { Route as JobsJob_idRouteImport } from './routes/jobs/$job_id'
 import { Route as ReposOwnerNameRouteImport } from './routes/repos/$owner.$name'
 import { Route as SnapshotsOwnerNameHashRouteImport } from './routes/snapshots/$owner.$name.$hash'
@@ -44,6 +45,11 @@ const JobsIndexRoute = JobsIndexRouteImport.update({
 const ReposNewRoute = ReposNewRouteImport.update({
   id: '/repos/new',
   path: '/repos/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecipesBuilderRoute = RecipesBuilderRouteImport.update({
+  id: '/recipes/builder',
+  path: '/recipes/builder',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JobsJob_idRoute = JobsJob_idRouteImport.update({
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/jobs/$job_id': typeof JobsJob_idRoute
+  '/recipes/builder': typeof RecipesBuilderRoute
   '/repos/new': typeof ReposNewRoute
   '/jobs/': typeof JobsIndexRoute
   '/repos/': typeof ReposIndexRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/jobs/$job_id': typeof JobsJob_idRoute
+  '/recipes/builder': typeof RecipesBuilderRoute
   '/repos/new': typeof ReposNewRoute
   '/jobs': typeof JobsIndexRoute
   '/repos': typeof ReposIndexRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/jobs/$job_id': typeof JobsJob_idRoute
+  '/recipes/builder': typeof RecipesBuilderRoute
   '/repos/new': typeof ReposNewRoute
   '/jobs/': typeof JobsIndexRoute
   '/repos/': typeof ReposIndexRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/jobs/$job_id'
+    | '/recipes/builder'
     | '/repos/new'
     | '/jobs/'
     | '/repos/'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/jobs/$job_id'
+    | '/recipes/builder'
     | '/repos/new'
     | '/jobs'
     | '/repos'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/jobs/$job_id'
+    | '/recipes/builder'
     | '/repos/new'
     | '/jobs/'
     | '/repos/'
@@ -164,6 +176,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   JobsJob_idRoute: typeof JobsJob_idRoute
+  RecipesBuilderRoute: typeof RecipesBuilderRoute
   ReposNewRoute: typeof ReposNewRoute
   JobsIndexRoute: typeof JobsIndexRoute
   ReposIndexRoute: typeof ReposIndexRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/repos/new'
       fullPath: '/repos/new'
       preLoaderRoute: typeof ReposNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recipes/builder': {
+      id: '/recipes/builder'
+      path: '/recipes/builder'
+      fullPath: '/recipes/builder'
+      preLoaderRoute: typeof RecipesBuilderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/jobs/$job_id': {
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   JobsJob_idRoute: JobsJob_idRoute,
+  RecipesBuilderRoute: RecipesBuilderRoute,
   ReposNewRoute: ReposNewRoute,
   JobsIndexRoute: JobsIndexRoute,
   ReposIndexRoute: ReposIndexRoute,
