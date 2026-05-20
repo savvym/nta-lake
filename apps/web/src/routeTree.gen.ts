@@ -19,6 +19,7 @@ import { Route as ReposOwnerNameRouteImport } from './routes/repos/$owner.$name'
 import { Route as SnapshotsOwnerNameHashRouteImport } from './routes/snapshots/$owner.$name.$hash'
 import { Route as ReposOwnerNamePdfMineruRouteImport } from './routes/repos/$owner.$name/pdf-mineru'
 import { Route as BlobOwnerNameHashRouteImport } from './routes/blob.$owner.$name.$hash'
+import { Route as SnapshotsOwnerNameHashRowsRouteImport } from './routes/snapshots/$owner.$name.$hash/rows'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -70,6 +71,12 @@ const BlobOwnerNameHashRoute = BlobOwnerNameHashRouteImport.update({
   path: '/blob/$owner/$name/$hash',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SnapshotsOwnerNameHashRowsRoute =
+  SnapshotsOwnerNameHashRowsRouteImport.update({
+    id: '/rows',
+    path: '/rows',
+    getParentRoute: () => SnapshotsOwnerNameHashRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -81,7 +88,8 @@ export interface FileRoutesByFullPath {
   '/repos/$owner/$name': typeof ReposOwnerNameRouteWithChildren
   '/blob/$owner/$name/$hash': typeof BlobOwnerNameHashRoute
   '/repos/$owner/$name/pdf-mineru': typeof ReposOwnerNamePdfMineruRoute
-  '/snapshots/$owner/$name/$hash': typeof SnapshotsOwnerNameHashRoute
+  '/snapshots/$owner/$name/$hash': typeof SnapshotsOwnerNameHashRouteWithChildren
+  '/snapshots/$owner/$name/$hash/rows': typeof SnapshotsOwnerNameHashRowsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -93,7 +101,8 @@ export interface FileRoutesByTo {
   '/repos/$owner/$name': typeof ReposOwnerNameRouteWithChildren
   '/blob/$owner/$name/$hash': typeof BlobOwnerNameHashRoute
   '/repos/$owner/$name/pdf-mineru': typeof ReposOwnerNamePdfMineruRoute
-  '/snapshots/$owner/$name/$hash': typeof SnapshotsOwnerNameHashRoute
+  '/snapshots/$owner/$name/$hash': typeof SnapshotsOwnerNameHashRouteWithChildren
+  '/snapshots/$owner/$name/$hash/rows': typeof SnapshotsOwnerNameHashRowsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,7 +115,8 @@ export interface FileRoutesById {
   '/repos/$owner/$name': typeof ReposOwnerNameRouteWithChildren
   '/blob/$owner/$name/$hash': typeof BlobOwnerNameHashRoute
   '/repos/$owner/$name/pdf-mineru': typeof ReposOwnerNamePdfMineruRoute
-  '/snapshots/$owner/$name/$hash': typeof SnapshotsOwnerNameHashRoute
+  '/snapshots/$owner/$name/$hash': typeof SnapshotsOwnerNameHashRouteWithChildren
+  '/snapshots/$owner/$name/$hash/rows': typeof SnapshotsOwnerNameHashRowsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/blob/$owner/$name/$hash'
     | '/repos/$owner/$name/pdf-mineru'
     | '/snapshots/$owner/$name/$hash'
+    | '/snapshots/$owner/$name/$hash/rows'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/blob/$owner/$name/$hash'
     | '/repos/$owner/$name/pdf-mineru'
     | '/snapshots/$owner/$name/$hash'
+    | '/snapshots/$owner/$name/$hash/rows'
   id:
     | '__root__'
     | '/'
@@ -145,6 +157,7 @@ export interface FileRouteTypes {
     | '/blob/$owner/$name/$hash'
     | '/repos/$owner/$name/pdf-mineru'
     | '/snapshots/$owner/$name/$hash'
+    | '/snapshots/$owner/$name/$hash/rows'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -156,7 +169,7 @@ export interface RootRouteChildren {
   ReposIndexRoute: typeof ReposIndexRoute
   ReposOwnerNameRoute: typeof ReposOwnerNameRouteWithChildren
   BlobOwnerNameHashRoute: typeof BlobOwnerNameHashRoute
-  SnapshotsOwnerNameHashRoute: typeof SnapshotsOwnerNameHashRoute
+  SnapshotsOwnerNameHashRoute: typeof SnapshotsOwnerNameHashRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlobOwnerNameHashRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/snapshots/$owner/$name/$hash/rows': {
+      id: '/snapshots/$owner/$name/$hash/rows'
+      path: '/rows'
+      fullPath: '/snapshots/$owner/$name/$hash/rows'
+      preLoaderRoute: typeof SnapshotsOwnerNameHashRowsRouteImport
+      parentRoute: typeof SnapshotsOwnerNameHashRoute
+    }
   }
 }
 
@@ -246,6 +266,20 @@ const ReposOwnerNameRouteWithChildren = ReposOwnerNameRoute._addFileChildren(
   ReposOwnerNameRouteChildren,
 )
 
+interface SnapshotsOwnerNameHashRouteChildren {
+  SnapshotsOwnerNameHashRowsRoute: typeof SnapshotsOwnerNameHashRowsRoute
+}
+
+const SnapshotsOwnerNameHashRouteChildren: SnapshotsOwnerNameHashRouteChildren =
+  {
+    SnapshotsOwnerNameHashRowsRoute: SnapshotsOwnerNameHashRowsRoute,
+  }
+
+const SnapshotsOwnerNameHashRouteWithChildren =
+  SnapshotsOwnerNameHashRoute._addFileChildren(
+    SnapshotsOwnerNameHashRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
@@ -255,7 +289,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReposIndexRoute: ReposIndexRoute,
   ReposOwnerNameRoute: ReposOwnerNameRouteWithChildren,
   BlobOwnerNameHashRoute: BlobOwnerNameHashRoute,
-  SnapshotsOwnerNameHashRoute: SnapshotsOwnerNameHashRoute,
+  SnapshotsOwnerNameHashRoute: SnapshotsOwnerNameHashRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
