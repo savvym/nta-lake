@@ -7,22 +7,22 @@ import {
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { routeTree } from "../routeTree.gen";
+import { routeTree } from "../../routeTree.gen";
 
 const FAKE_HASH = "f".repeat(64);
 const FAKE_TARGET = "1".repeat(64);
 
-vi.mock("../lib/api/queries", () => ({
+vi.mock("../../lib/api/queries", () => ({
   useMe: () => ({ data: null, refetch: vi.fn() }),
   useRepos: () => ({ data: { items: [], total: 0 }, isLoading: false, isError: false, refetch: vi.fn() }),
   useRepo: () => ({ data: null, isLoading: false, isError: false, refetch: vi.fn() }),
   useJob: () => ({ data: null, isLoading: false, isError: false, refetch: vi.fn() }),
-  useCommit: () => ({
+  useSnapshot: () => ({
     data: {
       hash: FAKE_HASH,
       repo_id: "r1",
       tree_hash: "t".repeat(64),
-      parents: [],
+      parent: null,
       author_id: "admin",
       created_at: "2026-05-17T00:00:00Z",
       message: "init",
@@ -41,12 +41,12 @@ vi.mock("../lib/api/queries", () => ({
   }),
 }));
 
-function renderCommit() {
+function renderSnapshot() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({
-      initialEntries: [`/commits/demo/r1/${FAKE_HASH}`],
+      initialEntries: [`/snapshots/demo/r1/${FAKE_HASH}`],
     }),
   });
   return render(
@@ -56,9 +56,9 @@ function renderCommit() {
   );
 }
 
-describe("/commits/$owner/$name/$hash", () => {
+describe("/snapshots/$owner/$name/$hash", () => {
   it("renders metadata + tree entries with download link", async () => {
-    renderCommit();
+    renderSnapshot();
     await waitFor(() => {
       expect(screen.getByText("content/a.md")).toBeInTheDocument();
       const links = screen.getAllByText("下载");

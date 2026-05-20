@@ -80,8 +80,8 @@ def test_c_client_upload_blob_returns_sha() -> None:
     c.close()
 
 
-def test_d_client_create_commit_payload_shape() -> None:
-    """create_commit 把 entries 包成 tree.entries 形态，含 parents/author_id/ref。"""
+def test_d_client_create_snapshot_payload_shape() -> None:
+    """create_snapshot 把 entries 包成 tree.entries 形态，含 parent/author_id/ref（W1-1）。"""
     sent: dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -90,7 +90,7 @@ def test_d_client_create_commit_payload_shape() -> None:
         return httpx.Response(200, json={"hash": "b" * 64, "dedup": False})
 
     c = Client(base_url="https://test", transport=_make_mock(handler))
-    out = c.create_commit(
+    out = c.create_snapshot(
         "o",
         "n",
         entries=[{"name": "a.md", "mode": 33188, "entry_type": "blob", "target_hash": "c" * 64}],
@@ -98,11 +98,34 @@ def test_d_client_create_commit_payload_shape() -> None:
         message="init",
         ref="main",
     )
-    assert sent["path"] == "/repos/o/n/commits"
+    assert sent["path"] == "/repos/o/n/snapshots"
     assert sent["json"]["tree"]["entries"][0]["name"] == "a.md"
     assert sent["json"]["author_id"] == "u1"
     assert sent["json"]["ref"] == "main"
+    assert "parents" not in sent["json"], "parent 单数字段，不应有 parents"
     assert out["hash"] == "b" * 64
+    c.close()
+
+
+def test_d2_client_create_snapshot_with_parent() -> None:
+    """create_snapshot 传 parent 时，payload 含 parent 字段（str, not list）。"""
+    sent: dict[str, Any] = {}
+    parent_hash = "e" * 64
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent["json"] = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, json={"hash": "b" * 64})
+
+    c = Client(base_url="https://test", transport=_make_mock(handler))
+    c.create_snapshot(
+        "o",
+        "n",
+        entries=[],
+        author_id="u1",
+        parent=parent_hash,
+    )
+    assert sent["json"].get("parent") == parent_hash
+    assert "parents" not in sent["json"]
     c.close()
 
 

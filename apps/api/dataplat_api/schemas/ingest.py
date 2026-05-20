@@ -10,7 +10,7 @@ from typing import Any
 from dataplat_core.domain.types import SHA256
 from pydantic import BaseModel, ConfigDict, Field
 
-from dataplat_api.schemas.commit import CommitRead
+from dataplat_api.schemas.snapshot import SnapshotRead
 
 
 class IngestRequest(BaseModel):
@@ -37,5 +37,5 @@ class IngestSummary(BaseModel):
 class IngestResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    commit: CommitRead
+    snapshot: SnapshotRead
     ingest_summary: IngestSummary

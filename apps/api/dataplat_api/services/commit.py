@@ -45,7 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from dataplat_api.models import CommitORM, TreeEntryORM, TreeORM
-from dataplat_api.schemas.commit import CommitCreate
+from dataplat_api.schemas._commit_internal import CommitCreate
 from dataplat_api.schemas.tree import TreeEntryCreate
 from dataplat_api.services.ref import RefService
 

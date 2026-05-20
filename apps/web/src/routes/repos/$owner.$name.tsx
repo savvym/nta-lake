@@ -13,7 +13,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import {
-  useCommit,
+  useSnapshot,
   useCreatePipelineRun,
   useDeleteRepo,
   useEnqueueIngest,
@@ -235,8 +235,8 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
   const path = search.path ?? "";
 
   const refQuery = useRepoRef(owner, name, "main");
-  const commitHash = refQuery.data?.commit_hash ?? "";
-  const commitQuery = useCommit(owner, name, commitHash);
+  const commitHash = refQuery.data?.snapshot_hash ?? "";
+  const commitQuery = useSnapshot(owner, name, commitHash);
   const subtreeQuery = useSubtreeByPath(owner, name, commitHash, path);
 
   const setPath = (newPath: string) => {
@@ -270,9 +270,9 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
           <div className="text-gray-500 text-sm">加载中…</div>
         ) : !refQuery.data ? (
           <div className="text-gray-500 text-sm">
-            暂无 commit
+            暂无 snapshot
             <span className="text-gray-400">
-              （admin 可在 Ingest 区上传文件创建第一个 commit）
+              （admin 可在 Ingest 区上传文件创建第一个 snapshot）
             </span>
           </div>
         ) : subtreeQuery.isError ? (
@@ -286,15 +286,15 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
           </div>
         ) : !commitQuery.data ? (
           <div className="text-red-600 text-sm">
-            commit {refQuery.data.commit_hash.slice(0, 12)}… 加载失败
+            snapshot {refQuery.data.snapshot_hash.slice(0, 12)}… 加载失败
           </div>
         ) : entries.length === 0 && pathSegments.length === 0 ? (
-          <div className="text-gray-500 text-sm">commit 为空 tree</div>
+          <div className="text-gray-500 text-sm">snapshot 为空 tree</div>
         ) : (
           <>
             <div className="mb-3 text-sm text-gray-600 flex items-center gap-2 flex-wrap">
               <Link
-                to="/commits/$owner/$name/$hash"
+                to="/snapshots/$owner/$name/$hash"
                 params={{ owner, name, hash: commitQuery.data.hash }}
                 className="font-mono text-xs text-blue-700 hover:underline"
               >
@@ -447,7 +447,7 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
             )}
             {!hasFolders && pathSegments.length === 0 && (
               <div className="mt-2 text-xs text-gray-400">
-                此 commit 无子目录（可能是 legacy 扁平 commit）
+                此 snapshot 无子目录（可能是 legacy 扁平 snapshot）
               </div>
             )}
           </>

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dataplat_api.auth.deps import require_admin
 from dataplat_api.db import get_session
 from dataplat_api.models import RepositoryORM
-from dataplat_api.routers.commits import _commit_to_read
+from dataplat_api.routers.snapshots import _snapshot_to_read
 from dataplat_api.runner.adapter_runner import AdapterRunner
 from dataplat_api.schemas.ingest import IngestRequest, IngestResponse, IngestSummary
 from dataplat_api.services.repo import RepoService
@@ -53,7 +53,7 @@ async def ingest(
     repo = await _resolve_repo(session, owner, name, _admin)
     commit, dedup, result = await AdapterRunner.run(session, store, repo.id, payload)
     return IngestResponse(
-        commit=_commit_to_read(commit, dedup),
+        snapshot=_snapshot_to_read(commit, dedup),
         ingest_summary=IngestSummary(
             asset_count=result.asset_count,
             file_count=result.file_count,

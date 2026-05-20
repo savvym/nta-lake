@@ -53,8 +53,8 @@ class _FakeClient:
         )
         return "a" * 64
 
-    def create_commit(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.calls.append(("create_commit", {"args": args, "kwargs": kwargs}))
+    def create_snapshot(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(("create_snapshot", {"args": args, "kwargs": kwargs}))
         return {"hash": "b" * 64}
 
     def enqueue_ingest(self, *args: Any, **kwargs: Any) -> str:
@@ -89,7 +89,7 @@ def test_a_cli_help_lists_subcommands() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     out = result.stdout
-    for sub in ["login", "repo", "blob", "commit", "ingest", "process", "jobs"]:
+    for sub in ["login", "repo", "blob", "snapshot", "ingest", "process", "jobs"]:
         assert sub in out, f"subcommand {sub} missing from help: {out}"
 
 

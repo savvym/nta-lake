@@ -57,7 +57,7 @@ vi.mock("../../lib/api/queries", () => ({
       refetch: vi.fn(),
     };
   },
-  useCommit: () => ({ data: null, isLoading: false, isError: false, refetch: vi.fn() }),
+  useSnapshot: () => ({ data: null, isLoading: false, isError: false, refetch: vi.fn() }),
 }));
 
 function renderJob() {

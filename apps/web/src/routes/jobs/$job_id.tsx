@@ -103,7 +103,7 @@ function JobPage() {
             <div className="mt-4 flex flex-col gap-2 border-t border-gray-200 pt-4">
               <div className="text-sm text-gray-500">commit_hash</div>
               <Link
-                to="/commits/$owner/$name/$hash"
+                to="/snapshots/$owner/$name/$hash"
                 params={{
                   owner: payload.owner,
                   name: payload.name,

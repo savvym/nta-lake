@@ -12,7 +12,7 @@ from dataplat_api import adapters as _adapters  # noqa: F401
 from dataplat_api import processors as _processors  # noqa: F401
 from dataplat_api.routers.admin import router as admin_router
 from dataplat_api.routers.auth import router as auth_router
-from dataplat_api.routers.commits import router as commits_router
+from dataplat_api.routers.snapshots import router as snapshots_router
 from dataplat_api.routers.ingest import router as ingest_router
 from dataplat_api.routers.jobs import router as jobs_router
 from dataplat_api.routers.pipelines import router as pipelines_router
@@ -40,7 +40,7 @@ async def healthz() -> HealthResponse:
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(repos_router)
-app.include_router(commits_router)
+app.include_router(snapshots_router)
 app.include_router(ingest_router)
 app.include_router(jobs_router)
 app.include_router(process_router)

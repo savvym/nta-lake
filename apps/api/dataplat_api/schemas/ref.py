@@ -10,4 +10,4 @@ class RefRead(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
-    commit_hash: SHA256
+    snapshot_hash: SHA256

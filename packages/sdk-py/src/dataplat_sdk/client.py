@@ -1,10 +1,13 @@
 """dataplat 同步 HTTP Client（design.md §7.2）。
 
 用 httpx.Client 持有 cookie session；MVP 覆盖 8 个方法：login / create_repo
-/ get_repo / upload_blob / create_commit / enqueue_ingest / enqueue_process
+/ get_repo / upload_blob / create_snapshot / enqueue_ingest / enqueue_process
 / get_job。所有方法是同步的；用户在脚本 / Jupyter 里直接调。
 
 token 字段保留接口为未来 SSO/PAT 预留，MVP 仅走 cookie。
+
+W1-1（api-snapshot-rename-20260520）：create_commit → create_snapshot，
+parents: list → parent: str | None，POST 目标 /snapshots。
 """
 
 from __future__ import annotations
@@ -100,31 +103,34 @@ class Client:
         sha: str = resp.json()["sha256"]
         return sha
 
-    # ---------- commit ----------
+    # ---------- snapshot ----------
 
-    def create_commit(
+    def create_snapshot(
         self,
         owner: str,
         name: str,
         entries: list[dict[str, Any]],
         author_id: str,
-        parents: list[str] | None = None,
+        parent: str | None = None,
         message: str | None = None,
         ref: str | None = None,
     ) -> dict[str, Any]:
-        """POST /repos/{owner}/{name}/commits。entries 元素形态：
+        """POST /repos/{owner}/{name}/snapshots。entries 元素形态：
         {name, mode, entry_type, target_hash}。
+
+        W1-1：前称 create_commit；parents list 退化为 parent 单值（str | None）。
         """
         payload: dict[str, Any] = {
             "tree": {"entries": entries},
-            "parents": parents or [],
             "author_id": author_id,
         }
+        if parent is not None:
+            payload["parent"] = parent
         if message is not None:
             payload["message"] = message
         if ref is not None:
             payload["ref"] = ref
-        resp = self._http.post(f"/repos/{owner}/{name}/commits", json=payload)
+        resp = self._http.post(f"/repos/{owner}/{name}/snapshots", json=payload)
         resp.raise_for_status()
         return dict(resp.json())
 
