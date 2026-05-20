@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { Outlet, createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -184,6 +184,7 @@ function RepoDetailPage() {
           </div>
         </>
       )}
+      <Outlet />
     </div>
   );
 }
