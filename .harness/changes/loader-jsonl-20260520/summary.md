@@ -3,9 +3,9 @@ change_id: loader-jsonl-20260520
 title: jsonl loader (W3-6)
 owner: application-owner-agent
 started_at: 2026-05-21T06:35:00Z
-phase: design
-status: design_approved
-last_updated: 2026-05-21T06:35:00Z
+phase: verify
+status: verify_approved
+last_updated: 2026-05-20T13:11:18Z
 related_changes:
   - adapter-jsonl-import-20260520 (W3-3, 上游 adapter)
   - loader-html-md-20260520 (W3-4, packages/core loader 模板)
@@ -32,8 +32,8 @@ process_variant: v3-mini-design
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
 | Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待回填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | — | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | — | [verify_review.md](verify_review.md) |
+| Phase 2 Implementation | sonnet | done | — | 894c059 + 6d14f58 | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | _待回填_ | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
