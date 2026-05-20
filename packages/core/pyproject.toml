@@ -5,6 +5,8 @@ description = "dataplat 后端 / SDK / worker 共享的 Pydantic 模型与接口
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.6,<3",
+    "python-docx>=1.1,<2",
+    "python-pptx>=0.6,<2",
 ]
 
 [build-system]
