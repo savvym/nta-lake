@@ -1,81 +1,65 @@
 ---
 change_id: adapter-folder-md-assets-20260520
 phase: verify
-reviewer: claude-agent:opus-phase3-reviewer
-model_used: opus
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
-verdict: <APPROVED | MINOR FIX | MAJOR ISSUE>
+status: approved
+reviewer: opus
+reviewed_at: 2026-05-21T03:55:00Z
+verdict: APPROVED
 ---
 
-# Verify Review
+# Verify Review：folder md+assets adapter (W3-2)
 
-> Phase 3 reviewer 产物。对照 design.md（原始要求）+ implementation.md（声称的实现）+ `git diff main...change/<id>` 验 PR。
+## 验证结果
 
-## 输入
+| AC | kind | 结果 | 证据 |
+|---|---|---|---|
+| AC-1 auto_registered | behavioral | PASS | `pytest ::test_folder_md_assets_auto_registered -x -q` → 1 passed in 0.10s |
+| AC-2 ingest_happy | behavioral | PASS | `pytest ::test_folder_md_assets_ingest_happy -x -q` → 1 passed in 0.10s |
+| AC-3 rejects_unsafe_paths | behavioral | PASS | `pytest ::test_folder_md_assets_rejects_unsafe_paths -x -q` → 1 passed in 0.10s（"/abs.md" / "../escape.md" / "" 三种全覆盖 match "非法相对路径"） |
+| AC-4 requires_md | behavioral | PASS | `pytest ::test_folder_md_assets_requires_md -x -q` → 1 passed in 0.10s（match "至少一个 .md"） |
 
-- **Design**：`.harness/changes/<id>/design.md`（reviewer 必读）
-- **Implementation**：`.harness/changes/<id>/implementation.md`（reviewer 必读）
-- **Git diff**：`git diff main...change/<id>`
-- **PR**：<pr url 或 branch ref>
+## 全套测试
 
-## AC 对照表
+`cd packages/core && uv run pytest tests/ -x -q` → **70 passed in 0.28s**（66 旧 + 4 新，与 implementation.md 声明一致）
 
-每条 AC 真去跑命令验证：
+raw-upload 回归 `pytest tests/test_adapter_raw_upload.py -x -q` → **4 passed**（W3-1 未受影响）
 
-| AC | kind | reviewer 跑的命令 | 结果 | PASS/FAIL/NOT-VERIFIABLE |
-|---|---|---|---|---|
-| AC-1 | static | `grep -q "..." apps/api/...` | 0 / exit 0 | PASS |
-| AC-2 | behavioral | `uv run pytest tests/test_x.py` | 2 passed | PASS |
-| AC-N | ... | ... | ... | ... |
+## Diff 扫描
 
-## 机械化检查日志
+修改文件（`git diff main..HEAD --name-only`）：
 
-```text
-$ bash scripts/_self_check.sh <change-id>
-=== <change-id> :: N AC ===
-... (粘 reviewer 自己跑的输出)
+- `packages/core/src/dataplat_core/adapters/folder_md_assets.py`（新，114 行）
+- `packages/core/src/dataplat_core/adapters/__init__.py`（改，+8 行）
+- `packages/core/tests/test_adapter_folder_md_assets.py`（新，66 行）
+- `.harness/changes/adapter-folder-md-assets-20260520/{design,design_review,implementation,summary,verify_review}.md`
 
-$ git diff --stat main...change/<change-id>
-... 
+scope 内：**YES**。未动 raw_upload.py / registry.py / protocols/ / apps/api / apps/web / W1-* / W2-* / W3-1 产物。
 
-$ curl <new-endpoint>（如适用）
-... 
-```
+永不做清单 grep：**clean**（命中均为 design.md / summary.md 里"决策 7：不做 manifest.yaml"的元声明，非代码引入；无 row-diff / cherry-pick / rollback / dataset-card.yaml 行为）
 
-## 隐式偏离审计
+## 不变量校验
 
-> reviewer 对照 design.md vs implementation.md vs git diff，列出 implementation.md § 偏离 没声明但实际发生的偏离。**隐式偏离 = MUST FIX**。
-
-- <无 / 列出>
-
-## 问题列表
-
-### MUST FIX
-
-> Phase 3 reviewer 给 MAJOR ISSUE 时必含 MUST FIX；MINOR FIX 时一般不应有 MUST FIX，最多 SHOULD FIX；APPROVED 时为空。
-
-- <无 / 列出>
-
-### SHOULD FIX
-
-> 建议合入前修但不阻塞 merge。MINOR FIX verdict 下的"待 sonnet 一轮修"内容写在这里。
-
-- <无 / 列出>
-
-### NICE TO HAVE
-
-> 完全可选。可记入 follow-up change。
-
-- <无 / 列出>
+- ingest 顺序（pydantic → path safety → 重复 path → .md 数量）：**OK**（folder_md_assets.py:79-106 严格按 design.md 顺序；AC-3 测试 path 含 .md 后缀，path safety 先生效与 design 一致）
+- path safety 拒绝条件（空 / 绝对 / `..` 三种 + 消息含 "非法相对路径"）：**OK**（line 87-94）
+- asset_count 语义（= 非 .md 文件数）：**OK**（line 104 `md_count = sum(... .lower().endswith(".md"))`；line 109 `asset_count = len(files) - md_count`）
+- list_names 测试用 `in` 而非 `== N`：**OK**（test line 14 `assert "folder-md-assets" in names`，W2-4 反脆弱教训已吸收）
+- auto-register idempotent（try/except ValueError）：**OK**（__init__.py:12-20）
+- pydantic ConfigDict(extra="forbid") + sha256 pattern 在 input_schema 一致：**OK**
 
 ## Verdict
 
-<APPROVED | MINOR FIX | MAJOR ISSUE>
+**APPROVED**
 
-- **APPROVED**：PR 兑现 design + 所有 AC PASS + 无隐式偏离 → merge to main + close change
-- **MINOR FIX**：1-3 个小问题 → spawn sonnet 一轮修 → 直接 merge，**不再 spawn Phase 3 reviewer**
-- **MAJOR ISSUE**：多个 AC 没兑现 / 实现与 design 严重偏离 / 引入回归 → 回 Phase 2 重做
+- 4/4 AC PASS（机械化证据齐全）
+- scope 干净（只动声明范围内文件）
+- 永不做清单 clean
+- 实现严格遵循 design 决策 1-7
+- implementation.md "无偏离" 声明经 diff 比对真实
+- 与 W3-1 raw-upload 模板高度一致，验证模板可复用性（design 立项目标）
 
-## 后续指引
+## NICE TO HAVE / Deferred
 
-<具体下一步>
+- follow-up `adapter-folder-md-assets-route-*`：apps/api 加 POST /repos/.../folder-md-assets 路由 + worker（design 已声明）
+- follow-up `adapter-folder-md-assets-mime-sniff-*`：content-type 推断（design 已声明）
+- follow-up `adapter-folder-md-assets-zip-stream-*`：服务端 zip 流式解压（design 已声明）
+- （观察）asset_count 在 raw-upload vs folder-md-assets 语义不同（前者 `1 if asset_id else 0`，后者非 .md 文件数）；caller 须按 adapter.name 分支处理；design § 风险表 1 已声明，不阻塞

@@ -3,9 +3,9 @@ change_id: adapter-folder-md-assets-20260520
 title: folder md+assets adapter (W3-2)
 owner: application-owner-agent
 started_at: 2026-05-21T03:05:00Z
-phase: design
-status: design_approved
-last_updated: 2026-05-21T03:05:00Z
+phase: verify
+status: verified
+last_updated: 2026-05-21T03:55:00Z
 related_changes:
   - adapter-raw-upload-20260520 (W3-1, AdapterRegistry + raw-upload 模板)
   - operator-protocol-20260520 (W1-2, SourceAdapter Protocol)
@@ -29,9 +29,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待回填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | — | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | — | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | edfc701 | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | 0d94c25 + 17ca3bc | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | _待回填_ | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
