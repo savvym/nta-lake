@@ -1,104 +1,69 @@
 ---
 change_id: operator-protocol-20260520
 phase: implementation
-status: <in_progress | done>
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+status: done
+authored_at: 2026-05-20T20:00:00Z
 author: sonnet-phase2-implementer
-model_used: sonnet
+model_used: claude-sonnet-4-6
 branch: change/operator-protocol-20260520
 base_commit: 53fbce2
-head_commit: <sonnet push 后回填>
-pr_url: <gh pr URL 或 "n/a (gh PAT 缺 pr:write)">
+head_commit: <push 后回填>
+pr_url: n/a
 ---
 
-# Implementation
+# Implementation (W1-2)
 
-> Phase 2 sonnet 端到端产物。**一次 sonnet 调用内**完成：编码 + 单元测试 + 端到端验证 + commit + push（+ PR 如可用）。Application Owner spawn sonnet 后 sonnet 自管完整 Phase 2，结束写本文件。
+## 做了什么（≤ 30 字）
+
+新增 Loader / Operator 两个 Protocol、OperatorRegistry 单例、IdentityOperator 标杆实现。
 
 ## 改动文件清单
 
-执行 `git diff --name-only main...HEAD`，列在这里：
-
-| 路径 | 类型 (new/edit/delete/rename) | 一句话说明 | 关联 task |
-|---|---|---|---|
-| <path> | <type> | <说明> | T-1 |
-
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 完全一致。
-
-## 任务完成情况
-
-对照 design.md § 任务清单：
-
-| Task | 状态 | commit | 备注 |
-|---|---|---|---|
-| T-1 | done / partial / deferred | <sha> | <如 partial / deferred 必填理由> |
+```
+ packages/core/src/dataplat_core/protocols/__init__.py         |  7 ++++++
+ packages/core/src/dataplat_core/protocols/loader.py           | 新建，56 行
+ packages/core/src/dataplat_core/protocols/operator.py         | 新建，49 行
+ packages/core/src/dataplat_core/operators/__init__.py         | 新建，15 行
+ packages/core/src/dataplat_core/operators/registry.py         | 新建，47 行
+ packages/core/src/dataplat_core/operators/identity.py         | 新建，44 行
+ packages/core/tests/test_operator_protocol.py                 | 新建，60 行
+ .harness/changes/operator-protocol-20260520/implementation.md | 本文件
+ 7 files changed
+```
 
 ## 测试通过证据
 
-### 单元测试
+### 单元测试（对应 AC-1/AC-2/AC-3）
 
 ```text
-$ uv run pytest tests/test_xxx.py
-============================== N passed in M.Ms ==============================
-
-$ pnpm --filter web test
-   Test Files  N passed
-        Tests  M passed
+$ cd packages/core && uv run pytest tests/test_operator_protocol.py -x -q
+...                                                                      [100%]
+3 passed in 0.09s
 ```
 
-### 自检 AC block
+### 全量回归
 
 ```text
-$ bash scripts/_self_check.sh <change-id>
-=== <change-id> :: N AC ===
-PASS  AC-1  ...
-PASS  AC-2  ...
-...
-PASS: N / FAIL: 0 / SKIP: 0
-全部通过
+$ cd packages/core && uv run pytest tests/ -q
+....................................                                     [100%]
+36 passed in 0.22s
 ```
 
-### 端到端验证
-
-> 如涉及 API：curl 真打一次新端点  
-> 如涉及 UI：vite dev server 起来 / build 不挂 / 关键页面 smoke  
-> 如涉及 CLI：跑一次实际命令
+### pyright 类型检查
 
 ```text
-$ curl -H "Cookie: ..." http://localhost:8080/api/new-endpoint
-{"ok": true, ...}
-
-$ pnpm --filter web build
-✓ built in N.Ns
+$ cd packages/core && uv run pyright src/ tests/test_operator_protocol.py 2>&1 | head -30
+0 errors, 0 warnings, 0 informations
 ```
 
-## 偏离 design.md（如有）
+## 偏离 design.md
 
-> 凡未在 design.md 声明的偏离，**全部**列在这里。Phase 3 reviewer 把"未声明的隐式偏离"算 MUST FIX。
+**1 处微小偏离（不影响行为）**：
 
-| # | 偏离点 | 原因 | 评审请关注 |
-|---|---|---|---|
-| D-1 | <e.g. 改用 folder routing 不是 spec 写的 flat dot 形态> | <技术原因> | <reviewer 是否接受> |
+设计文档测试模板中 `ctx = SimpleNamespace()  # type: ignore[assignment]`，但 pyright 在 `op.run(row, config={}, ctx=ctx)` 调用处额外报 `reportArgumentType`（SimpleNamespace 不满足 RunContext Protocol 的 5 个属性）。已在调用行追加 `# type: ignore[arg-type]` 使 pyright 0 errors。此偏离属于 type-checking suppress，不改变运行时行为，原测试意图完整保留。
 
-## 跨 change / 上游回归
-
-- 全 web vitest：N/N PASS（M files）
-- 全 pytest 本 module：N/N PASS
-- self_check full（如已跑）：PASS 总 / FAIL 总 / FAIL 列表 + 标 pre-existing 或本 change 引入
-
-## PR 描述（用于 gh pr create body）
-
-```markdown
-## Summary
-<1-3 bullets>
-
-## Test plan
-- [ ] <bullet>
-- [ ] <bullet>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+除此之外实现与 design.md § 范围完全对应，无其他偏离。
 
 ## 下一步
 
-进入 Phase 3：Application Owner spawn opus reviewer 对照 design.md 验 PR。
+进入 Phase 3：Application Owner spawn opus reviewer 对照 design.md 验 AC-1/AC-2/AC-3。

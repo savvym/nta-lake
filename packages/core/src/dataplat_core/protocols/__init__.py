@@ -14,6 +14,8 @@ from dataplat_core.protocols.processor import (
     RepoSpec,
     RepoView,
 )
+from dataplat_core.protocols.loader import Loader, LoadResult, SilverRow
+from dataplat_core.protocols.operator import Operator, OperatorSpec
 from dataplat_core.protocols.runcontext import RunContext
 from dataplat_core.protocols.storage import BlobPutResult, BlobStore
 
@@ -35,4 +37,9 @@ __all__ = [
     "LLMMessage",
     "LLMRequest",
     "LLMResponse",
+    "Loader",
+    "LoadResult",
+    "SilverRow",
+    "Operator",
+    "OperatorSpec",
 ]
