@@ -3,9 +3,9 @@ change_id: operator-snapshot-mixer-20260520
 title: snapshot mixer Operator suite (W2-4)
 owner: application-owner-agent
 started_at: 2026-05-21T00:05:00Z
-phase: design
+phase: verify
 status: approved
-last_updated: 2026-05-21T00:05:00Z
+last_updated: 2026-05-21T00:35:00Z
 related_changes:
   - operator-protocol-20260520 (W1-2, Operator Protocol)
   - operator-suite-mvp-20260520 (W2-1, sha256 哈希 + drop 模式 + stats 写入)
@@ -29,9 +29,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | _待填_ | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | _待填_ | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | a641f14 | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | 1db97a7 | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | (review only) | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
