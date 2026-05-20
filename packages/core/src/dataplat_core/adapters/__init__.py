@@ -4,6 +4,7 @@ import 时自动注册到 get_default() registry（idempotent，try/except Value
 """
 
 from dataplat_core.adapters.folder_md_assets import FolderMdAssetsAdapter
+from dataplat_core.adapters.jsonl_import import JsonlImportAdapter
 from dataplat_core.adapters.raw_upload import RawFileUploadAdapter
 from dataplat_core.adapters.registry import AdapterRegistry, get_default
 
@@ -19,4 +20,15 @@ try:
 except ValueError:
     pass
 
-__all__ = ["AdapterRegistry", "FolderMdAssetsAdapter", "RawFileUploadAdapter", "get_default"]
+try:
+    _registry.register(JsonlImportAdapter())
+except ValueError:
+    pass
+
+__all__ = [
+    "AdapterRegistry",
+    "FolderMdAssetsAdapter",
+    "JsonlImportAdapter",
+    "RawFileUploadAdapter",
+    "get_default",
+]
