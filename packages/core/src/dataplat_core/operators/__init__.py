@@ -9,6 +9,8 @@
     ChunkerOperator           — 按 max_chars 切分（1→N 语义）
     ImageStripOperator        — 清空 images 字段（W2-3）
     ImageCaptionStubOperator  — 将 images 元数据拼占位符注入 text（W2-3）
+    SnapshotTagOperator       — 给行打 source_snapshot 标签（W2-4）
+    SnapshotSampleOperator    — 基于 sha256 确定性哈希做按权重抽样（W2-4）
 """
 
 from dataplat_core.operators.chunker import ChunkerOperator
@@ -19,6 +21,8 @@ from dataplat_core.operators.image_caption_stub import ImageCaptionStubOperator
 from dataplat_core.operators.image_strip import ImageStripOperator
 from dataplat_core.operators.registry import OperatorRegistry
 from dataplat_core.operators.score import ScoreOperator
+from dataplat_core.operators.snapshot_sample import SnapshotSampleOperator
+from dataplat_core.operators.snapshot_tag import SnapshotTagOperator
 
 __all__ = [
     "OperatorRegistry",
@@ -29,9 +33,11 @@ __all__ = [
     "ChunkerOperator",
     "ImageStripOperator",
     "ImageCaptionStubOperator",
+    "SnapshotTagOperator",
+    "SnapshotSampleOperator",
 ]
 
-# 模块级自动注册 7 个内置算子；try/except 防止模块重复 import 时重复注册。
+# 模块级自动注册 9 个内置算子；try/except 防止模块重复 import 时重复注册。
 for _name, _cls in [
     ("identity", IdentityOperator),
     ("filter", FilterOperator),
@@ -40,6 +46,8 @@ for _name, _cls in [
     ("chunker", ChunkerOperator),
     ("image_strip", ImageStripOperator),
     ("image_caption_stub", ImageCaptionStubOperator),
+    ("snapshot_tag", SnapshotTagOperator),
+    ("snapshot_sample", SnapshotSampleOperator),
 ]:
     try:
         OperatorRegistry.register(_name, _cls)
