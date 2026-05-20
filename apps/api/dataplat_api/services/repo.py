@@ -12,6 +12,7 @@ from __future__ import annotations
 import uuid
 
 from dataplat_core.protocols.auth import AuthenticatedUser
+from dataplat_core.schemas import SchemaRegistry
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -43,6 +44,47 @@ class RepoService:
         session: AsyncSession,
         payload: RepositoryCreate,
     ) -> RepositoryORM:
+        # schema_id / row_format enforcement
+        if payload.layer in ("silver", "gold"):
+            if payload.schema_id is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"layer={payload.layer} 必须传 schema_id",
+                )
+            if payload.row_format is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"layer={payload.layer} 必须传 row_format ('parquet' | 'jsonl')",
+                )
+            if not SchemaRegistry.is_registered(payload.schema_id):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"schema_id={payload.schema_id!r} 未注册；"
+                        f"已注册: {SchemaRegistry.list_ids()}"
+                    ),
+                )
+            entry = SchemaRegistry.get(payload.schema_id)
+            if entry.layer != payload.layer:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"schema_id={payload.schema_id!r} 是 {entry.layer} schema，"
+                        f"不能用于 layer={payload.layer}"
+                    ),
+                )
+        elif payload.layer == "bronze":
+            if payload.schema_id is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="bronze repo 不能传 schema_id",
+                )
+            if payload.row_format is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="bronze repo 不能传 row_format",
+                )
+
         repo = RepositoryORM(
             id=uuid.uuid4(),
             owner=payload.owner,
@@ -51,6 +93,8 @@ class RepoService:
             subtype=payload.subtype,
             visibility=payload.visibility,
             description=payload.description,
+            schema_id=payload.schema_id,
+            row_format=payload.row_format,
         )
         session.add(repo)
         try:

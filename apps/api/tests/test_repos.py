@@ -195,6 +195,8 @@ async def test_d_admin_get_existing_200(admin_user: dict) -> None:
                     "layer": "silver",
                     "subtype": "text-corpus",
                     "visibility": "private",
+                    "schema_id": "silver-text-v1",
+                    "row_format": "parquet",
                 },
             )
             assert create_resp.status_code == 201
@@ -515,6 +517,8 @@ async def test_n_list_total_and_layer_filter(admin_user: dict) -> None:
                     "layer": "silver",
                     "subtype": "text-corpus",
                     "visibility": "public",
+                    "schema_id": "silver-text-v1",
+                    "row_format": "parquet",
                 },
             )
             # 不带 layer → 含 total 字段，至少含两个新建

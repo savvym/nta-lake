@@ -29,3 +29,5 @@ class RepositoryORM(Base, TimestampMixin):
     visibility: Mapped[str] = mapped_column(nullable=False, default="private")
     card_path: Mapped[str | None] = mapped_column(nullable=True)
     description: Mapped[str | None] = mapped_column(nullable=True)
+    schema_id: Mapped[str | None] = mapped_column(nullable=True)
+    row_format: Mapped[str | None] = mapped_column(nullable=True)

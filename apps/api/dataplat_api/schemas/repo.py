@@ -8,6 +8,7 @@ HTTP 专属的输入约束 + Optional 字段（partial update）。
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from dataplat_core.domain.repository import Layer, Subtype, Visibility
 from pydantic import BaseModel, ConfigDict
@@ -22,6 +23,8 @@ class RepositoryCreate(BaseModel):
     subtype: Subtype
     visibility: Visibility = "private"
     description: str | None = None
+    schema_id: str | None = None
+    row_format: Literal["parquet", "jsonl"] | None = None
 
 
 class RepositoryRead(BaseModel):
@@ -34,6 +37,8 @@ class RepositoryRead(BaseModel):
     subtype: Subtype
     visibility: Visibility
     description: str | None
+    schema_id: str | None
+    row_format: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -50,6 +55,8 @@ class RepositoryListItem(BaseModel):
     subtype: Subtype
     visibility: Visibility
     description: str | None
+    schema_id: str | None
+    row_format: str | None
     created_at: datetime
     updated_at: datetime
 

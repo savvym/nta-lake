@@ -43,6 +43,8 @@ def _to_read(repo: RepositoryORM) -> RepositoryRead:
         subtype=cast(Subtype, repo.subtype),
         visibility=cast(Visibility, repo.visibility),
         description=repo.description,
+        schema_id=repo.schema_id,
+        row_format=repo.row_format,
         created_at=repo.created_at,
         updated_at=repo.updated_at,
     )
@@ -57,6 +59,8 @@ def _to_list_item(repo: RepositoryORM) -> RepositoryListItem:
         subtype=cast(Subtype, repo.subtype),
         visibility=cast(Visibility, repo.visibility),
         description=repo.description,
+        schema_id=repo.schema_id,
+        row_format=repo.row_format,
         created_at=repo.created_at,
         updated_at=repo.updated_at,
     )
