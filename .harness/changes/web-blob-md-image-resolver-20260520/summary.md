@@ -26,16 +26,16 @@ Web blob 预览页 markdown 支持 `![](images/x.jpg)` 相对路径自动解析�
 
 | 阶段 | 状态 | 最新版本 | verdict | 阶段 commit | 产物 / 报告 |
 |---|---|---|---|---|---|
-| 1 需求分析 | done | v1 | — | TBD | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
-| 2 需求评审 | done | v1 | REVISION REQUIRED | — | [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) |
-| 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
-| 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
-| 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
-| 6 单测评审 | | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
-| 7 代码推送 | | | | | _branch / push ref_ |
-| 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
-| 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
-| 10 用户确认 | | | | | _确认人 / 时间_ |
+| 1 需求分析 | done | v2 | — | 42e6f49 | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
+| 2 需求评审 | done | v2 | APPROVED (v1 报 5 MUST → v2 全 RESOLVED) | 42e6f49 | v1 + v2 reviews |
+| 3 编码实现 | done | v1 | — | 76d25bd | [coding_report_v1.md](coding/coding_report_v1.md) |
+| 4 编码评审 | done | v2 | APPROVED (v1 报 1 MUST [upstream AC-4 regression] → RESOLVED) | 8fe71e8 | v1 + v2 reviews |
+| 5 单测编写 | done | v1 | 11/11 PASS | 8fe71e8 | [test_report_v1.md](unit_test/test_report_v1.md) |
+| 6 单测评审 | done | v2 | APPROVED (0 MUST / 2 SHOULD → 处理) | 8fe71e8 | v1 + v2 reviews |
+| 7 代码推送 | done | — | — | 8fe71e8 | origin/change/web-blob-md-image-resolver-20260520（已合并删除） |
+| 8 CI 验证 | done | v1 | PASS (9/9 + 9 preflight = 18/18) | 8fe71e8 | [ci_result_v1.md](ci_result/ci_result_v1.md) |
+| 9 部署验证 | done | v1 | SKIPPED (noop) | 8fe71e8 | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
+| 10 用户确认 | done | — | PASS（用户 2026-05-20 确认 merge） | 29486a1 | 用户：2026-05-20 |
 
 ## 关键决策
 
