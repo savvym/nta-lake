@@ -3,9 +3,9 @@ change_id: gold-loader-hf-datasets-20260520
 title: gold loader HF datasets (W3-7)
 owner: application-owner-agent
 started_at: 2026-05-21T07:00:00Z
-phase: design
-status: design_approved
-last_updated: 2026-05-21T07:00:00Z
+phase: verify
+status: verify_approved
+last_updated: 2026-05-21T09:00:00Z
 related_changes:
   - dataset-export-engine-20260520 (W2-6, 上游 silver snapshot 写入方)
   - loader-jsonl-20260520 (W3-6, 类似 jsonl 解析但 fail-fast 语义不同)
@@ -31,9 +31,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待回填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | — | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | — | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | c076eeb | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | n/a | 8cfdfe1 + 7eebd19 | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | _待回填_ | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
