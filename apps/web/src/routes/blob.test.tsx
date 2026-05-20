@@ -206,6 +206,62 @@ describe("BlobPage rendering", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("md image while subtree isLoading → 显占位文字", async () => {
+    const mdSha = "d".repeat(64);
+    const commit = "f".repeat(64);
+    mockBlobMeta.mockReturnValue({
+      data: { sha256: mdSha, size: 30 },
+      isLoading: false,
+      isError: false,
+    });
+    mockSubtreeByPath.mockReturnValue({
+      data: null,
+      isLoading: true,
+      isError: false,
+      error: null,
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      return new Response("![](images/a.jpg)\n", { status: 200 });
+    });
+
+    renderBlob(`/blob/demo/r/${mdSha}?path=paper.md&commit=${commit}`);
+    await waitFor(() => {
+      expect(screen.getByText("Rendered")).toBeInTheDocument();
+    });
+    screen.getByText("Rendered").click();
+    await waitFor(() => {
+      expect(screen.getByText(/loading image/)).toBeInTheDocument();
+    });
+  });
+
+  it("md image but entry not found in tree → 透传 + 提示", async () => {
+    const mdSha = "d".repeat(64);
+    const commit = "f".repeat(64);
+    mockBlobMeta.mockReturnValue({
+      data: { sha256: mdSha, size: 30 },
+      isLoading: false,
+      isError: false,
+    });
+    mockSubtreeByPath.mockReturnValue({
+      data: { hash: "1".repeat(64), entries: [] }, // 空 tree → 找不到
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      return new Response("![](images/missing.jpg)\n", { status: 200 });
+    });
+
+    renderBlob(`/blob/demo/r/${mdSha}?path=paper.md&commit=${commit}`);
+    await waitFor(() => {
+      expect(screen.getByText("Rendered")).toBeInTheDocument();
+    });
+    screen.getByText("Rendered").click();
+    await waitFor(() => {
+      expect(screen.getByText(/找不到.*images\/missing\.jpg/)).toBeInTheDocument();
+    });
+  });
 });
 
 // --- web-blob-md-image-resolver-20260520: helper 单测 ---
