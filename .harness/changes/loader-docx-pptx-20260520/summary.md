@@ -3,9 +3,9 @@ change_id: loader-docx-pptx-20260520
 title: docx/pptx loader (W3-5)
 owner: application-owner-agent
 started_at: 2026-05-21T05:50:00Z
-phase: design
-status: design_approved
-last_updated: 2026-05-21T05:50:00Z
+phase: verify
+status: verify_approved
+last_updated: 2026-05-21T06:30:00Z
 related_changes:
   - loader-html-md-20260520 (W3-4, packages/core loader 模板)
   - loader-refactor-pdf-mineru-20260520 (W1-4, 图片写 blob_store 模板)
@@ -30,9 +30,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待回填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | — | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | — | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | 57bf70a | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | n/a | 91b215f / c0cb178 | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | _待 merge 后回填_ | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
