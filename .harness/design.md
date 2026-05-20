@@ -1,11 +1,353 @@
 # LLM 训练数据管理平台架构设计
 
-> 版本：v0.2（追加 §11.6 认证与授权；落实 MVP 工程取舍：RQ / subprocess / 本地 Turbo 缓存）
+> 版本：v0.3（**北极星 pivot - 2026-05-20**：定位从"data 上加 git"转为"LLM 训练数据工厂"；引入三层算子 Adapter/Loader/Operator + stats-first + 行级血缘；§ 永不做清单写入硬约束。v0.2 及之前的章节移至文末 § 12 "Deprecated 设计（v1）"保留，结构上由新顶层节作权威定义）
 > 范围：为预训练 (CPT) / SFT / 评测等场景提供端到端的数据工程能力。
 
 ---
 
+## 北极星
+
+**一句话定位**：一个开箱即用的 LLM 训练数据工厂 (data prep platform)：插 Adapter 把世界变成 bronze 文件，跑 Loader 把 bronze 变成 silver 表，串 Operator 把表精炼成 gold 表。每行自带 source_ref + stats + lineage_ops 可追溯。重 lineage、轻 versioning，重 schema、轻 git。
+
+**对标系统**：data-juicer（算子库形态）+ The Stack / StarCoder（代码 corpus 行级形态）+ Dolma / FineWeb / RefinedWeb（web 数据行级形态）。**不**对标 lakeFS / Pachyderm（"data 上加 git"路线已被业界证伪）。
+
+**4 条硬约束**（违反即流程失败，详见 § 永不做清单）：
+
+- **Bronze = 文件树**：保留 CAS 去重 + 不可变 snapshot；不要求 manifest.yaml；不强 schema
+- **Silver / Gold = 表**：强制 Parquet/JSONL + schema 注册 + 每行 `source_ref` + 每行 `stats` 字段必填
+- **Lineage = 双层**：commit 级（snapshot 之间由谁跑出来的）+ 行级（每行 source_ref + lineage_ops）；**不**做 blob→blob 派生图
+- **永不做 git 数据语义**：branch / merge / cherry-pick / rollback / row-level diff 永不实现；commit 在 API/UI 心智上是 snapshot（API rename 见 follow-up `api-snapshot-rename-*`）
+
+**北极星的"反"边界**（用户想要 X 时往哪指）：
+
+- 用户想要"分支不同数据子集" → 用新建 silver/gold repo + 不同 Operator config，**不**给 branch
+- 用户想要"合并两个数据集" → 用 union Operator 或新建 repo 同时 Loader 多个 bronze，**不**给 merge
+- 用户想要"回滚某次 commit" → 新建 commit 把内容退回到老 snapshot；**不**给 rollback / force-push
+- 用户想要"知道某行 silver 出自哪个 bronze blob" → 看 row.source_ref + row.lineage_ops；**不**给 blob 派生图查询
+
+> ⚠ 本节是后续所有 change 的判定基线。stage 2 reviewer 评审时必须确认 change 不违反 4 条硬约束 + 6 条反边界。约束源文件：`.harness/rules/data-not-code-pivot.md`。
+
+---
+
+## 三层算子模型
+
+> ⚠ **本节为契约草图**。Protocol 签名仅在 design.md 中以代码块形式给出，**尚未落到 `packages/core/protocols.py`**。实现见 follow-up：`adapter-protocol-*`（已部分落地为 SourceAdapter）/ `loader-protocol-*` / `operator-protocol-*`。在此之前，请勿基于"protocol 已存在"假设写 change spec。
+
+新模型把"数据从外部世界 → 训练就绪表"的过程拆为三层独立算子。每层有自己的 Protocol、输入输出契约、错误语义。
+
+| 层 | 接口签名 | 输入 | 输出 | 跑在哪 | 例子 |
+|---|---|---|---|---|---|
+| **Adapter** | `(spec, workspace, ctx) -> IngestResult` | 外部世界（URL / 上传文件 / API） | 一棵 bronze 文件树（snapshot） | RQ worker / 容器 | firecrawl-adapter / raw-pdf-upload / arxiv-fetcher / github-clone |
+| **Loader** | `(bronze_snapshot, config, ctx) -> Iterator[Row]` | 1 个 bronze snapshot + glob/filter | 一组 silver row（含 source_ref + 初始 stats） | RQ worker（可重 IO / GPU） | pdf-mineru-loader / html2md-loader / code-file-loader |
+| **Operator** | `(rows, config, ctx) -> Iterator[Row]` | 一组 silver/gold row | 一组 row（变形 / 过滤 / 扩展 / 聚合） | RQ worker（多数轻量，dedup 类需全局视图） | lang-id-filter / perplexity-filter / minhash-dedup / llm-qa-gen / repo-packing |
+
+### Adapter
+
+```python
+class SourceAdapter(Protocol):
+    name: str                # 唯一标识，如 "firecrawl-url"
+    version: str             # 语义版本
+    input_schema: JSONSchema # 接受什么样的输入 spec
+    output_subtype: str      # 产出的 bronze subtype
+
+    def ingest(
+        self,
+        spec: dict,                # 符合 input_schema
+        workspace: Path,           # 平台分配的临时工作区
+        ctx: RunContext,           # 日志 / metrics / secrets / cancel
+    ) -> IngestResult:
+        """产出一棵符合 Bronze 规范的文件树。
+        平台负责把工作区 commit 到目标 bronze repo。"""
+```
+
+例子（已实现）：
+- `FirecrawlAdapter(spec={"urls": [...], "render_js": true})` → `assets/<id>/content.md + images/`
+- `RawPDFUploadAdapter(spec={"file_id": "..."})` → `content/<filename>.pdf`
+
+### Loader
+
+```python
+class Loader(Protocol):
+    name: str
+    version: str
+    config_schema: JSONSchema
+    accepts: list[BronzeSelector]    # 接受哪些 bronze subtype
+    output_schema: SchemaRef          # 产出 row 的 schema（必含 source_ref + stats）
+
+    def load(
+        self,
+        snapshot: BronzeSnapshotView, # 1 个 bronze snapshot 的只读视图
+        config: dict,                 # 符合 config_schema
+        ctx: RunContext,
+    ) -> Iterator[Row]:
+        """遍历 bronze 文件，产出 silver row 流。
+        每行必须填 source_ref{repo,snapshot,path,blob_sha}。
+        Loader 通常是重活：跑 OCR / 模型推理 / API 调用。"""
+```
+
+例子：
+- `pdf-mineru-loader`（待重写：将 `apps/api/dataplat_api/processors/pdf_mineru.py` 拆为 Loader）：bronze PDF blob → silver `{id, source_ref, text, page_count, image_refs[], lang, stats: {...}}` 行
+- `code-file-loader`：bronze 代码文件 → silver `{id, source_ref, repo_name, path, content, language, license, stats: {alphanum_fraction, max_line_length, ...}}`，对标 The Stack
+- `html2md-loader`：bronze HTML → silver Document.v1 schema
+
+### Operator
+
+```python
+class Operator(Protocol):
+    name: str
+    version: str
+    config_schema: JSONSchema
+    kind: Literal["mapper", "filter", "deduplicator", "selector", "expander"]
+    reads_stats: list[str]     # 显式声明读哪些 stats
+    writes_stats: list[str]    # 显式声明写哪些 stats
+    accepts_schema: SchemaRef  # 接受的 row schema
+    output_schema: SchemaRef   # 产出的 row schema（可与输入相同）
+
+    def apply(
+        self,
+        rows: Iterator[Row],   # 流式输入
+        config: dict,
+        ctx: RunContext,
+    ) -> Iterator[Row]:
+        """逐行（或全局）变形 / 过滤 / 扩展。
+        kind 决定语义：
+          - mapper: 1 row → 1 row（原地变 text / 补 stats）
+          - filter: 1 row → 0 or 1 row（按 stats 留/丢）
+          - deduplicator: N rows → M rows（全局视图，N ≥ M）
+          - selector: N rows → K rows（top-K / 分位）
+          - expander: 1 row → N rows（如 llm-qa-gen 把 1 doc 扩成 N QA pair）"""
+```
+
+例子（参考 data-juicer 算子库）：
+- Mapper：`markdown-normalize` / `whitespace-clean` / `pii-redact`
+- Filter：`lang-id-filter(allow=[en,zh])` / `alphanum-fraction-filter(min=0.25)` / `perplexity-filter(model=kenlm, max=800)`
+- Deduplicator：`minhash-dedup(threshold=0.85)` / `simhash-dedup`
+- Selector：`topk-by-stat(stat=quality_score, k=10000)`
+- Expander：`llm-qa-gen(model=claude-opus-4-7, records_per_doc=N)` / `repo-packing(max_tokens=8192)`
+
+### Recipe（新形态）
+
+老 Recipe：N 个 Processor 节点 DAG（repo → repo）。
+**新 Recipe**：1 个 Loader + N 个 Operator 链（行流水线）。
+
+```yaml
+# recipes/code-cpt-v1.yaml
+name: code-cpt-v1
+loader:
+  name: code-file-loader@0.1
+  inputs: [bronze/anthropic/github-py-snapshot@main]
+  config:
+    include_ext: [.py, .pyi]
+    exclude_paths: ["**/test_*"]
+
+operators:
+  - { name: lang-id-filter@0.1,            config: { allow: [en, zh], min_confidence: 0.9 } }
+  - { name: license-filter@0.1,            config: { allow: [MIT, Apache-2.0, BSD-3-Clause] } }
+  - { name: alphanum-fraction-filter@0.1,  config: { min: 0.25, max: 0.95 } }
+  - { name: perplexity-filter@0.1,         config: { model: kenlm-py, max_perplexity: 800 } }
+  - { name: minhash-dedup@0.1,             config: { threshold: 0.85, num_perm: 128 } }
+  - { name: repo-packing@0.1,              config: { max_tokens: 8192, separator: "<|file|>" } }
+
+output: gold/anthropic/code-cpt-v1@auto
+```
+
+每个 Operator 跑完留 `stats/op_<name>_stats.json`（保留 / 丢弃 / 中位某指标），UI 直接画漏斗图。Pipeline 整体可解释 —— 像 SQL query plan。
+
+---
+
+## stats-first 设计
+
+灵感来自 data-juicer：**每行的 `stats` 字段是一等公民**。每个 Operator 要么**算 stat**（perplexity / lang / token_count / alphanum_fraction），要么**按 stat 过滤**。这让 pipeline 整体可解释、可单元测试、可逐步调试。
+
+### Row Schema（silver/gold 强制部分）
+
+```python
+class Row(BaseModel):
+    # 行级血缘（强制，详见 § 行级血缘）
+    id: str                              # row 唯一 id
+    source_ref: SourceRef                # 指回 bronze blob
+    lineage_ops: list[OpRef]             # 经过的 operator 链
+
+    # stats（强制 dict 存在，但 keys 由 Operator 动态写）
+    stats: dict[str, float | int | str | bool]
+
+    # 业务字段（subtype-specific）
+    # text, prompt, response, repo_name, ...
+```
+
+### Operator stats 契约
+
+```python
+class LangIdFilter(Operator):
+    name = "lang-id-filter"
+    kind = "filter"
+    reads_stats = []           # 自己算 lang_id，不依赖前面
+    writes_stats = ["lang_id", "lang_confidence"]
+    # apply(): 算出 lang_id 写入 stats，再按 allow list 留/丢
+
+class PerplexityFilter(Operator):
+    name = "perplexity-filter"
+    kind = "filter"
+    reads_stats = []
+    writes_stats = ["perplexity"]
+
+class MinhashDedup(Operator):
+    name = "minhash-dedup"
+    kind = "deduplicator"
+    reads_stats = []           # 自己算 minhash
+    writes_stats = ["minhash_signature", "is_duplicate"]
+```
+
+### 编译期校验
+
+Pipeline 加载时静态校验：
+
+- 如果 `OperatorB.reads_stats = ["perplexity"]` 但前面没有任何 Operator 在 `writes_stats` 里写过 `perplexity`，**编译失败**（fail-fast，不要等运行时）
+- 输出 `output_schema` 与下一个 Operator 的 `accepts_schema` 必须兼容
+
+### 与 SQL/Iceberg 的关系
+
+silver/gold 的"表"在物理上就是 Parquet 分区，stats 字段是 Parquet 列。可以直接用 DuckDB / Spark 跑 SQL：
+
+```sql
+SELECT lang_id, COUNT(*), AVG(perplexity)
+FROM silver_normalized_text
+WHERE quality_score > 0.7
+GROUP BY lang_id;
+```
+
+这是 design.md v0.2 完全没做的可能性 —— v0.2 silver 是文件树，没法这么查。
+
+---
+
+## 行级血缘
+
+每行 silver/gold row 必含两个字段，组合起来回答"这行从哪来 + 经过谁的处理"：
+
+### source_ref（指回源头）
+
+```python
+class SourceRef(BaseModel):
+    repo: str          # e.g. "bronze/anthropic/github-py"
+    snapshot: str      # commit/snapshot hash
+    path: str          # bronze 文件树中的相对路径
+    blob_sha: str      # CAS blob sha256
+    span: Span | None = None  # 可选：行/字节范围（如 PDF 第 N 页）
+```
+
+- **每个 Loader 产出每个 row 时必须填 source_ref**（不可缺）
+- 一行只能有 1 个 source_ref；如需多源（e.g. dedup 后合并）走 `lineage_ops[].input_refs` 留痕
+- Bronze 行**没有** source_ref（它们就是源头）
+
+### lineage_ops（经过的算子链）
+
+```python
+class OpRef(BaseModel):
+    name: str          # e.g. "lang-id-filter"
+    version: str       # e.g. "0.1"
+    config_hash: str   # sha256(canonical_json(config))
+    snapshot: str      # 输出 snapshot hash（用于 join 回 commit 级 lineage）
+    ts: datetime
+```
+
+- Loader 写 row 时填 1 个 OpRef（loader 自己）
+- 每个 Operator 在 apply 末尾追加 1 个 OpRef
+- expander 算子（如 llm-qa-gen）产出的 N 行**共享父 row 的 lineage_ops 前缀**，区别只在最后一项（含 expander 自己 + 同一个 row_id 的不同子 id）
+
+### 查询接口（API 草图）
+
+```
+GET  /lineage/row/{repo}/{snapshot}/{row_id}
+     → { source_ref, lineage_ops[], commit_level_lineage }
+
+GET  /lineage/reverse?bronze_blob_sha={sha}
+     → [ {silver_repo, snapshot, row_id}, ... ]  # 哪些 silver row 引用了这个 blob
+
+GET  /lineage/operator-stats?op_name={n}&op_version={v}
+     → { rows_in: N, rows_out: M, ratio: ..., distribution: {...} }
+     # operator 漏斗统计；UI 用
+```
+
+### 与 commit 级 lineage 的关系
+
+两层 lineage **共存不冲突**：
+
+- **commit 级**（保留 design.md §4.4 的 `lineage` 字段）：snapshot → snapshot 由什么 recipe 跑出来的。粗粒度，回答"哪个 recipe 版本生成了 silver/x@abc123"。
+- **行级**（本节）：每行自带 source_ref + lineage_ops。细粒度，回答"silver/x@abc123 的第 7 行 row 来自 bronze/y@def456 的 paper.pdf 第 3 页"。
+
+行级 lineage 是 commit 级的"细节"，查询时可 join。
+
+---
+
+## 永不做清单
+
+这些功能在新北极星下**永不实现**。每条附"为什么不"+"用户想要 X 时往哪指"。
+
+- **不做 branch**：训练数据没有"实验分支"语义；用新建 repo 或 fork 表达"另一份数据"。
+  - 用户想要：用 `POST /repos` 新建 silver/x-experiment 跑不同 Operator config
+- **不做 merge**：数据不需要合并冲突解决；用 union Operator 或 Loader 多 input。
+  - 用户想要：写一个 Recipe 让 Loader 接 N 个 bronze input + union Operator 拼起来
+- **不做 cherry-pick**：snapshot 是原子写入产物，不存在"挑某几个改动"。
+  - 用户想要：跑一个 Operator filter 把想要的 row 选出来，写新 snapshot
+- **不做 rollback / force-push**：snapshot 不可改；已被训练用过的 snapshot 永不可删。
+  - 用户想要：新建 commit 把内容退到老 snapshot（前向 commit）
+- **不做 row-level diff**：行没有"修改前/修改后"语义；每次 Operator 输出是新行。
+  - 用户想要：跑 join + filter 做"两个 snapshot 的 set diff"
+- **不做 blob → blob 派生图**：每行的 source_ref 已经存了源 blob 引用，blob 级派生图查询走 `/lineage/reverse?bronze_blob_sha=...` 即可，**不**额外建 BlobDerivation 表。
+  - 用户想要："这个 PDF 派生了哪些 silver row" → `GET /lineage/reverse?bronze_blob_sha={pdf_sha}`
+- **不做 Asset 抽象 / manifest.yaml 强制**：bronze 用文件树就够；`manifest.yaml` 是 design.md v0.2 的失败遗产。
+  - 用户想要"按逻辑包整组处理" → Loader 的 config 接 `include_paths` glob
+- **不做"silver 是文件树"**：silver/gold 强制表形态；不允许往 silver/gold repo 直接写 .md / .txt 文件树。
+  - 用户想要预览：silver Parquet → 平台自动生成 sample.jsonl 给 UI
+- **不做单测覆盖率 / 强 schema 在 bronze**：bronze 只要文件树 + dataset-card.yaml；schema 在 silver/gold 强制。
+  - 用户想要 schema：升 silver 用 Loader 转
+
+**违反任何一条 → reviewer 在 stage 2 必须 MUST FIX 打回**。约束源文件：`.harness/rules/data-not-code-pivot.md`。
+
+---
+
+## 迁移路径
+
+到 2026-05-20，已有 5 个 first-generation Processor / Adapter（在新模型下重分类）：
+
+| 现有名 | 当前形态 | 新分类 | 何时重写 |
+|---|---|---|---|
+| `apps/api/dataplat_api/adapters/firecrawl.py` | SourceAdapter（已对齐） | Adapter（无需重写） | n/a，沿用 |
+| `apps/api/dataplat_api/processors/pdf_mineru.py` (name=`pdf-mineru`) | Processor（repo→repo, 写 .md 文件树） | **Loader**（bronze PDF → silver Document 行） | `loader-refactor-pdf-mineru-*` |
+| `apps/api/dataplat_api/processors/markdown_normalize.py` (name=`markdown-normalize`) | Processor（repo→repo, 改 .md 内容） | **Operator (Mapper)**（行级 text clean） | `loader-refactor-pdf-mineru-*` 之后 `operator-suite-mvp-*` 一起重写 |
+| `apps/api/dataplat_api/processors/llm_summarize.py` (name=`llm-summarize`) | Processor（repo→repo, 调 LLM） | **Operator (Mapper)** | `operator-suite-mvp-*` |
+| `apps/api/dataplat_api/processors/llm_qa_gen.py` (name=`llm-qa-gen`) | Processor（repo→repo, 1 doc → N QA） | **Operator (Expander)** | `operator-suite-mvp-*` |
+
+**迁移策略**：
+
+- **不**强制立刻重写。Processor 抽象在 follow-up `operator-protocol-*` 落地之前保留 work
+- 新的 PDF→MD / 其他数据加工需求**仍可**走老 Processor 接口（标注"first-gen Processor"，不阻塞）
+- `loader-refactor-pdf-mineru-*` 完成后，pdf-mineru 退役老路径
+- 5 个 Processor 全部重写完后，老 `Processor` Protocol 进 `.harness/rules/data-not-code-pivot.md` 的 deprecated 清单 → 后续不允许新增 first-gen Processor
+
+**21 个已闭环 change 处理策略**：**不回写**。它们的 spec / coding_report / summary 永远保留旧术语（Processor / commit DAG / Asset 等）。新 change 评审时 reviewer 必须用 v2 词汇引用本 design.md。
+
+---
+
+## 与业界的关系
+
+| 系统 | 借鉴什么 | 划清什么 |
+|---|---|---|
+| **data-juicer** | 算子库三类（Mapper/Filter/Deduplicator）+ stats-first + YAML pipeline | 不直接依赖其代码（会粘上其实现细节）；自己实现 Protocol；长远兼容其 YAML config |
+| **The Stack / StarCoder data** | 代码 corpus 行级形态（1 row = 1 file 含 hexsha/path/repo_name/license）+ repo-packing 训练样本 | 我们覆盖更广（多模态、PDF、网页），不只是代码 |
+| **Dolma / FineWeb / RefinedWeb** | row-embedded provenance（每行带 source URL/timestamp/script_version）+ 漏斗式 filter pipeline | 同上，更通用 |
+| **lakeFS / Pachyderm** | （**不借鉴**）数据 git 路线 | 这俩商业上证伪了；客户不要 data-git，要 lakehouse + lineage |
+| **Apache Iceberg / Delta Lake** | snapshot 线性版本 + immutable data file + schema evolution 思路 | 不上 Iceberg/Delta 后端（PB 级才需要，现在不必） |
+| **DataHub / OpenLineage** | job-level lineage 概念（commit 级 lineage 就是这一类） | 我们 lineage 同时含 commit 级 + 行级，DataHub 只到 table 级 |
+| **HuggingFace Datasets** | dataset card / schema 注册 / 分发体验 | 我们不做分发市场（至少 Phase 1）|
+
+**为什么不直接用 data-juicer 做后端**：data-juicer 不管行级血缘 / source_ref / Loader 这层 / 不管 snapshot 版本控制。我们的范围更宽，借鉴抽象但自己实现，保持架构主权。
+
+---
+
 ## 1. 目标与设计原则
+
+> ⚠ **Deprecated 设计（v1）** —— 本节 § 1.2 "以 Asset 而非文件为最小语义单位"已被北极星 pivot 弃用。v2 权威定义见 [§ 北极星](#北极星) 与 [§ 三层算子模型](#三层算子模型)。本节内容保留以防止老 change 引用 404。
 
 ### 1.1 目标
 - 统一管理面向 LLM 训练的多源、多格式、多阶段数据。
@@ -30,6 +372,8 @@
 ---
 
 ## 2. 核心概念与领域模型
+
+> ⚠ **Deprecated 设计（v1）** —— 本节 § 2.2 概念表中的 `Asset` / `manifest.yaml` 已弃用（bronze 不要求 manifest）。`Processor` 抽象拆为 Loader + Operator（v2 见 [§ 三层算子模型](#三层算子模型)）。v2 权威概念定义见 [§ 北极星](#北极星)。本节保留以防止老 change 引用 404。
 
 ### 2.1 领域模型一图概览
 
@@ -105,6 +449,8 @@ A,B,C  ──(normalize pipeline)──▶  D  ──(qa-gen pipeline)──▶ 
 ---
 
 ## 3. 数据分层规范
+
+> ⚠ **Deprecated 设计（v1）** —— § 3.1 中 `manifest.yaml` 是 **可选** 不再强制；§ 3.2/3.3 中 Silver/Gold "推荐 Parquet" 升为 **强制 Parquet/JSONL + schema 注册 + 每行 source_ref + 每行 stats**（v2 见 [§ 行级血缘](#行级血缘) 与 [§ stats-first 设计](#stats-first-设计)）。本节保留以防止老 change 引用 404。
 
 ### 3.1 Bronze 层
 
@@ -215,6 +561,8 @@ silver/cn-lit/normalized-text-v1/
 ---
 
 ## 4. 关键抽象的接口设计
+
+> ⚠ **Deprecated 设计（v1）** —— § 4.2 `Processor` 单一抽象拆为 Loader + Operator；§ 4.3 Recipe 的 nodes[]-of-Processor 形态升级为 Loader+Operators 链；§ 4.4 commit.parents `list[str]`（DAG）退化为 `parent: str | None`（线性 snapshot 单链），branch/merge/cherry-pick 进入 [§ 永不做清单](#永不做清单)。v2 权威接口见 [§ 三层算子模型](#三层算子模型)。本节保留以防止老 change 引用 404。
 
 ### 4.1 Source Adapter (Fetcher) 接口
 

@@ -3,9 +3,9 @@ change_id: platform-north-star-pivot-20260520
 title: 北极星 pivot —— "数据加工厂"取代"data 上加 git"（design.md 重写 + 永不做清单 + 三层算子草图）
 owner: application-owner-agent
 started_at: 2026-05-20T15:00:00Z
-stage: request_analysis
-status: waiting_review
-last_updated: 2026-05-20T15:00:00Z
+stage: coding
+status: in_progress
+last_updated: 2026-05-20T15:35:00Z
 related_changes:
   - harness-bootstrap-20260516       # design.md 原始来源
   - bootstrap-monorepo-20260516       # design.md §11.3 引用方
@@ -30,12 +30,12 @@ related_changes:
 
 | 阶段 | 状态 | 最新版本 | verdict | 阶段 commit | 产物 / 报告 |
 |---|---|---|---|---|---|
-| 1 需求分析 | done | v1 | — | TBD | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
-| 2 需求评审 | waiting_review | — | — | — | [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) |
-| 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
-| 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
-| 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
-| 6 单测评审 | | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
+| 1 需求分析 | done | v2 | — | 57bb1a4 | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
+| 2 需求评审 | done | v2 | APPROVED | — | [spec_review_v2.md](request_analysis/review/spec_review_v2.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) (APPROVED v1) |
+| 3 编码实现 | done | v1 | — | TBD | [coding_report_v1.md](coding/coding_report_v1.md) |
+| 4 编码评审 | waiting_review | — | — | — | [code_review_v1.md](coding/review/code_review_v1.md) |
+| 5 单测编写 | done | v1 | — | TBD | [test_report_v1.md](unit_test/test_report_v1.md) |
+| 6 单测评审 | waiting_review | — | — | — | [test_review_v1.md](unit_test/review/test_review_v1.md) |
 | 7 代码推送 | | | | | _branch / push ref_ |
 | 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
 | 9 部署验证 | | | | | n/a (doc-only) |

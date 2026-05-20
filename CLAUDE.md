@@ -28,6 +28,7 @@
 | 用某个阶段的 SOP | [.harness/skills/README.md](.harness/skills/README.md) |
 | 看历史变更/启动新变更 | [.harness/changes/](.harness/changes/)（模板在 `_template/`） |
 | 查领域术语 / 系统总体设计 | [wiki/](wiki/) 与 [.harness/design.md](.harness/design.md) |
+| **理解平台北极星** | [.harness/design.md § 北极星](.harness/design.md#北极星)（"LLM 训练数据工厂" + 三层算子 Adapter/Loader/Operator + stats-first + 行级血缘 + 永不做清单） |
 
 ## 硬性约束（违反即视为流程失败）
 
@@ -36,6 +37,7 @@
 3. **不允许在评审未通过时进入下一阶段**。阶段间用 `summary.md` 串联状态。
 4. **不允许声称完成而没有机械化证据**：CI 报告、测试通过数、部署验证截图/输出，缺一不可。
 5. **发现 Agent / 流程缺陷，把防复发机制补回 `.harness/`**（rules 或 skills），不要只在当前会话临时绕过。
+6. **任何 change 不得违反 [.harness/rules/data-not-code-pivot.md](.harness/rules/data-not-code-pivot.md)** 的"永不做清单"（branch / merge / cherry-pick / rollback / row-diff / blob 派生图 / Asset / manifest.yaml 强制 / silver 文件树 / bronze 强 schema）。stage 2 reviewer 必查该 rule。
 
 ## 当下项目状态
 

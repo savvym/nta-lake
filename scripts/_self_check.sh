@@ -1661,6 +1661,45 @@ run_web_jobs_list_page() {
 }
 
 # =============================================================================
+# Block: platform-north-star-pivot-20260520
+# 10 条 AC（含 1 条 behavioral：AC-9 调 check_design_north_star.sh）
+# =============================================================================
+
+run_platform_north_star_pivot() {
+  echo "=== platform-north-star-pivot-20260520 :: 10 AC ==="
+
+  run_ac AC-1 "design.md 含 § 北极星 + 一句话定位（含 LLM 训练数据.{0,5}工厂 或 data prep）+ ≥ 4 条硬约束 bullet（flag-based awk 避 /start/,/end/ 闭区间陷阱）" \
+    bash -c "awk 'found && /^## /{exit} /^## 北极星/{found=1} found' .harness/design.md | grep -qE 'LLM 训练数据.{0,5}工厂|data prep' && [ \"\$(awk 'found && /^## /{exit} /^## 北极星/{found=1} found' .harness/design.md | grep -cE '^- ')\" -ge 4 ]"
+
+  run_ac AC-2 "design.md 三层算子节含 Adapter / Loader / Operator 三个子节 + 每节有 Protocol 草图（flag-based awk 三级标题）" \
+    bash -c "for k in Adapter Loader Operator; do awk -v k=\"\$k\" 'found && /^### /{exit} \$0 ~ \"^### \"k{found=1} found' .harness/design.md | grep -qE 'Protocol|protocol|class ' || exit 1; done"
+
+  run_ac AC-3 "design.md § 永不做清单 ≥ 7 条粗体 bullet（branch/merge/cherry-pick/rollback/row-diff/blob 派生图/Asset/manifest.yaml 至少 7 项）" \
+    bash -c "[ \"\$(awk 'found && /^## /{exit} /^## 永不做/{found=1} found' .harness/design.md | grep -cE '^- \*\*')\" -ge 7 ]"
+
+  run_ac AC-4 "design.md § stats-first 设计含 reads_stats + writes_stats 字段声明" \
+    bash -c "awk 'found && /^## /{exit} /^## stats-first/{found=1} found' .harness/design.md | grep -qE 'reads_stats' && awk 'found && /^## /{exit} /^## stats-first/{found=1} found' .harness/design.md | grep -qE 'writes_stats'"
+
+  run_ac AC-5 "design.md § 行级血缘含 source_ref + lineage_ops 字段定义" \
+    bash -c "awk 'found && /^## /{exit} /^## 行级血缘/{found=1} found' .harness/design.md | grep -qE 'source_ref' && awk 'found && /^## /{exit} /^## 行级血缘/{found=1} found' .harness/design.md | grep -qE 'lineage_ops'"
+
+  run_ac AC-6 "design.md § 迁移路径表涵盖 5 个 first-gen processor（pdf-mineru/llm-qa-gen/llm-summarize/markdown-normalize/firecrawl）" \
+    bash -c "for p in pdf-mineru llm-qa-gen llm-summarize markdown-normalize firecrawl; do awk 'found && /^## /{exit} /^## 迁移路径/{found=1} found' .harness/design.md | grep -q \"\$p\" || exit 1; done"
+
+  run_ac AC-7 ".harness/rules/data-not-code-pivot.md 存在 + 含 永不做 + 引用 design.md" \
+    bash -c "test -f .harness/rules/data-not-code-pivot.md && grep -q '永不做' .harness/rules/data-not-code-pivot.md && grep -q 'design.md' .harness/rules/data-not-code-pivot.md"
+
+  run_ac AC-8 "CLAUDE.md 含 北极星 指针 + data-not-code-pivot 硬约束引用" \
+    bash -c "grep -q '北极星' CLAUDE.md && grep -q 'data-not-code-pivot' CLAUDE.md"
+
+  run_ac AC-9 "scripts/lint/check_design_north_star.sh 存在且 exit 0 + stdout 含 OK: design.md north-star structure complete" \
+    bash -c "test -x scripts/lint/check_design_north_star.sh && OUT=\$(bash scripts/lint/check_design_north_star.sh) && echo \"\$OUT\" | grep -q 'OK: design.md north-star structure complete'"
+
+  run_ac AC-10 "self_check 含 run_platform_north_star_pivot 调用 ≥ 3 次（函数定义 + dispatch + full）" \
+    bash -c "[ \"\$(grep -c 'run_platform_north_star_pivot' scripts/_self_check.sh)\" -ge 3 ]"
+}
+
+# =============================================================================
 # Block: stage9-followup-cleanup-20260518
 # 4 条 AC（含 2 条 behavioral：AC-2 alembic 三连 + delete_rule 断言、AC-4 pytest 10/10）
 # =============================================================================
@@ -1944,6 +1983,9 @@ run_change_block() {
     web-jobs-list-page|web-jobs-list-page-20260520)
       run_web_jobs_list_page
       ;;
+    platform-north-star-pivot|platform-north-star-pivot-20260520)
+      run_platform_north_star_pivot
+      ;;
     harness-ac-behavioral-tier|harness-ac-behavioral-tier-20260518)
       run_harness_ac_behavioral_tier
       ;;
@@ -2026,6 +2068,8 @@ run_full() {
   run_repo_files_tab_v2
   echo
   run_web_jobs_list_page
+  echo
+  run_platform_north_star_pivot
   echo
   run_harness_ac_behavioral_tier
   echo
