@@ -1,104 +1,53 @@
 ---
 change_id: loader-html-md-20260520
 phase: implementation
-status: <in_progress | done>
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+status: done
+authored_at: 2026-05-20T00:00:00Z
 author: sonnet-phase2-implementer
 model_used: sonnet
 branch: change/loader-html-md-20260520
 base_commit: 7e46c9a
-head_commit: <sonnet push 后回填>
-pr_url: <gh pr URL 或 "n/a (gh PAT 缺 pr:write)">
+head_commit: (回填于 commit 后)
+pr_url: n/a
 ---
 
-# Implementation
+# Implementation：html/md loader (W3-4)
 
-> Phase 2 sonnet 端到端产物。**一次 sonnet 调用内**完成：编码 + 单元测试 + 端到端验证 + commit + push（+ PR 如可用）。Application Owner spawn sonnet 后 sonnet 自管完整 Phase 2，结束写本文件。
+## 落地文件
 
-## 改动文件清单
+| 路径 | 类型 | 一句话说明 |
+|---|---|---|
+| `packages/core/src/dataplat_core/loaders/html_md.py` | new | HtmlMdLoader 实现（~110 行） |
+| `packages/core/src/dataplat_core/loaders/__init__.py` | edit | +import/register/\_\_all\_\_ |
+| `packages/core/tests/test_loader_html_md.py` | new | 4 behavioral tests |
 
-执行 `git diff --name-only main...HEAD`，列在这里：
+## 实现要点
 
-| 路径 | 类型 (new/edit/delete/rename) | 一句话说明 | 关联 task |
-|---|---|---|---|
-| <path> | <type> | <说明> | T-1 |
-
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 完全一致。
-
-## 任务完成情况
-
-对照 design.md § 任务清单：
-
-| Task | 状态 | commit | 备注 |
-|---|---|---|---|
-| T-1 | done / partial / deferred | <sha> | <如 partial / deferred 必填理由> |
+- stdlib `re` 处理 MD：`^#{1,6}\s+.+$` 多行匹配标题；`!\[...\](...)` 匹配图片引用
+- stdlib `html.parser.HTMLParser` 子类 `_HtmlStatsParser`：`handle_starttag` + `handle_startendtag` 统计 h1..h6 / img
+- format 优先级：`config['format']` > `config['path']` 后缀推断 > 默认 `"md"`
+- 异步 `blob_store.get()` 用 `asyncio.run(_run())` 包装（与 PdfMineruLoader 同模式）
+- 流式响应兜底：get() 非 bytes 时逐 chunk 拼接
+- `images=[]` 占位，不抓图片 blob
+- auto-register 在 `loaders/__init__.py` import 时触发；try/except ValueError 防重复注册
 
 ## 测试通过证据
 
-### 单元测试
-
 ```text
-$ uv run pytest tests/test_xxx.py
-============================== N passed in M.Ms ==============================
+$ cd packages/core && uv run pytest tests/test_loader_html_md.py -x -q
+....
+4 passed in 0.10s
 
-$ pnpm --filter web test
-   Test Files  N passed
-        Tests  M passed
+$ uv run pytest tests/ -x -q
+78 passed in 0.29s
 ```
 
-### 自检 AC block
+- AC-1 PASS（html-md in LoaderRegistry；get("html-md") is HtmlMdLoader）
+- AC-2 PASS（md happy path：heading_count=2 / image_ref_count=1 / char_count / source_ref / images=[]）
+- AC-3 PASS（html happy path：heading_count=2 / image_ref_count=1 / images=[]）
+- AC-4 PASS（ctx.blob_store=None → ValueError match "ctx.blob_store"）
+- 全套：74 旧 + 4 新 = 78/78 PASS
 
-```text
-$ bash scripts/_self_check.sh <change-id>
-=== <change-id> :: N AC ===
-PASS  AC-1  ...
-PASS  AC-2  ...
-...
-PASS: N / FAIL: 0 / SKIP: 0
-全部通过
-```
+## 偏离 design.md
 
-### 端到端验证
-
-> 如涉及 API：curl 真打一次新端点  
-> 如涉及 UI：vite dev server 起来 / build 不挂 / 关键页面 smoke  
-> 如涉及 CLI：跑一次实际命令
-
-```text
-$ curl -H "Cookie: ..." http://localhost:8080/api/new-endpoint
-{"ok": true, ...}
-
-$ pnpm --filter web build
-✓ built in N.Ns
-```
-
-## 偏离 design.md（如有）
-
-> 凡未在 design.md 声明的偏离，**全部**列在这里。Phase 3 reviewer 把"未声明的隐式偏离"算 MUST FIX。
-
-| # | 偏离点 | 原因 | 评审请关注 |
-|---|---|---|---|
-| D-1 | <e.g. 改用 folder routing 不是 spec 写的 flat dot 形态> | <技术原因> | <reviewer 是否接受> |
-
-## 跨 change / 上游回归
-
-- 全 web vitest：N/N PASS（M files）
-- 全 pytest 本 module：N/N PASS
-- self_check full（如已跑）：PASS 总 / FAIL 总 / FAIL 列表 + 标 pre-existing 或本 change 引入
-
-## PR 描述（用于 gh pr create body）
-
-```markdown
-## Summary
-<1-3 bullets>
-
-## Test plan
-- [ ] <bullet>
-- [ ] <bullet>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
-
-## 下一步
-
-进入 Phase 3：Application Owner spawn opus reviewer 对照 design.md 验 PR。
+无。
