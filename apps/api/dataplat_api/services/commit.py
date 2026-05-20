@@ -46,7 +46,6 @@ from sqlalchemy.orm import selectinload
 
 from dataplat_api.models import CommitORM, TreeEntryORM, TreeORM
 from dataplat_api.schemas._commit_internal import CommitCreate
-from dataplat_api.schemas.snapshot import SnapshotCreate
 from dataplat_api.schemas.tree import TreeEntryCreate
 from dataplat_api.services.ref import RefService
 
@@ -370,28 +369,6 @@ class CommitService:
         if created is None:
             raise RuntimeError(f"commit {commit_hash} 创建后立即查不到，事务异常")
         return created, False
-
-    @staticmethod
-    async def create_snapshot(
-        session: AsyncSession,
-        store: BlobStore,
-        repo_id: uuid.UUID,
-        payload: SnapshotCreate,
-    ) -> tuple[CommitORM, bool]:
-        """W1-1: SnapshotCreate（parent: str | None）→ 内部转 CommitCreate（parents: list）。
-
-        parent 单数字段退化为 list，与 _commit_hash 内部运算兼容。
-        """
-        parents: list[str] = [payload.parent] if payload.parent is not None else []
-        commit_payload = CommitCreate(
-            tree=payload.tree,
-            parents=parents,
-            author_id=payload.author_id,
-            message=payload.message,
-            lineage=payload.lineage,
-            ref=payload.ref,
-        )
-        return await CommitService.create_commit(session, store, repo_id, commit_payload)
 
     @staticmethod
     async def get_with_tree(

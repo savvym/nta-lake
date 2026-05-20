@@ -39,6 +39,7 @@ from sqlalchemy.orm import selectinload
 from dataplat_api.auth.deps import get_optional_user, require_admin
 from dataplat_api.db import get_session
 from dataplat_api.models import CommitORM, RepositoryORM, TreeEntryORM, TreeORM
+from dataplat_api.schemas._commit_internal import CommitCreate
 from dataplat_api.schemas.blob import BlobMetaResponse, BlobUploadResponse
 from dataplat_api.schemas.snapshot import SnapshotCreate, SnapshotRead
 from dataplat_api.schemas.tree import TreeEntryRead, TreeRead
@@ -201,7 +202,18 @@ async def create_snapshot(
     store: BlobStore = Depends(get_blob_store),
 ) -> SnapshotRead:
     repo = await _resolve_repo(session, owner, name, _admin)
-    commit, dedup = await CommitService.create_snapshot(session, store, repo.id, payload)
+    # W1-1 D-1: API 边界 parent (单数, str | None) → service 边界 parents (list)
+    # service 内部 + DB 仍保留 commit / parents 命名。
+    parents: list[str] = [payload.parent] if payload.parent is not None else []
+    commit_payload = CommitCreate(
+        tree=payload.tree,
+        parents=parents,
+        author_id=payload.author_id,
+        message=payload.message,
+        lineage=payload.lineage,
+        ref=payload.ref,
+    )
+    commit, dedup = await CommitService.create_commit(session, store, repo.id, commit_payload)
     return _snapshot_to_read(commit, dedup)
 
 
