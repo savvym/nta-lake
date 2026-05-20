@@ -1,103 +1,70 @@
 ---
 change_id: operator-suite-mvp-20260520
 phase: implementation
-status: <in_progress | done>
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+status: done
+authored_at: 2026-05-20T22:00:00Z
 author: sonnet-phase2-implementer
 model_used: sonnet
 branch: change/operator-suite-mvp-20260520
-base_commit: 62cc22a
-head_commit: <sonnet push 后回填>
-pr_url: <gh pr URL 或 "n/a (gh PAT 缺 pr:write)">
+base_commit: 614ce1363138ab1f71a3410fcf84e3aff0b206c5
+head_commit: a4e5779ef5590a6c09be3a603d5f0d94a547c3ad
+pr_url: n/a (gh PAT 缺 pr:write)
 ---
 
 # Implementation
 
-> Phase 2 sonnet 端到端产物。**一次 sonnet 调用内**完成：编码 + 单元测试 + 端到端验证 + commit + push（+ PR 如可用）。Application Owner spawn sonnet 后 sonnet 自管完整 Phase 2，结束写本文件。
+## 做了什么
+
+按 design.md In Scope 清单，新增 FilterOperator / DedupOperator / ScoreOperator 三个算子，并更新 `__init__.py` 完成 4 个内置算子（含已有的 IdentityOperator）的模块级自动注册。
+
+- **FilterOperator**：按 `min_chars` 丢弃短行；len(text) < min_chars 返空列表，否则返追加 lineage_ops 的新 row。
+- **DedupOperator**：在 `ctx._dedup_seen` set 上维护已见 hash_key；支持 `text`（sha256）与 `source_blob`（blob_sha 直接取）两种 key；重复返空列表。
+- **ScoreOperator**：支持 `text_chars`（字符数）与 `alpha_ratio`（字母占比，4 位小数）两种 metric；计分写入 `stats[f"score_{metric}"]`。
+- `__init__.py`：try/except 包裹的 for 循环完成 4 次 register，防止模块重复 import 时抛 ValueError。
 
 ## 改动文件清单
 
-执行 `git diff --name-only main...HEAD`，列在这里：
-
-| 路径 | 类型 (new/edit/delete/rename) | 一句话说明 | 关联 task |
-|---|---|---|---|
-| <path> | <type> | <说明> | T-1 |
-
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 完全一致。
+| 路径 | 类型 | 一句话说明 |
+|---|---|---|
+| `packages/core/src/dataplat_core/operators/filter.py` | new | FilterOperator |
+| `packages/core/src/dataplat_core/operators/dedup.py` | new | DedupOperator |
+| `packages/core/src/dataplat_core/operators/score.py` | new | ScoreOperator |
+| `packages/core/src/dataplat_core/operators/__init__.py` | edit | import 4 个 class + auto-register |
+| `packages/core/tests/test_operator_suite_mvp.py` | new | AC-1..AC-4 测试 |
 
 ## 任务完成情况
 
-对照 design.md § 任务清单：
-
 | Task | 状态 | commit | 备注 |
 |---|---|---|---|
-| T-1 | done / partial / deferred | <sha> | <如 partial / deferred 必填理由> |
+| FilterOperator 实现 | done | a4e5779 | |
+| DedupOperator 实现 | done | a4e5779 | |
+| ScoreOperator 实现 | done | a4e5779 | |
+| __init__.py auto-register | done | a4e5779 | |
+| test_operator_suite_mvp.py | done | a4e5779 | 4 AC 全 pass |
 
 ## 测试通过证据
 
-### 单元测试
-
 ```text
-$ uv run pytest tests/test_xxx.py
-============================== N passed in M.Ms ==============================
+# W2-1 专项测试（AC-1..AC-4）
+$ cd packages/core && uv run pytest tests/test_operator_suite_mvp.py -x -q
+....
+4 passed in 0.15s
 
-$ pnpm --filter web test
-   Test Files  N passed
-        Tests  M passed
+# 全套（含 W1-2 W1-3 W1-4，共 42 tests）
+$ cd packages/core && uv run pytest tests/ -q
+..........................................
+42 passed in 0.23s
+
+# pyright 类型检查
+$ cd packages/core && uv run pyright src/ tests/test_operator_suite_mvp.py 2>&1 | tail -3
+0 errors, 0 warnings, 0 informations
 ```
 
-### 自检 AC block
-
-```text
-$ bash scripts/_self_check.sh <change-id>
-=== <change-id> :: N AC ===
-PASS  AC-1  ...
-PASS  AC-2  ...
-...
-PASS: N / FAIL: 0 / SKIP: 0
-全部通过
-```
-
-### 端到端验证
-
-> 如涉及 API：curl 真打一次新端点  
-> 如涉及 UI：vite dev server 起来 / build 不挂 / 关键页面 smoke  
-> 如涉及 CLI：跑一次实际命令
-
-```text
-$ curl -H "Cookie: ..." http://localhost:8080/api/new-endpoint
-{"ok": true, ...}
-
-$ pnpm --filter web build
-✓ built in N.Ns
-```
+W1-2 test_operator_protocol.py 中 `test_registry_register_and_lookup` 使用唯一 key `"identity_test_ac2"`，与自动注册的 `"identity"` 不冲突，仍 PASS。
 
 ## 偏离 design.md（如有）
 
-> 凡未在 design.md 声明的偏离，**全部**列在这里。Phase 3 reviewer 把"未声明的隐式偏离"算 MUST FIX。
-
-| # | 偏离点 | 原因 | 评审请关注 |
-|---|---|---|---|
-| D-1 | <e.g. 改用 folder routing 不是 spec 写的 flat dot 形态> | <技术原因> | <reviewer 是否接受> |
-
-## 跨 change / 上游回归
-
-- 全 web vitest：N/N PASS（M files）
-- 全 pytest 本 module：N/N PASS
-- self_check full（如已跑）：PASS 总 / FAIL 总 / FAIL 列表 + 标 pre-existing 或本 change 引入
-
-## PR 描述（用于 gh pr create body）
-
-```markdown
-## Summary
-<1-3 bullets>
-
-## Test plan
-- [ ] <bullet>
-- [ ] <bullet>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+无偏离。严格按 design.md § In scope 落地，未扩展 scope。
 
 ## 下一步
 
