@@ -1,104 +1,100 @@
 ---
 change_id: dataset-export-engine-20260520
 phase: implementation
-status: <in_progress | done>
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+status: done
+authored_at: 2026-05-20T02:30:00Z
 author: sonnet-phase2-implementer
 model_used: sonnet
 branch: change/dataset-export-engine-20260520
-base_commit: d96f2cb
-head_commit: <sonnet push 后回填>
-pr_url: <gh pr URL 或 "n/a (gh PAT 缺 pr:write)">
+base_commit: 2865aee
+head_commit: 44df71c
+pr_url: n/a (gh PAT 缺 pr:write)
 ---
 
 # Implementation
 
-> Phase 2 sonnet 端到端产物。**一次 sonnet 调用内**完成：编码 + 单元测试 + 端到端验证 + commit + push（+ PR 如可用）。Application Owner spawn sonnet 后 sonnet 自管完整 Phase 2，结束写本文件。
+> Phase 2 sonnet 端到端产物。一次 sonnet 调用内完成：编码 + 单元测试 + 端到端验证 + commit。
 
 ## 改动文件清单
 
-执行 `git diff --name-only main...HEAD`，列在这里：
-
-| 路径 | 类型 (new/edit/delete/rename) | 一句话说明 | 关联 task |
+| 路径 | 类型 | 一句话说明 | 关联 task |
 |---|---|---|---|
-| <path> | <type> | <说明> | T-1 |
-
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 完全一致。
+| `packages/core/src/dataplat_core/dataset.py` | new | SnapshotExportResult schema + serialize_rows_to_jsonl + async export_silver_snapshot | W2-6 |
+| `packages/core/tests/test_dataset_export.py` | new | AC-1..AC-4 行为测试 + InMemoryBlobStore stub inline | W2-6 |
+| `.harness/changes/dataset-export-engine-20260520/implementation.md` | edit | 本文件（Phase 2 产物）| W2-6 |
 
 ## 任务完成情况
 
-对照 design.md § 任务清单：
-
 | Task | 状态 | commit | 备注 |
 |---|---|---|---|
-| T-1 | done / partial / deferred | <sha> | <如 partial / deferred 必填理由> |
+| SnapshotExportResult（sha256/size_bytes/row_count/dataset_name/deduplicated/notes） | done | 44df71c | model_config extra="forbid"；Field ge=0/min_length=1 |
+| serialize_rows_to_jsonl（空→b""，非空→JSONL+trailing \n，确定性） | done | 44df71c | 严格按 design.md §serializer |
+| async export_silver_snapshot（4 步：serialize→BytesIO→store.put→构造返回） | done | 44df71c | 严格按 design.md §exporter |
+| test_dataset_export.py（AC-1..AC-4） | done | 44df71c | 4/4 PASS；InMemoryBlobStore stub inline |
 
 ## 测试通过证据
 
-### 单元测试
+### AC-1 (test_serialize_rows_to_jsonl)
 
 ```text
-$ uv run pytest tests/test_xxx.py
-============================== N passed in M.Ms ==============================
-
-$ pnpm --filter web test
-   Test Files  N passed
-        Tests  M passed
+$ uv run pytest packages/core/tests/test_dataset_export.py::test_serialize_rows_to_jsonl -x -q
+1 passed in 0.05s
 ```
 
-### 自检 AC block
+### AC-2 (test_export_silver_snapshot_writes_blob)
 
 ```text
-$ bash scripts/_self_check.sh <change-id>
-=== <change-id> :: N AC ===
-PASS  AC-1  ...
-PASS  AC-2  ...
-...
-PASS: N / FAIL: 0 / SKIP: 0
-全部通过
+$ uv run pytest packages/core/tests/test_dataset_export.py::test_export_silver_snapshot_writes_blob -x -q
+1 passed in 0.07s
 ```
 
-### 端到端验证
-
-> 如涉及 API：curl 真打一次新端点  
-> 如涉及 UI：vite dev server 起来 / build 不挂 / 关键页面 smoke  
-> 如涉及 CLI：跑一次实际命令
+### AC-3 (test_export_silver_snapshot_sha256_matches)
 
 ```text
-$ curl -H "Cookie: ..." http://localhost:8080/api/new-endpoint
-{"ok": true, ...}
+$ uv run pytest packages/core/tests/test_dataset_export.py::test_export_silver_snapshot_sha256_matches -x -q
+1 passed in 0.05s
+```
 
-$ pnpm --filter web build
-✓ built in N.Ns
+### AC-4 (test_export_silver_snapshot_empty)
+
+```text
+$ uv run pytest packages/core/tests/test_dataset_export.py::test_export_silver_snapshot_empty -x -q
+1 passed in 0.05s
+```
+
+### 全量 pytest
+
+```text
+$ uv run pytest packages/core/tests/ -x -q
+62 passed in 0.28s
+```
+
+（基线 58 + 本 change 新增 4 = 62；无回归）
+
+### Pyright（dataset.py + test_dataset_export.py）
+
+```text
+$ uv run pyright packages/core/src/dataplat_core/dataset.py packages/core/tests/test_dataset_export.py
+0 errors, 0 warnings, 0 informations
 ```
 
 ## 偏离 design.md（如有）
 
-> 凡未在 design.md 声明的偏离，**全部**列在这里。Phase 3 reviewer 把"未声明的隐式偏离"算 MUST FIX。
-
-| # | 偏离点 | 原因 | 评审请关注 |
-|---|---|---|---|
-| D-1 | <e.g. 改用 folder routing 不是 spec 写的 flat dot 形态> | <技术原因> | <reviewer 是否接受> |
+无偏离。严格按 design.md In scope 落地。
 
 ## 跨 change / 上游回归
 
-- 全 web vitest：N/N PASS（M files）
-- 全 pytest 本 module：N/N PASS
-- self_check full（如已跑）：PASS 总 / FAIL 总 / FAIL 列表 + 标 pre-existing 或本 change 引入
+- 全量 pytest packages/core：62/62 PASS（W1-2..W2-5 全部无回归）
+- pyright dataset.py + test_dataset_export.py：0/0/0
 
-## PR 描述（用于 gh pr create body）
+## 风险确认
 
-```markdown
-## Summary
-<1-3 bullets>
-
-## Test plan
-- [ ] <bullet>
-- [ ] <bullet>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+| 风险 | 确认 |
+|---|---|
+| pydantic model_dump_json 顺序不稳定 | AC-1 显式断言"同输入两次调用 bytes 严格相等"，PASS |
+| stub 不满足 BlobStore Protocol | test 文件 inline `assert isinstance(InMemoryBlobStore(), BlobStore)` 守卫 |
+| 空 rows 写空 blob | AC-4 验证 sha256 == e3b0...，store.exists 返 True，语义正确 |
 
 ## 下一步
 
-进入 Phase 3：Application Owner spawn opus reviewer 对照 design.md 验 PR。
+进入 Phase 3：Application Owner spawn opus reviewer 对照 design.md 验 AC-1..AC-4。
