@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -123,7 +123,7 @@ function SnapshotPage() {
                     <td className="py-2 pr-4 font-mono text-xs text-gray-500">
                       {e.target_hash.slice(0, 12)}…
                     </td>
-                    <td className="py-2">
+                    <td className="py-2 flex items-center gap-3">
                       <a
                         href={`/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(e.target_hash)}`}
                         target="_blank"
@@ -132,6 +132,16 @@ function SnapshotPage() {
                       >
                         下载
                       </a>
+                      {(e.name.endsWith(".jsonl") || e.name.endsWith(".jsonl.gz")) && (
+                        <Link
+                          to="/snapshots/$owner/$name/$hash/rows"
+                          params={{ owner, name, hash }}
+                          search={{ blobSha: e.target_hash, offset: 0, limit: 100 }}
+                          className="text-blue-700 hover:underline text-xs"
+                        >
+                          Preview rows
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -140,6 +150,8 @@ function SnapshotPage() {
           )}
         </CardContent>
       </Card>
+
+      <Outlet />
     </div>
   );
 }
