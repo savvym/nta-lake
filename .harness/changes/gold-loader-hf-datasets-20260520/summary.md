@@ -61,5 +61,5 @@ process_variant: v3-mini-design
 ## 交付（merge 时回填）
 
 - Branch：`change/gold-loader-hf-datasets-20260520`
-- Merge commit：_待 merge 后填_
-- 关闭时间：_待填_
+- Merge commit：`09aa977`
+- 关闭时间：2026-05-21T09:15:00Z

@@ -1,6 +1,6 @@
 ---
 rollout_id: north-star-rollout-20260520
-last_updated: 2026-05-21T06:55:00Z
+last_updated: 2026-05-21T09:15:00Z
 ---
 
 # Dashboard：北极星 rollout 进度
@@ -14,8 +14,8 @@ last_updated: 2026-05-21T06:55:00Z
 | 0 | 编排准备 | 3 docs | **done** | 3 文档落地 + 代码扫描完成 |
 | 1 | 地基 | 4 | **done** (4/4) | end-to-end PDF demo 跑通新模型（W2-5 接 Loader 后真跑） |
 | 2 | 核心算子链 | 6 | **done** (6/6) | 完整 recipe v2 跑通 + silver snapshot 持久化 |
-| 3 | 源覆盖 + 训练对接 | 7 | **in_progress** (6/7; W3-7 next) | 4 种格式跑通 + HF 导出 |
-| 4 | UI + 工程化 | 10 | pending | 用户完整 UI 流程跑通 |
+| 3 | 源覆盖 + 训练对接 | 7 | **done** (7/7) | 4 种格式跑通 + HF 导出 ✅ |
+| 4 | UI + 工程化 | 10 | **in_progress** (0/10; W4-1 next) | 用户完整 UI 流程跑通 |
 
 ## change 级状态
 
@@ -37,8 +37,8 @@ last_updated: 2026-05-21T06:55:00Z
 | loader-html-md-20260520 | W3-4 | **merged** | APPROVED | change/loader-html-md-20260520 | fb76736 | — |
 | loader-docx-pptx-20260520 | W3-5 | **merged** | APPROVED | change/loader-docx-pptx-20260520 | 57185f5 | — |
 | loader-jsonl-20260520 | W3-6 | **merged** | APPROVED | change/loader-jsonl-20260520 | 0878c35 | — |
-| gold-loader-hf-datasets-20260520 | W3-7 | pending | — | — | — | — |
-| web-pdf-mineru-ui-v2-20260520 | W4-1 | pending | — | — | — | depends W3 done |
+| gold-loader-hf-datasets-20260520 | W3-7 | **merged** | APPROVED | change/gold-loader-hf-datasets-20260520 | 09aa977 | — |
+| web-pdf-mineru-ui-v2-20260520 | W4-1 | pending | — | — | — | — |
 | web-row-preview-20260520 | W4-2 | pending | — | — | — | depends W4-1 |
 | web-operator-chain-builder-20260520 | W4-3 | pending | — | — | — | depends W4-2 |
 | web-snapshot-export-ui-20260520 | W4-4 | pending | — | — | — | depends W4-3 |
@@ -51,10 +51,10 @@ last_updated: 2026-05-21T06:55:00Z
 
 ## 当前活动
 
-- **active change**: `gold-loader-hf-datasets-20260520` (W3-7)
-- **next action**: application-owner 自写 mini-design（silver snapshot → HF datasets 格式导出；W2-6 dataset-export-engine 已可作为上游）→ sonnet 端到端 → opus verify
-- **Wave 1 + Wave 2 Checkpoint 状态**：全部 done；Wave 3 进度 6/7（refs adapter 三连击 W3-1/W3-2/W3-3 done；packages/core loader 四连击 W3-4 html-md + W3-5 docx/pptx + W3-6 jsonl done）
-- **Wave 3 收官**：W3-7 是 Wave 3 最后一个 change，完成后进入 Wave 4 UI + 工程化。
+- **active change**: 无（Wave 3 全部 merged，准备启动 W4-1）
+- **next action**: 启动 W4-1 `web-pdf-mineru-ui-v2-20260520`（apps/web 接入 W1-4 PdfMineruLoader / W3 系列产物 → 用户 UI 完整流程跑通）→ application-owner 自写 mini-design → sonnet 端到端 → opus verify
+- **Wave 1 + Wave 2 + Wave 3 Checkpoint 状态**：全部 done（17/17）；refs adapter 三连击 W3-1/W3-2/W3-3 + packages/core loader 四连击 W3-4/W3-5/W3-6 + gold exporter W3-7 全部 merged。
+- **Wave 3 收官 ✅**：W3-7 merge 09aa977 完成；下一步进入 Wave 4 UI + 工程化（10 个 change），先做 W4-1 web 端 PDF 上传 + MinerU 调用 + silver preview。
 
 ## 代码扫描快照（2026-05-20 Wave 0）
 
@@ -73,14 +73,14 @@ last_updated: 2026-05-21T06:55:00Z
 
 ## 累计 metrics
 
-- Changes done: **16 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9, W2-6 ac82567, W3-1 4d11055, W3-2 f2ee022, W3-3 95d2e74, W3-4 fb76736, W3-5 57185f5, W3-6 0878c35）
-- Wave 1 全部 done（4/4）；Wave 2 全部 done（6/6）；Wave 3 进度 6/7
+- Changes done: **17 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9, W2-6 ac82567, W3-1 4d11055, W3-2 f2ee022, W3-3 95d2e74, W3-4 fb76736, W3-5 57185f5, W3-6 0878c35, W3-7 09aa977）
+- Wave 1 全部 done（4/4）；Wave 2 全部 done（6/6）；Wave 3 全部 done（7/7 ✅）
 - Phase 1 reviewer cycles: 1（W1-1；W1-2 起 v3 不再跑）
-- Phase 3 reviewer cycles: 16（W1-1..W3-6 全部 APPROVED）
-- v3 mini-design 实测：design 56-140 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-7 min
-- 0-issue APPROVED 连续 13 次（W1-4 / W2-1..W2-6 / W3-1..W3-6）；W2-4 含 2 ACCEPT AS-IS；W3-1 含 1 drift correction；W3-5 含 2 NICE TO HAVE；W3-6 含 1 DEVIATION ACCEPT（line_count 语义澄清）
-- packages/core 测试：88/88 PASS（W3-5 +6，W3-6 +4）
-- Wave 3 新增第三方依赖：python-docx>=1.1,<2 / python-pptx>=0.6,<2（W3-5 引入，首批 packages/core 业务依赖）；W3-6 仅 stdlib（json + gzip）
+- Phase 3 reviewer cycles: 17（W1-1..W3-7 全部 APPROVED）
+- v3 mini-design 实测：design 56-160 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-7 min
+- 0-issue APPROVED 连续 14 次（W1-4 / W2-1..W2-6 / W3-1..W3-7）；W2-4 含 2 ACCEPT AS-IS；W3-1 含 1 drift correction；W3-5 含 2 NICE TO HAVE；W3-6 含 1 DEVIATION ACCEPT（line_count 语义澄清）；W3-7 含 2 DEVIATION ACCEPT（_write_empty_dataset_dir 适配 datasets 3.6.0 空 list / pyarrow transitive）+ 2 NICE TO HAVE
+- packages/core 测试：92/92 PASS（W3-5 +6，W3-6 +4，W3-7 +4）
+- Wave 3 新增第三方依赖：python-docx>=1.1,<2 / python-pptx>=0.6,<2（W3-5 引入）；W3-6 仅 stdlib（json + gzip）；datasets>=2.14,<4（W3-7 引入，transitive pull pyarrow / fsspec / huggingface_hub / dill / multiprocess ~100MB）
 - BIG REWRITE 次数: 0
 - MAJOR ISSUE 次数: 0
 - 用户介入次数（非验收）: 2（efficiency pivot → v3；self_check 取消）
