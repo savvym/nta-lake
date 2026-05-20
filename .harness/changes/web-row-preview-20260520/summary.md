@@ -33,7 +33,7 @@ process_variant: v3-mini-design
 |---|---|---|---|---|---|
 | Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | d4bd102 | [design.md](design.md) |
 | Phase 2 Implementation | sonnet | done | n/a | 70702fc + 41c09b9 | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | done | APPROVED | (本 commit) | [verify_review.md](verify_review.md) |
+| Phase 3 Verify | opus | done | APPROVED | 1450e6f | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
@@ -65,5 +65,5 @@ process_variant: v3-mini-design
 ## 交付
 
 - Branch：`change/web-row-preview-20260520`
-- Merge commit：（merge 后回填）
+- Merge commit：`4dea85a`
 - 关闭时间：2026-05-21T11:35:00Z
