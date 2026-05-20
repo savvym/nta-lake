@@ -3,9 +3,9 @@ change_id: adapter-jsonl-import-20260520
 title: jsonl import adapter (W3-3)
 owner: application-owner-agent
 started_at: 2026-05-21T04:05:00Z
-phase: design
-status: design_approved
-last_updated: 2026-05-21T04:05:00Z
+phase: verify
+status: verify_approved
+last_updated: 2026-05-21T04:45:00Z
 related_changes:
   - adapter-raw-upload-20260520 (W3-1, AdapterRegistry + raw-upload 模板)
   - adapter-folder-md-assets-20260520 (W3-2, refs adapter 模板二次验证)
@@ -30,9 +30,9 @@ process_variant: v3-mini-design
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待回填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | — | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | — | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | c9b8fae | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | caf3d0e (impl) + b1a4de1 (impl.md) | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | _本提交回填_ | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
