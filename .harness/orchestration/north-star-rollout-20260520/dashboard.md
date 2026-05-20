@@ -1,6 +1,6 @@
 ---
 rollout_id: north-star-rollout-20260520
-last_updated: 2026-05-21T02:55:00Z
+last_updated: 2026-05-21T04:00:00Z
 ---
 
 # Dashboard：北极星 rollout 进度
@@ -14,7 +14,7 @@ last_updated: 2026-05-21T02:55:00Z
 | 0 | 编排准备 | 3 docs | **done** | 3 文档落地 + 代码扫描完成 |
 | 1 | 地基 | 4 | **done** (4/4) | end-to-end PDF demo 跑通新模型（W2-5 接 Loader 后真跑） |
 | 2 | 核心算子链 | 6 | **done** (6/6) | 完整 recipe v2 跑通 + silver snapshot 持久化 |
-| 3 | 源覆盖 + 训练对接 | 7 | **in_progress** (1/7; W3-2 next) | 4 种格式跑通 + HF 导出 |
+| 3 | 源覆盖 + 训练对接 | 7 | **in_progress** (2/7; W3-3 next) | 4 种格式跑通 + HF 导出 |
 | 4 | UI + 工程化 | 10 | pending | 用户完整 UI 流程跑通 |
 
 ## change 级状态
@@ -32,7 +32,7 @@ last_updated: 2026-05-21T02:55:00Z
 | recipe-yaml-v2-20260520 | W2-5 | **merged** | APPROVED | change/recipe-yaml-v2-20260520 | 153c2c9 | — |
 | dataset-export-engine-20260520 | W2-6 | **merged** | APPROVED | change/dataset-export-engine-20260520 | ac82567 | — |
 | adapter-raw-upload-20260520 | W3-1 | **merged** | APPROVED | change/adapter-raw-upload-20260520 | 4d11055 | — |
-| adapter-folder-md-assets-20260520 | W3-2 | pending | — | — | — | — |
+| adapter-folder-md-assets-20260520 | W3-2 | **merged** | APPROVED | change/adapter-folder-md-assets-20260520 | f2ee022 | — |
 | adapter-jsonl-import-20260520 | W3-3 | pending | — | — | — | — |
 | loader-html-md-20260520 | W3-4 | pending | — | — | — | — |
 | loader-docx-pptx-20260520 | W3-5 | pending | — | — | — | — |
@@ -51,10 +51,10 @@ last_updated: 2026-05-21T02:55:00Z
 
 ## 当前活动
 
-- **active change**: `adapter-folder-md-assets-20260520` (W3-2)
-- **next action**: application-owner 自写 mini-design（folder-md-assets adapter：zip 内 md + ./assets/ 保留相对路径）→ sonnet 端到端 → opus verify
-- **Wave 1 + Wave 2 Checkpoint 状态**：全部 done；Wave 3 进度 1/7（W3-1 core port + drift correction done）
-- **Wave 3 推进**：W3-2..W3-5 独立串行；W3-7 已可启（W2-6 done）；W3-6 等 W3-3。
+- **active change**: `adapter-jsonl-import-20260520` (W3-3)
+- **next action**: application-owner 自写 mini-design（jsonl 整文件入 bronze adapter）→ sonnet 端到端 → opus verify
+- **Wave 1 + Wave 2 Checkpoint 状态**：全部 done；Wave 3 进度 2/7（W3-1 + W3-2 done，folder-md-assets refs adapter 模板验证可复用）
+- **Wave 3 推进**：W3-3..W3-5 独立串行；W3-7 已可启（W2-6 done）；W3-6 等 W3-3。
 
 ## 代码扫描快照（2026-05-20 Wave 0）
 
@@ -73,13 +73,13 @@ last_updated: 2026-05-21T02:55:00Z
 
 ## 累计 metrics
 
-- Changes done: **11 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9, W2-6 ac82567, W3-1 4d11055）
-- Wave 1 全部 done（4/4）；Wave 2 全部 done（6/6）；Wave 3 进度 1/7
+- Changes done: **12 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9, W2-6 ac82567, W3-1 4d11055, W3-2 f2ee022）
+- Wave 1 全部 done（4/4）；Wave 2 全部 done（6/6）；Wave 3 进度 2/7
 - Phase 1 reviewer cycles: 1（W1-1；W1-2 起 v3 不再跑）
-- Phase 3 reviewer cycles: 11（W1-1..W3-1 全部 APPROVED）
+- Phase 3 reviewer cycles: 12（W1-1..W3-2 全部 APPROVED）
 - v3 mini-design 实测：design 56-140 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-7 min
-- 0-issue APPROVED 连续 8 次（W1-4 / W2-1..W2-6 / W3-1）；W2-4 含 2 ACCEPT AS-IS；W3-1 含 1 drift correction（drop dataset-card.yaml AC）
-- packages/core 测试：66/66 PASS
+- 0-issue APPROVED 连续 9 次（W1-4 / W2-1..W2-6 / W3-1 / W3-2）；W2-4 含 2 ACCEPT AS-IS；W3-1 含 1 drift correction（drop dataset-card.yaml AC）
+- packages/core 测试：70/70 PASS
 - BIG REWRITE 次数: 0
 - MAJOR ISSUE 次数: 0
 - 用户介入次数（非验收）: 2（efficiency pivot → v3；self_check 取消）
