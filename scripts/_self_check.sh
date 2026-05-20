@@ -841,8 +841,8 @@ run_web_write_flows() {
   run_ac AC-1 "repos.new.tsx 含 react-hook-form + /repos POST" \
     bash -c 'test -f apps/web/src/routes/repos.new.tsx && grep -q "react-hook-form" apps/web/src/routes/repos.new.tsx && grep -q "/repos" apps/web/src/routes/repos.new.tsx'
 
-  run_ac AC-2 "jobs.\$job_id.tsx 存在 + useJob 轮询（refetchInterval in queries.ts）" \
-    bash -c 'test -f "apps/web/src/routes/jobs.\$job_id.tsx" && grep -q "useJob" "apps/web/src/routes/jobs.\$job_id.tsx" && grep -q "refetchInterval" apps/web/src/lib/api/queries.ts'
+  run_ac AC-2 "jobs/\$job_id.tsx 存在 + useJob 轮询（refetchInterval in queries.ts）" \
+    bash -c 'test -f "apps/web/src/routes/jobs/\$job_id.tsx" && grep -q "useJob" "apps/web/src/routes/jobs/\$job_id.tsx" && grep -q "refetchInterval" apps/web/src/lib/api/queries.ts'
 
   run_ac AC-3 "commits.\$owner.\$name.\$hash.tsx 显示 blob 下载链" \
     bash -c 'test -f "apps/web/src/routes/commits.\$owner.\$name.\$hash.tsx" && grep -q "blobs" "apps/web/src/routes/commits.\$owner.\$name.\$hash.tsx"'
@@ -1622,6 +1622,45 @@ run_repo_files_tab_v2() {
 }
 
 # =============================================================================
+# Block: web-jobs-list-page-20260520
+# 10 条 AC（含 2 条 behavioral：AC-7 vitest ≥5 PASS、AC-8 pytest ≥5 PASS）
+# =============================================================================
+
+run_web_jobs_list_page() {
+  echo "=== web-jobs-list-page-20260520 :: 10 AC ==="
+
+  run_ac AC-1 "schemas/job.py 含 JobListResponse（含 4 字段：items/total/limit/offset）" \
+    bash -c 'test -f apps/api/dataplat_api/schemas/job.py && grep -q "class JobListResponse" apps/api/dataplat_api/schemas/job.py && grep -q "items:" apps/api/dataplat_api/schemas/job.py && grep -q "total:" apps/api/dataplat_api/schemas/job.py && grep -q "limit:" apps/api/dataplat_api/schemas/job.py && grep -q "offset:" apps/api/dataplat_api/schemas/job.py'
+
+  run_ac AC-2 "JobsService.list_jobs 函数存在（含 desc 排序）" \
+    bash -c 'test -f apps/api/dataplat_api/jobs/service.py && grep -q "async def list_jobs" apps/api/dataplat_api/jobs/service.py && grep -q "created_at.desc" apps/api/dataplat_api/jobs/service.py'
+
+  run_ac AC-3 "routers/jobs.py 含 @router.get(\"\") + require_admin" \
+    bash -c "test -f apps/api/dataplat_api/routers/jobs.py && grep -qE '@router\.get\(\"\"' apps/api/dataplat_api/routers/jobs.py && grep -q 'require_admin' apps/api/dataplat_api/routers/jobs.py"
+
+  run_ac AC-4 "queries.ts 加 useJobs hook" \
+    bash -c 'test -f apps/web/src/lib/api/queries.ts && grep -q "export function useJobs" apps/web/src/lib/api/queries.ts && grep -q "interface JobsListResponse" apps/web/src/lib/api/queries.ts'
+
+  run_ac AC-5 "jobs/index.tsx 路由文件 + createFileRoute(\"/jobs/\") + table 渲染" \
+    bash -c 'test -f apps/web/src/routes/jobs/index.tsx && grep -q "createFileRoute(\"/jobs/\")" apps/web/src/routes/jobs/index.tsx && grep -q "<table" apps/web/src/routes/jobs/index.tsx'
+
+  run_ac AC-6 "__root.tsx 含 Link to=/jobs（admin 限定渲染）" \
+    bash -c "grep -qE 'to=\"/jobs\"' apps/web/src/routes/__root.tsx && grep -q 'role === \"admin\"' apps/web/src/routes/__root.tsx"
+
+  run_ac AC-7 "vitest jobs/index.test.tsx ≥5 全 PASS（拆 alternation 为 2 grep；sed 剥 ANSI）" \
+    bash -c '(cd apps/web && NO_COLOR=1 npx vitest run src/routes/jobs/index.test.tsx 2>&1 | sed "s/\x1b\[[0-9;]*m//g" | tee /tmp/dataplat-vitest-jobs.log >/dev/null) ; { grep -qE "Tests +[5-9] passed" /tmp/dataplat-vitest-jobs.log || grep -qE "Tests +[1-9][0-9]+ passed" /tmp/dataplat-vitest-jobs.log ; }'
+
+  run_ac_skipif_no_pg_minio_redis AC-8 "pytest test_jobs_list ≥5 全 PASS（admin/user 403/status/分页/400）" \
+    bash -c 'export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${DATAPLAT_PG_PORT:-5432}/dataplat && export DATAPLAT_JWT_SECRET=test-secret-not-prod-x32-bytes-xxxxx && export DATAPLAT_MINIO_ENDPOINT=http://localhost:${DATAPLAT_MINIO_PORT:-9000} && export DATAPLAT_MINIO_ACCESS_KEY=${DATAPLAT_MINIO_ACCESS_KEY:-minioadmin} && export DATAPLAT_MINIO_SECRET_KEY=${DATAPLAT_MINIO_SECRET_KEY:-minioadmin} && export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && export DATAPLAT_COOKIE_SECURE=false && (cd apps/api && uv run pytest -q --tb=no tests/test_jobs_list.py 2>&1 | tee /tmp/dataplat-pytest-jobs.log >/dev/null) ; { grep -qE "[5-9] passed" /tmp/dataplat-pytest-jobs.log || grep -qE "[1-9][0-9]+ passed" /tmp/dataplat-pytest-jobs.log ; }'
+
+  run_ac AC-9 "pnpm typecheck + ruff + mypy 干净（拆 alternation：3 个独立断言；mypy 走包级 apps/api/dataplat_api + packages/core/src 与项目既有 AC 一致）" \
+    bash -c '(pnpm --filter web typecheck 2>&1 | tee /tmp/dataplat-jobs-tsc.log >/dev/null) && ! grep -qE "error TS" /tmp/dataplat-jobs-tsc.log && (cd apps/api && uv run ruff check dataplat_api 2>&1 | tee /tmp/dataplat-jobs-ruff.log >/dev/null) && ! grep -qE "^.+:[0-9]+:[0-9]+:[[:space:]]+[A-Z][0-9]+" /tmp/dataplat-jobs-ruff.log && (uv run mypy apps/api/dataplat_api packages/core/src 2>&1 | tee /tmp/dataplat-jobs-mypy.log >/dev/null) && grep -q "Success: no issues found" /tmp/dataplat-jobs-mypy.log'
+
+  run_ac AC-10 "self_check 含 run_web_jobs_list_page 调用（自递归确认本 block 在 main 调用链中）" \
+    bash -c 'test -f scripts/_self_check.sh && grep -q "run_web_jobs_list_page" scripts/_self_check.sh'
+}
+
+# =============================================================================
 # Block: stage9-followup-cleanup-20260518
 # 4 条 AC（含 2 条 behavioral：AC-2 alembic 三连 + delete_rule 断言、AC-4 pytest 10/10）
 # =============================================================================
@@ -1902,6 +1941,9 @@ run_change_block() {
     repo-files-tab-v2|repo-files-tab-v2-20260518)
       run_repo_files_tab_v2
       ;;
+    web-jobs-list-page|web-jobs-list-page-20260520)
+      run_web_jobs_list_page
+      ;;
     harness-ac-behavioral-tier|harness-ac-behavioral-tier-20260518)
       run_harness_ac_behavioral_tier
       ;;
@@ -1982,6 +2024,8 @@ run_full() {
   run_pipeline_ui_tab
   echo
   run_repo_files_tab_v2
+  echo
+  run_web_jobs_list_page
   echo
   run_harness_ac_behavioral_tier
   echo

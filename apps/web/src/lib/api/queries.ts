@@ -227,6 +227,46 @@ export function useSubtreeByPath(
   });
 }
 
+export interface JobsListResponse {
+  items: JobRead[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// web-jobs-list-page-20260520: admin 列表 hook
+// enabled 由调用方控制（非 admin 不发请求，避免 403 噪声）
+export function useJobs(
+  filters: {
+    status?: string;
+    type?: string;
+    limit: number;
+    offset: number;
+  },
+  opts?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [
+      "jobs",
+      filters.status ?? "",
+      filters.type ?? "",
+      filters.limit,
+      filters.offset,
+    ],
+    queryFn: async (): Promise<JobsListResponse> => {
+      const qs = new URLSearchParams();
+      if (filters.status) qs.set("status", filters.status);
+      if (filters.type) qs.set("type", filters.type);
+      qs.set("limit", String(filters.limit));
+      qs.set("offset", String(filters.offset));
+      const r = await fetchJson<JobsListResponse>(`/api/jobs?${qs.toString()}`);
+      if (r === null) throw new Error("jobs list not accessible");
+      return r;
+    },
+    enabled: opts?.enabled ?? true,
+  });
+}
+
 export function useJob(jobId: string) {
   return useQuery({
     queryKey: ["job", jobId],

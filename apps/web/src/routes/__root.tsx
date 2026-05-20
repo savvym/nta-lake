@@ -30,6 +30,15 @@ function RootLayout() {
           <div className="flex items-center gap-3">
             {me ? (
               <>
+                {me.role === "admin" && (
+                  <Link
+                    to="/jobs"
+                    search={{ status: "", type: "", limit: 50, offset: 0 }}
+                    className="text-sm text-gray-700 hover:underline"
+                  >
+                    Jobs
+                  </Link>
+                )}
                 <span className="text-sm text-gray-600">{me.username}</span>
                 <Button variant="outline" size="sm" onClick={handleLogout}>
                   logout

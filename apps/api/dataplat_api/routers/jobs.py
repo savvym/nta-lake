@@ -9,15 +9,18 @@ from __future__ import annotations
 import uuid
 
 from dataplat_core.protocols.auth import AuthenticatedUser
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dataplat_api.auth.deps import get_current_user, require_admin
 from dataplat_api.db import get_session
 from dataplat_api.jobs.service import JobsService
 from dataplat_api.models import JobORM
-from dataplat_api.schemas.job import JobIngestRequest, JobRead
+from dataplat_api.schemas.job import JobIngestRequest, JobListResponse, JobRead
 from dataplat_api.services.repo import RepoService
+
+_ALLOWED_STATUS = {"queued", "running", "succeeded", "failed"}
+_ALLOWED_TYPE = {"ingest", "process", "pipeline"}
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -57,6 +60,41 @@ async def enqueue_ingest_job(
     job_payload = payload.model_dump(mode="json")
     job = await JobsService.enqueue(session, job_type="ingest", payload=job_payload)
     return _to_read(job)
+
+
+@router.get("", response_model=JobListResponse)
+async def list_jobs(
+    status_filter: str | None = Query(None, alias="status"),
+    job_type: str | None = Query(None, alias="type"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    _admin: AuthenticatedUser = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> JobListResponse:
+    """admin only。spec web-jobs-list-page-20260520 AC-3。"""
+    if status_filter is not None and status_filter not in _ALLOWED_STATUS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"status {status_filter!r} 非白名单；允许：{sorted(_ALLOWED_STATUS)}",
+        )
+    if job_type is not None and job_type not in _ALLOWED_TYPE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"type {job_type!r} 非白名单；允许：{sorted(_ALLOWED_TYPE)}",
+        )
+    items, total = await JobsService.list_jobs(
+        session,
+        status=status_filter,
+        job_type=job_type,
+        limit=limit,
+        offset=offset,
+    )
+    return JobListResponse(
+        items=[_to_read(j) for j in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{job_id}", response_model=JobRead)

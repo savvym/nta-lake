@@ -30,3 +30,14 @@ class JobRead(BaseModel):
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
+
+
+class JobListResponse(BaseModel):
+    """GET /jobs 列表响应（spec web-jobs-list-page-20260520 AC-1）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[JobRead]
+    total: int
+    limit: int
+    offset: int
