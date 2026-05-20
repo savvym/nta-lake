@@ -165,4 +165,4 @@ def test_image_operators_registered() -> None:
 
     assert "image_strip" in names
     assert "image_caption_stub" in names
-    assert len(names) == 7
+    assert len(names) == 9  # W2-4 后 9 个内置算子（7 + snapshot_tag + snapshot_sample）
