@@ -1289,6 +1289,25 @@ run_web_tree_nested_ui() {
     bash -c 'grep -qE "path\s*:\s*z\.string\(\)\.(default\(\"\"\)|catch\(\"\"\))" apps/web/src/routes/repos/\$owner.\$name.tsx'
 }
 
+run_web_ingest_path_default() {
+  echo "=== web-ingest-path-default-20260520 :: 5 AC ==="
+
+  run_ac AC-1 "onFiles 默认 path = f.name（无 content/ 前缀）" \
+    bash -c 'grep -qE "path:[[:space:]]+f\.name" apps/web/src/routes/repos/\$owner.\$name.tsx && ! grep -qE "path:[[:space:]]+\`content/" apps/web/src/routes/repos/\$owner.\$name.tsx'
+
+  run_ac AC-3a "新增 IngestSection 单测 ≥ 1 + 全 PASS（JSON reporter；剥 pnpm banner）" \
+    bash -c 'cd apps/web && pnpm test -- --run --reporter json src/routes/repos.ingest-section.test.tsx > /tmp/ingest.raw 2>&1 && grep -E "^{" /tmp/ingest.raw > /tmp/ingest.json && python3 -c "import json; d=json.load(open(\"/tmp/ingest.json\")); assert d[\"numFailedTests\"]==0 and d[\"numTotalTests\"]>=1, d"'
+
+  run_ac AC-3b "全 web vitest 不回归" \
+    bash -c 'cd apps/web && pnpm test -- --run > /dev/null 2>&1'
+
+  run_ac AC-4 "pnpm typecheck 全 PASS（web filter）" \
+    bash -c 'pnpm --filter web typecheck'
+
+  run_ac AC-5 "self_check 含 run_web_ingest_path_default（兼自递归）" \
+    bash -c 'grep -q "run_web_ingest_path_default" scripts/_self_check.sh'
+}
+
 run_sdk_cli_mvp() {
   echo "=== sdk-cli-mvp-20260518 :: 13 AC ==="
 
@@ -1828,6 +1847,9 @@ run_change_block() {
     web-tree-nested-ui|web-tree-nested-ui-20260520)
       run_web_tree_nested_ui
       ;;
+    web-ingest-path-default|web-ingest-path-default-20260520)
+      run_web_ingest_path_default
+      ;;
     sdk-cli-mvp|sdk-cli-mvp-20260518)
       run_sdk_cli_mvp
       ;;
@@ -1912,6 +1934,8 @@ run_full() {
   run_tree_nested_domain
   echo
   run_web_tree_nested_ui
+  echo
+  run_web_ingest_path_default
   echo
   run_sdk_cli_mvp
   echo

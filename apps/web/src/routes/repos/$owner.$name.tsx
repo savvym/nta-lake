@@ -580,7 +580,7 @@ function IngestSection({ owner, name }: { owner: string; name: string }) {
     if (!list) return;
     const newOnes: UploadedFile[] = Array.from(list).map((f) => ({
       file: f,
-      path: `content/${f.name}`,
+      path: f.name,
       sha256: null,
       status: "pending",
     }));
