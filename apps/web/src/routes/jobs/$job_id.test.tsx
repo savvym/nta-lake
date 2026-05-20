@@ -7,13 +7,13 @@ import {
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { routeTree } from "../routeTree.gen";
+import { routeTree } from "../../routeTree.gen";
 
 const FAKE_JOB_ID = "abc-123";
 
 let jobState: "queued" | "running" | "succeeded" | "failed" = "queued";
 
-vi.mock("../lib/api/queries", () => ({
+vi.mock("../../lib/api/queries", () => ({
   useMe: () => ({ data: null, refetch: vi.fn() }),
   useRepos: () => ({ data: { items: [], total: 0 }, isLoading: false, isError: false, refetch: vi.fn() }),
   useRepo: () => ({ data: null, isLoading: false, isError: false, refetch: vi.fn() }),

@@ -10,7 +10,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dataplat_api.jobs.redis_client import get_queue
@@ -55,6 +55,36 @@ class JobsService:
             await session.commit()
             raise
         return job
+
+    @staticmethod
+    async def list_jobs(
+        session: AsyncSession,
+        status: str | None = None,
+        job_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[JobORM], int]:
+        """按 created_at desc 排；可选 status/type 过滤；返 (items, total count)。
+
+        spec web-jobs-list-page-20260520 AC-2。
+        """
+        filters = []
+        if status is not None:
+            filters.append(JobORM.status == status)
+        if job_type is not None:
+            filters.append(JobORM.type == job_type)
+
+        count_stmt = select(func.count(JobORM.id))
+        for f in filters:
+            count_stmt = count_stmt.where(f)
+        total = (await session.execute(count_stmt)).scalar_one()
+
+        stmt = select(JobORM)
+        for f in filters:
+            stmt = stmt.where(f)
+        stmt = stmt.order_by(JobORM.created_at.desc()).limit(limit).offset(offset)
+        items = (await session.execute(stmt)).scalars().all()
+        return list(items), int(total)
 
     @staticmethod
     async def get_by_id(

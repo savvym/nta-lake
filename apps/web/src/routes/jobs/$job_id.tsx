@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { useJob } from "../lib/api/queries";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { useJob } from "../../lib/api/queries";
 
 export const Route = createFileRoute("/jobs/$job_id")({ component: JobPage });
 

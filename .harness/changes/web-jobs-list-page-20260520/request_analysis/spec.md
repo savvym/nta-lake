@@ -80,7 +80,7 @@ In scope（与下方 AC 对齐）：
 | AC-2 | static | JobsService.list_jobs 函数存在 | `cd apps/api && uv run python -c "from dataplat_api.jobs.service import JobsService; assert hasattr(JobsService, 'list_jobs')"` | 退出 0 |
 | AC-3 | static | routers/jobs.py 含 `@router.get("")`（path 空串 → 拼 prefix=/jobs = `/jobs`） + 同行附近 require_admin | `grep -qE '@router\.get\(\s*[\"\x27][\"\x27]\s*[,)]' apps/api/dataplat_api/routers/jobs.py && grep -q "require_admin" apps/api/dataplat_api/routers/jobs.py` | 退出 0 |
 | AC-4 | static | queries.ts 加 useJobs | `grep -qE "export function useJobs" apps/web/src/lib/api/queries.ts` | 退出 0 |
-| AC-5 | static | jobs.tsx 路由文件 + createFileRoute + table 渲染 | `test -f apps/web/src/routes/jobs.tsx && grep -q 'createFileRoute("/jobs")' apps/web/src/routes/jobs.tsx` | 退出 0 |
+| AC-5 | static | jobs/index.tsx 路由文件 + createFileRoute("/jobs/") + table 渲染（路径采用 folder 形式以与同目录 $job_id.tsx 共存；尾斜杠是 TanStack file-based routing 对 index 路由的固定输出，编译期可被 `<Link to="/jobs">` 兼容引用） | `test -f apps/web/src/routes/jobs/index.tsx && grep -q 'createFileRoute("/jobs/")' apps/web/src/routes/jobs/index.tsx` | 退出 0 |
 | AC-6 | static | 导航含 "Jobs" link 到 /jobs（grep "/jobs" 在 __root.tsx 或 NavBar） | `grep -rE 'to=["\x27]/jobs["\x27]' apps/web/src/routes/__root.tsx apps/web/src/components 2>/dev/null` | 命中 |
 | AC-7 | behavioral | vitest jobs.test.tsx ≥ 5 + 全 PASS | 见 § "AC-7 完整命令" | numTotalTests ≥ 5 + 0 fail |
 | AC-8 | behavioral | pytest test_jobs_list ≥ 5 + 全 PASS（admin / user 403 / status 过滤 / limit+offset 分页 / 400 非白名单 status） | 见 § "AC-8 完整命令" | ≥ 5 + 全 PASS |
@@ -90,7 +90,7 @@ In scope（与下方 AC 对齐）：
 ### AC-7 完整命令
 
 ```bash
-cd apps/web && pnpm test -- --run --reporter json src/routes/jobs.test.tsx > /tmp/jobs.raw 2>&1 && \
+cd apps/web && pnpm test -- --run --reporter json src/routes/jobs/index.test.tsx > /tmp/jobs.raw 2>&1 && \
   grep -E '^{' /tmp/jobs.raw > /tmp/jobs.json && \
   python3 -c "import json; d=json.load(open('/tmp/jobs.json')); assert d['numFailedTests']==0 and d['numTotalTests']>=5, d"
 ```
