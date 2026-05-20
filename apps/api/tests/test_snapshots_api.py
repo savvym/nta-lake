@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 
 import boto3
 import pytest
@@ -98,7 +98,7 @@ async def _delete_repo_cascade(owner: str, name: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _override_blob_store() -> AsyncGenerator[None, None]:
+def _override_blob_store() -> Generator[None, None, None]:
     bucket = f"dataplat-test-{uuid.uuid4().hex[:8]}"
     endpoint = os.environ.get("DATAPLAT_MINIO_ENDPOINT", "http://localhost:9000")
     ak = os.environ.get("DATAPLAT_MINIO_ACCESS_KEY", "dataplat")
