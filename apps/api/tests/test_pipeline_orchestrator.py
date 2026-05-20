@@ -368,6 +368,8 @@ async def _create_silver_repo(owner: str, name: str) -> uuid.UUID:
                     "layer": "silver",
                     "subtype": "text-corpus",
                     "visibility": "public",
+                    "schema_id": "silver-text-v1",
+                    "row_format": "parquet",
                 },
             )
     finally:
