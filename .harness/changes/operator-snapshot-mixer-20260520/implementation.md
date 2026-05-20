@@ -1,29 +1,33 @@
 ---
 change_id: operator-snapshot-mixer-20260520
 phase: implementation
-status: <in_progress | done>
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+status: done
+authored_at: 2026-05-20T00:00:00Z
 author: sonnet-phase2-implementer
 model_used: sonnet
 branch: change/operator-snapshot-mixer-20260520
 base_commit: ed8964f
-head_commit: <sonnet push 后回填>
-pr_url: <gh pr URL 或 "n/a (gh PAT 缺 pr:write)">
+head_commit: 1db97a7
+pr_url: n/a (gh PAT 缺 pr:write)
 ---
 
 # Implementation
 
-> Phase 2 sonnet 端到端产物。**一次 sonnet 调用内**完成：编码 + 单元测试 + 端到端验证 + commit + push（+ PR 如可用）。Application Owner spawn sonnet 后 sonnet 自管完整 Phase 2，结束写本文件。
+> Phase 2 sonnet 端到端产物。一次 sonnet 调用内完成：编码 + 单元测试 + 端到端验证 + commit。Application Owner spawn sonnet 后 sonnet 自管完整 Phase 2，结束写本文件。
 
 ## 改动文件清单
 
-执行 `git diff --name-only main...HEAD`，列在这里：
+执行 `git diff --name-only main...HEAD`：
 
-| 路径 | 类型 (new/edit/delete/rename) | 一句话说明 | 关联 task |
+| 路径 | 类型 | 一句话说明 | 关联 task |
 |---|---|---|---|
-| <path> | <type> | <说明> | T-1 |
+| `packages/core/src/dataplat_core/operators/snapshot_tag.py` | new | SnapshotTagOperator：1→1，给行打 source_snapshot 标签 | T-1 |
+| `packages/core/src/dataplat_core/operators/snapshot_sample.py` | new | SnapshotSampleOperator：1→0/1→1，sha256 确定性哈希按 weight 抽样 | T-1 |
+| `packages/core/src/dataplat_core/operators/__init__.py` | edit | 注册总数 7 → 9，新增 snapshot_tag + snapshot_sample 导出与注册 | T-1 |
+| `packages/core/tests/test_snapshot_mixer.py` | new | 4 个 behavioral 测试覆盖 AC-1..AC-4 | T-1 |
+| `packages/core/tests/test_image_to_text_suite.py` | edit | 更新 W2-3 registry 总数断言 7 → 9（W2-4 新增 2 个算子所致） | T-1 |
 
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 完全一致。
+> **门禁**：本表与 `git diff --name-only main...HEAD` 完全一致。
 
 ## 任务完成情况
 
@@ -31,73 +35,73 @@ pr_url: <gh pr URL 或 "n/a (gh PAT 缺 pr:write)">
 
 | Task | 状态 | commit | 备注 |
 |---|---|---|---|
-| T-1 | done / partial / deferred | <sha> | <如 partial / deferred 必填理由> |
+| T-1 snapshot_tag.py | done | 1db97a7 | |
+| T-1 snapshot_sample.py | done | 1db97a7 | |
+| T-1 __init__.py | done | 1db97a7 | |
+| T-1 test_snapshot_mixer.py | done | 1db97a7 | |
 
 ## 测试通过证据
 
-### 单元测试
+### AC-1：SnapshotTagOperator 基本行为
 
 ```text
-$ uv run pytest tests/test_xxx.py
-============================== N passed in M.Ms ==============================
-
-$ pnpm --filter web test
-   Test Files  N passed
-        Tests  M passed
+$ cd packages/core && uv run pytest tests/test_snapshot_mixer.py::test_snapshot_tag_basic -x -q
+.                                                                        [100%]
+1 passed in 0.10s
 ```
 
-### 自检 AC block
+### AC-2：SnapshotSampleOperator weight=1.0 永远 keep
 
 ```text
-$ bash scripts/_self_check.sh <change-id>
-=== <change-id> :: N AC ===
-PASS  AC-1  ...
-PASS  AC-2  ...
-...
-PASS: N / FAIL: 0 / SKIP: 0
-全部通过
+$ cd packages/core && uv run pytest tests/test_snapshot_mixer.py::test_snapshot_sample_weight_one_keeps_all -x -q
+.                                                                        [100%]
+1 passed in 0.10s
 ```
 
-### 端到端验证
-
-> 如涉及 API：curl 真打一次新端点  
-> 如涉及 UI：vite dev server 起来 / build 不挂 / 关键页面 smoke  
-> 如涉及 CLI：跑一次实际命令
+### AC-3：SnapshotSampleOperator weight=0.0 永远 drop + deterministic
 
 ```text
-$ curl -H "Cookie: ..." http://localhost:8080/api/new-endpoint
-{"ok": true, ...}
-
-$ pnpm --filter web build
-✓ built in N.Ns
+$ cd packages/core && uv run pytest tests/test_snapshot_mixer.py::test_snapshot_sample_weight_zero_drops_all -x -q
+.                                                                        [100%]
+1 passed in 0.10s
 ```
+
+### AC-4：OperatorRegistry 含 snapshot_tag + snapshot_sample，内置算子总数 >= 9
+
+```text
+$ cd packages/core && uv run pytest tests/test_snapshot_mixer.py::test_snapshot_operators_registered -x -q
+.                                                                        [100%]
+1 passed in 0.10s
+```
+
+### 全量 pytest
+
+```text
+$ cd packages/core && uv run pytest tests/ -q
+......................................................                   [100%]
+54 passed in 0.26s
+```
+
+### pyright（仅新文件 0/0）
+
+```text
+$ cd packages/core && uv run pyright src/dataplat_core/operators/snapshot_tag.py src/dataplat_core/operators/snapshot_sample.py tests/test_snapshot_mixer.py
+0 errors, 0 warnings, 0 informations
+```
+
+> 全量 pyright 有 5 个 pre-existing errors（在 test_auth_protocol.py / test_lineage.py / test_repository.py / test_tree.py），均为 W1-* 文件，非本 change 引入。
 
 ## 偏离 design.md（如有）
 
-> 凡未在 design.md 声明的偏离，**全部**列在这里。Phase 3 reviewer 把"未声明的隐式偏离"算 MUST FIX。
-
 | # | 偏离点 | 原因 | 评审请关注 |
 |---|---|---|---|
-| D-1 | <e.g. 改用 folder routing 不是 spec 写的 flat dot 形态> | <技术原因> | <reviewer 是否接受> |
+| D-1 | AC-4 断言改为 `len(names) >= 9` 而非 `== 9` | `test_operator_protocol.py` 在同一 pytest session 中向单例注册额外 key `identity_test_ac2`（字母序 `o < s`，先于 test_snapshot_mixer 跑），导致运行时总数为 10；`>= 9` 保留语义等价性（9 个内置）同时避免测试顺序脆弱性 | 可接受：语义完全等价 |
+| D-2 | 同时更新了 `test_image_to_text_suite.py` 中 `len == 7` → `len == 9` | W2-4 向 `__init__.py` 新增 2 个算子，导致 W2-3 count 断言过期失败；此文件是 test file，非 Operator 实现文件，design.md "不动 W2-3 Operator" 指 operator 实现，不含 test；最小必要修复 | 需 Phase 3 reviewer 确认接受 |
 
 ## 跨 change / 上游回归
 
-- 全 web vitest：N/N PASS（M files）
-- 全 pytest 本 module：N/N PASS
-- self_check full（如已跑）：PASS 总 / FAIL 总 / FAIL 列表 + 标 pre-existing 或本 change 引入
-
-## PR 描述（用于 gh pr create body）
-
-```markdown
-## Summary
-<1-3 bullets>
-
-## Test plan
-- [ ] <bullet>
-- [ ] <bullet>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+- 全 pytest：54/54 PASS（含 W1-1..W2-3 所有已有测试，无回归）
+- pyright 新文件：0 error 0 warning
 
 ## 下一步
 
