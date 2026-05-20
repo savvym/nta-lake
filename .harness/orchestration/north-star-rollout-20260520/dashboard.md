@@ -1,6 +1,6 @@
 ---
 rollout_id: north-star-rollout-20260520
-last_updated: 2026-05-21T00:40:00Z
+last_updated: 2026-05-21T01:40:00Z
 ---
 
 # Dashboard：北极星 rollout 进度
@@ -13,7 +13,7 @@ last_updated: 2026-05-21T00:40:00Z
 |---|---|---|---|---|
 | 0 | 编排准备 | 3 docs | **done** | 3 文档落地 + 代码扫描完成 |
 | 1 | 地基 | 4 | **done** (4/4) | end-to-end PDF demo 跑通新模型（W2-5 接 Loader 后真跑） |
-| 2 | 核心算子链 | 6 | **in_progress** (4/6; W2-5 next) | 完整 recipe v2 跑通 |
+| 2 | 核心算子链 | 6 | **in_progress** (5/6; W2-6 next) | 完整 recipe v2 跑通 |
 | 3 | 源覆盖 + 训练对接 | 7 | pending | 4 种格式跑通 + HF 导出 |
 | 4 | UI + 工程化 | 10 | pending | 用户完整 UI 流程跑通 |
 
@@ -29,8 +29,8 @@ last_updated: 2026-05-21T00:40:00Z
 | operator-chunker-20260520 | W2-2 | **merged** | APPROVED | change/operator-chunker-20260520 | 0f8f6ba | — |
 | operator-image-to-text-suite-20260520 | W2-3 | **merged** | APPROVED | change/operator-image-to-text-suite-20260520 | c288082 | — |
 | operator-snapshot-mixer-20260520 | W2-4 | **merged** | APPROVED | change/operator-snapshot-mixer-20260520 | 4dd1d3e | — |
-| recipe-yaml-v2-20260520 | W2-5 | **design** | — | — | — | — |
-| dataset-export-engine-20260520 | W2-6 | pending | — | — | — | depends W2-5 |
+| recipe-yaml-v2-20260520 | W2-5 | **merged** | APPROVED | change/recipe-yaml-v2-20260520 | 153c2c9 | — |
+| dataset-export-engine-20260520 | W2-6 | pending | — | — | — | — |
 | adapter-raw-upload-20260520 | W3-1 | pending | — | — | — | depends W2-5 |
 | adapter-folder-md-assets-20260520 | W3-2 | pending | — | — | — | depends W2-5 |
 | adapter-jsonl-import-20260520 | W3-3 | pending | — | — | — | depends W2-5 |
@@ -51,9 +51,9 @@ last_updated: 2026-05-21T00:40:00Z
 
 ## 当前活动
 
-- **active change**: `recipe-yaml-v2-20260520` (W2-5)
-- **next action**: application-owner 自写 mini-design（Recipe YAML v2：`loader: ...; operators: [...]`；解析器 + 执行器；可跑端到端 PDF→silver chain）→ sonnet 端到端 → opus verify
-- **Wave 1 Checkpoint 状态**：4/4 changes done。end-to-end PDF demo 由 W2-5 接 Loader 跑通。
+- **active change**: `dataset-export-engine-20260520` (W2-6)
+- **next action**: application-owner 自写 mini-design（消费 RecipeRunResult.rows → silver snapshot 持久化进 CAS / repo）→ sonnet 端到端 → opus verify
+- **Wave 1 Checkpoint 状态**：4/4 changes done。Wave 2 进度 5/6，W2-6 收尾后整链跑通。
 
 ## 代码扫描快照（2026-05-20 Wave 0）
 
@@ -72,12 +72,12 @@ last_updated: 2026-05-21T00:40:00Z
 
 ## 累计 metrics
 
-- Changes done: **8 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e）
-- Wave 1 全部 done（4/4）；Wave 2 进度 4/6
+- Changes done: **9 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9）
+- Wave 1 全部 done（4/4）；Wave 2 进度 5/6
 - Phase 1 reviewer cycles: 1（W1-1；W1-2 起 v3 不再跑）
-- Phase 3 reviewer cycles: 8（W1-1, W1-2, W1-3, W1-4, W2-1, W2-2, W2-3, W2-4）
-- v3 mini-design 实测：W1-2..W2-4 design 56-116 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-7 min
-- W1-4 / W2-1 / W2-2 / W2-3 / W2-4 都是 0-issue (W2-4 含 2 个 ACCEPT AS-IS deviation) APPROVED（设计 + 实现一次过的稳定区）
+- Phase 3 reviewer cycles: 9（W1-1, W1-2, W1-3, W1-4, W2-1, W2-2, W2-3, W2-4, W2-5）
+- v3 mini-design 实测：W1-2..W2-5 design 56-140 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-7 min
+- W1-4 / W2-1 / W2-2 / W2-3 / W2-4 / W2-5 都是 0-issue APPROVED（W2-4 含 2 个 ACCEPT AS-IS deviation；其余完全无偏离）
 - BIG REWRITE 次数: 0
 - MAJOR ISSUE 次数: 0
 - 用户介入次数（非验收）: 2（efficiency pivot → v3；self_check 取消）
