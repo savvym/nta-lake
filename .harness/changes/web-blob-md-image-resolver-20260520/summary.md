@@ -3,9 +3,9 @@ change_id: web-blob-md-image-resolver-20260520
 title: MD 预览支持 ![](images/x.jpg) → 仓内 blob
 owner: application-owner-agent
 started_at: 2026-05-20T03:09:54Z
-stage: request_analysis
-status: waiting_review
-last_updated: 2026-05-20T12:00:00Z
+stage: user_confirmation
+status: done
+last_updated: 2026-05-20T12:50:00Z
 related_changes:
   - web-tree-nested-ui-20260520
   - processor-pdf-mineru-assets-20260520
@@ -60,9 +60,9 @@ Web blob 预览页 markdown 支持 `![](images/x.jpg)` 相对路径自动解析�
 
 ## 交付
 
-- Branch：`change/web-blob-md-image-resolver-20260520`（基于 main）
-- PR：TBD（直 merge）
-- Merge commit：TBD
-- 部署版本：n/a
-- 用户确认：TBD
-- 关闭时间：TBD
+- Branch：`change/web-blob-md-image-resolver-20260520`（已合并 + 删除）
+- PR：跳过 PR → no-ff merge
+- Merge commit：`29486a1`
+- 部署版本：n/a（vite build 自动 pick up）
+- 用户确认：2026-05-20
+- 关闭时间：2026-05-20T12:50:00Z
