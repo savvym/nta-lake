@@ -1,6 +1,6 @@
 # LLM 训练数据管理平台架构设计
 
-> 版本：v0.3（**北极星 pivot - 2026-05-20**：定位从"data 上加 git"转为"LLM 训练数据工厂"；引入三层算子 Adapter/Loader/Operator + stats-first + 行级血缘；§ 永不做清单写入硬约束。v0.2 及之前的章节移至文末 § 12 "Deprecated 设计（v1）"保留，结构上由新顶层节作权威定义）
+> 版本：v0.3（**北极星 pivot - 2026-05-20**：定位从"data 上加 git"转为"LLM 训练数据工厂"；引入三层算子 Adapter/Loader/Operator + stats-first + 行级血缘；§ 永不做清单写入硬约束。v0.2 时代的 § 1-4 章节**原地保留**且不动二级标题文字（保 markdown anchor 不失效），在节顶端加 `> ⚠ Deprecated 设计（v1）` quote 块标记弃用；新顶层节作权威定义）
 > 范围：为预训练 (CPT) / SFT / 评测等场景提供端到端的数据工程能力。
 
 ---

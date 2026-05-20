@@ -14,7 +14,7 @@ status: waiting_review
 
 | 路径 | 类型 | 说明 | 关联 task |
 |---|---|---|---|
-| `.harness/design.md` | edit | 顶部插入 6 个新顶层节（§ 北极星 / § 三层算子模型 含 Adapter/Loader/Operator 三级子节 / § stats-first 设计 / § 行级血缘 / § 永不做清单 / § 迁移路径 / § 与业界的关系）；版本号 v0.2 → v0.3；老 § 1-4 加 deprecated quote 块（不动二级标题文字以保 anchor 不变） | T-1, T-2, T-3, T-4, T-5, T-6, T-7 |
+| `.harness/design.md` | edit | 顶部插入 **7 个**新顶层节（§ 北极星 / § 三层算子模型 含 Adapter/Loader/Operator 三级子节 / § stats-first 设计 / § 行级血缘 / § 永不做清单 / § 迁移路径 / § 与业界的关系）；版本号 v0.2 → v0.3；老 § 1-4 加 deprecated quote 块（不动二级标题文字以保 anchor 不变） | T-1, T-2, T-3, T-4, T-5, T-6, T-7 |
 | `.harness/rules/data-not-code-pivot.md` | new | 永不做清单 + 旧→新术语对照表 + reviewer 必查项 + 松绑流程 + 历史 | T-8 |
 | `CLAUDE.md` | edit | 关键文件导航新增"理解平台北极星"指针；硬性约束新增第 6 条引用 data-not-code-pivot.md | T-9 |
 | `scripts/lint/check_design_north_star.sh` | new | bash lint：验证 design.md 6 个顶层节 + 三级子节 + Protocol 草图存在；flag-based awk 避坑；gawk `sub` builtin 冲突修正 | T-10 |
@@ -26,7 +26,7 @@ status: waiting_review
 
 | Task | 状态 | 备注 |
 |---|---|---|
-| T-1 § 北极星 | done | 一句话定位 + 4 条硬约束 + 6 条反边界 |
+| T-1 § 北极星 | done | 一句话定位 + 4 条硬约束 + 4 条反边界（覆盖 branch / merge / rollback / blob-blob lineage 四个主要错误诉求） |
 | T-2 § 三层算子模型 | done | Adapter/Loader/Operator 三个子节 + 每个 Protocol 草图 + 例子 + Recipe 新形态 |
 | T-3 § stats-first / § 行级血缘 | done | 两节独立写，AC-4 / AC-5 分别覆盖 |
 | T-4 § 永不做清单 | done | 9 条 bullet（超过 AC-3 要求的 ≥7）+ 用户想要 X 时往哪指 |
