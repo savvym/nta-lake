@@ -3,9 +3,9 @@ change_id: web-ingest-path-default-20260520
 title: Ingest 上传默认 path 改为文件名（去 content/ 前缀）
 owner: application-owner-agent
 started_at: 2026-05-20T02:35:05Z
-stage: request_analysis
-status: waiting_review
-last_updated: 2026-05-20T10:45:00Z
+stage: user_confirmation
+status: done
+last_updated: 2026-05-20T11:35:00Z
 related_changes:
   - tree-nested-domain-20260520
   - web-tree-nested-ui-20260520
@@ -56,9 +56,9 @@ Web Ingest tab 默认上传 path 改为 `f.name`（仓根），不再硬加 `con
 
 ## 交付
 
-- Branch：`change/web-ingest-path-default-20260520`（基于 main）
-- PR：TBD（直 merge）
-- Merge commit：TBD
+- Branch：`change/web-ingest-path-default-20260520`（已合并 + 删除）
+- PR：跳过 PR → no-ff merge
+- Merge commit：`2f7a34e`
 - 部署版本：n/a
-- 用户确认：TBD
-- 关闭时间：TBD
+- 用户确认：2026-05-20
+- 关闭时间：2026-05-20T11:35:00Z
