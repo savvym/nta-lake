@@ -7,7 +7,7 @@ author: sonnet-phase2-implementer
 model_used: sonnet
 branch: change/loader-refactor-pdf-mineru-20260520
 base_commit: 0e4bf66
-head_commit: <回填>
+head_commit: daf820a
 pr_url: n/a (gh PAT 缺 pr:write)
 ---
 
