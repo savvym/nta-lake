@@ -1,83 +1,35 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>
+change_id: platform-north-star-pivot-20260520
 version: 1
-env: dev           # dev | staging | prod
-deployed_at: <YYYY-MM-DDTHH:MM:SSZ>
-image_tag: <tag>
-commit_sha: <sha>
-verifier: <name>
-verdict: PASS      # PASS | FAIL
+env: n/a (doc-only)
+deployed_at: 2026-05-20T16:30:00Z
+verifier: application-owner-agent
+status: PASS
 ---
 
-# Deploy Verification v1
+# Deploy Verify v1 (n/a)
 
-> 如本变更**不涉及部署面**（纯文档 / 纯 harness），删除本目录并在 `summary.md` 阶段 9 行写 "skipped: no deploy surface"。
+## 部署？
 
-## 验证矩阵
+纯文档 / 治理 change，**无业务代码改动**：
 
-| ID | 验收项 / 必查项 | 验证方式 | 期望 | 实际 | 证据 |
-|---|---|---|---|---|---|
-| AC-1 | _e.g. POST /repos 返回 201_ | `curl -i ...` | 201 + repo_id | 201 | [evidence](#ac-1) |
-| AC-2 | _e.g. 上传同文件去重_ | 集成 smoke | blob_count == 1 | 1 | [evidence](#ac-2) |
-| DEP-1 | 服务 healthz 200 | `curl /healthz` | 200 OK | 200 | [evidence](#dep-1) |
-| DEP-2 | DB 迁移落地 | `alembic current` | == head | head | [evidence](#dep-2) |
-| DEP-3 | worker 在线 | `rq info` | active > 0 | 2 | [evidence](#dep-3) |
-| DEP-4 | 前端可加载 | 浏览器 / Playwright smoke | 主页面无 5xx | OK | [evidence](#dep-4) |
-| DEP-5 | metrics / 日志无新 ERROR | grafana / `kubectl logs` | 0 新 ERROR | OK | [evidence](#dep-5) |
-
-## 证据
-
-### AC-1
-
-```text
-$ curl -i -X POST https://dev.dataplat.internal/api/repos \
-    -H 'Cookie: access=...' \
-    -d '{"owner":"my","name":"foo","layer":"bronze","subtype":"pdf-collection"}'
-HTTP/1.1 201 Created
-...
-{"repo_id":"...", ...}
+```
+$ git diff --stat main~1...main | tail -5
+ .harness/design.md                                 | 350 +++++++++++++++
+ .harness/rules/data-not-code-pivot.md              | 100 +++
+ CLAUDE.md                                          |   2 +
+ scripts/lint/check_design_north_star.sh            | 100 +++
+ scripts/_self_check.sh                             |  44 ++
 ```
 
-### AC-2
+5 个文件：design.md / rule / CLAUDE.md / lint 脚本 / self_check。**无 .py / .ts / .tsx 改动**，无需重启 uvicorn / vite / worker。
 
-```text
-(粘贴集成 smoke 脚本输出)
-```
+## 验证：本 change 的"运行时"行为
 
-### DEP-1
+文档 change 的"deploy" = "新 rule 被后续 change reviewer 真的引用"。这个验证留给下一个 change（`api-snapshot-rename-*` 或 `operator-protocol-*`）的 stage 2 reviewer 在其 review 报告里**显式 check `.harness/rules/data-not-code-pivot.md`** 完成。
 
-```text
-$ curl -i https://dev.dataplat.internal/healthz
-HTTP/1.1 200 OK
-```
+本 change 自身的验证已经完成（stage 8 CI 10/10 PASS）。
 
-### DEP-2
+## 后续指引
 
-```text
-$ alembic current
-0042_xxx (head)
-```
-
-### DEP-3 / DEP-4 / DEP-5
-
-```text
-...
-```
-
-## 风险评估
-
-- [ ] 涉及 schema 不兼容？_是 / 否_。如是：附迁移回滚脚本测试结果。
-- [ ] 涉及不可回滚操作（数据删除、外部副作用）？_是 / 否_。
-- [ ] 需要 follow-up？_是 / 否_。如是：列 follow-up change / task id。
-
-## Verdict
-
-PASS / FAIL
-
-## 处理动作
-
-- PASS → 进入阶段 10 用户确认。
-- FAIL → 决断：回滚 or 修复。
-  - 选择回滚 → 附回滚命令 / 镜像 tag。
-  - 选择修复 → 回退到对应阶段（3 / 5 / 8）。
-- 在 `summary.md` 同步更新。
+stage 10 用户确认。

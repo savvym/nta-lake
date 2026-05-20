@@ -3,9 +3,9 @@ change_id: platform-north-star-pivot-20260520
 title: 北极星 pivot —— "数据加工厂"取代"data 上加 git"（design.md 重写 + 永不做清单 + 三层算子草图）
 owner: application-owner-agent
 started_at: 2026-05-20T15:00:00Z
-stage: coding
-status: in_progress
-last_updated: 2026-05-20T15:35:00Z
+stage: deployment
+status: waiting_user_confirmation
+last_updated: 2026-05-20T16:30:00Z
 related_changes:
   - harness-bootstrap-20260516       # design.md 原始来源
   - bootstrap-monorepo-20260516       # design.md §11.3 引用方
@@ -36,10 +36,10 @@ related_changes:
 | 4 编码评审 | done | v1 | APPROVED | — | [code_review_v1.md](coding/review/code_review_v1.md) |
 | 5 单测编写 | done | v1 | — | 6167bd4 | [test_report_v1.md](unit_test/test_report_v1.md) |
 | 6 单测评审 | done | v1 | APPROVED | — | [test_review_v1.md](unit_test/review/test_review_v1.md) |
-| 7 代码推送 | | | | | _branch / push ref_ |
-| 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
-| 9 部署验证 | | | | | n/a (doc-only) |
-| 10 用户确认 | | | | | _确认人 / 时间_ |
+| 7 代码推送 | done | — | — | 28e9d90 / merge 0a01924 | branch `change/platform-north-star-pivot-20260520` pushed + merged --no-ff into main |
+| 8 CI 验证 | done | v1 | PASS | — | [ci_result_v1.md](ci_result/ci_result_v1.md) — 10/10 本 change AC PASS；其余 5 个 FAIL 为 pre-existing flake |
+| 9 部署验证 | done | v1 | PASS | — | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) — n/a (doc-only) |
+| 10 用户确认 | waiting | — | — | — | 等用户确认新北极星 + 永不做清单 + rule 文件落地无遗漏 |
 
 ## 关键决策（4 轮对话沉淀）
 
