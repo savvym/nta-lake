@@ -27,7 +27,7 @@ Web Ingest tab 默认上传 path 改为 `f.name`（仓根），不再硬加 `con
 | 阶段 | 状态 | 最新版本 | verdict | 阶段 commit | 产物 / 报告 |
 |---|---|---|---|---|---|
 | 1 需求分析 | done | v1 | — | TBD | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
-| 2 需求评审 | pending | — | — | — | 待 spawn |
+| 2 需求评审 | revision_required | v1 | REVISION REQUIRED（spec 3 MUST FIX / tasks 1 MUST FIX） | — | [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) |
 | 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
 | 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
 | 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
