@@ -1,7 +1,13 @@
 ---
 change_id: web-blob-md-image-resolver-20260520
-version: 1
+version: 2
 authored_at: 2026-05-20T11:50:00Z
+revised_at: 2026-05-20T12:15:00Z
+revision_notes: |
+  v2 修 stage 2 reviewer v1 报的 1 条 tasks MUST FIX：
+  - MUST-1（T-4 粒度过大）：拆 T-4a（ReactMarkdown 切换 + 删 renderMinimalMarkdown）
+    + T-4b（resolveRelative 算法 + 路径模式分支）+ T-4c（CustomImage 组件 + hook
+    集成）。三段串行，每段独立验证。
 ---
 
 # Tasks
@@ -41,23 +47,58 @@ tasks:
     covers_ac: [AC-3]
     status: pending
 
-  - id: T-4
-    title: BlobPage 用 ReactMarkdown + CustomImage 替换 renderMinimalMarkdown
+  - id: T-4a
+    title: TextOrMarkdownBody 切换到 ReactMarkdown + remarkGfm
     description: |
-      blob.$owner.$name.$hash.tsx TextOrMarkdownBody:
+      apps/web/src/routes/blob.$owner.$name.$hash.tsx::TextOrMarkdownBody：
+        - 删 renderMinimalMarkdown 调用
         - 改用 <ReactMarkdown remarkPlugins={[remarkGfm]} components={{img: CustomImage}}>
           {text}</ReactMarkdown>
-      CustomImage(props {src?, alt?, owner, name, commit, mdPath}):
-        - 绝对 URL (http/https/data:) → 透传 <img src>
-        - commit 缺 → 透传 + 文字提示
-        - 否则：dirname(mdPath) 拼相对 src → useSubtreeByPath 拿 tree → entry 找 basename →
-          重写 src=/api/repos/{o}/{n}/blobs/{target_hash}
-        - loading / not found → 占位文字
-      辅助 resolveRelative(dir, rel)：解析 .. / . / 空段；拒 leading /。
-      Hooks rules：useSubtreeByPath 无条件调（enabled 内部 sha 正则把关）。
+        - components.img 暂时占位 (alt, src) => <img alt={alt} src={src} />（T-4c 替换为
+          真正的 CustomImage）
+      保留 Source/Rendered 切换按钮；保留 fenced code 等渲染（ReactMarkdown 自带）。
+      不动 renderMinimalMarkdown 函数定义（避免 typescript dead code 警告，标记 @deprecated 暂留供
+      follow-up 清；或直删——选直删）。
     depends_on: [T-3]
     estimated_stage: coding
-    covers_ac: [AC-4, AC-5]
+    covers_ac: [AC-4]
+    status: pending
+
+  - id: T-4b
+    title: resolveRelative + 路径模式分支辅助函数
+    description: |
+      apps/web/src/routes/blob.$owner.$name.$hash.tsx 新增（top-level 或同文件 helper）：
+        - isAbsoluteUrl(src): boolean —— src 以 "http://" / "https://" / "data:" 起头
+        - resolveRelative(dir: string, rel: string): string —— 处理 `.` / `..` / 空段
+          算法：把 dir.split("/") 与 rel.split("/") 合并；遍历每段 ".." → pop / "." → skip /
+          空段 → skip；其余 push。返 join("/")。
+        - resolveImagePath(mdPath: string, src: string): string | null
+          - isAbsoluteUrl(src) → 返 null（调用方表示"不重写"）
+          - src 以 "/" 起头 → 去掉 leading "/"，作为"仓根绝对路径"返
+          - 否则 → dirname(mdPath) 与 src 用 resolveRelative 拼算，返完整仓内 path
+        - splitDirAndBasename(fullPath): [dirpath, basename] 元组（用于 useSubtreeByPath 调用）
+    depends_on: [T-4a]
+    estimated_stage: coding
+    covers_ac: [AC-5]
+    status: pending
+
+  - id: T-4c
+    title: CustomImage 组件（替换 T-4a 占位）
+    description: |
+      新组件 CustomImage(props {src?, alt?, owner, name, commit, mdPath}):
+        1. 用 T-4b 的 resolveImagePath(mdPath, src)：
+           - 返 null（绝对 URL） → 透传 <img src={src} alt={alt}>
+           - 返 string 路径 → 继续
+        2. commit 缺 / 不是 64-hex sha → 透传 + 小字提示 "(no commit, 路径不解析)"
+        3. 否则：用 splitDirAndBasename 拆，调 useSubtreeByPath(owner, name, commit,
+           dirpath) —— 注意：hooks rules，无论分支都要无条件调（不能放 if 后）
+           - isLoading → <span className="text-gray-400">(loading {src})</span>
+           - isError 或 entries 里找不到 basename / entry_type != "blob" → 透传 + 提示
+           - 找到 → 渲染 <img src={`/api/repos/${owner}/${name}/blobs/${target_hash}`} alt={alt}>
+        集成进 T-4a 的 components.img。
+    depends_on: [T-4b]
+    estimated_stage: coding
+    covers_ac: [AC-5]
     status: pending
 
   - id: T-5
@@ -69,7 +110,7 @@ tasks:
       c. md_image_without_commit_passes_through: commit 缺 → 透传
       d.（可选）md_nested_md_relative_path
       mock useSubtreeByPath；不 mock react-markdown 让真渲染。
-    depends_on: [T-4]
+    depends_on: [T-4c]
     estimated_stage: unit_test
     covers_ac: [AC-6, AC-8]
     status: pending
@@ -124,7 +165,7 @@ process_tasks:
 
 ## DAG
 
-T-1 → T-2 → T-3 → T-4 → T-5 → T-6 → T-7（无环）
+T-1 → T-2 → T-3 → T-4a → T-4b → T-4c → T-5 → T-6 → T-7（无环）
 
 ## 验收覆盖
 
@@ -133,8 +174,8 @@ T-1 → T-2 → T-3 → T-4 → T-5 → T-6 → T-7（无环）
 | AC-1 | T-1 |
 | AC-2 | T-2 |
 | AC-3 | T-3 |
-| AC-4 | T-4 |
-| AC-5 | T-4 |
+| AC-4 | T-4a |
+| AC-5 | T-4b, T-4c |
 | AC-6 | T-5 |
 | AC-7 | T-7 |
 | AC-8 | T-5, T-7 |

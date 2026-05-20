@@ -1,8 +1,18 @@
 ---
 change_id: web-blob-md-image-resolver-20260520
-version: 1
+version: 2
 authored_at: 2026-05-20T11:50:00Z
+revised_at: 2026-05-20T12:15:00Z
 status: draft
+revision_notes: |
+  v2 修 stage 2 reviewer v1 报的 4 条 spec MUST FIX：
+  - MUST-1 (AC-2 grep 过宽)：改为锚定 `commit?:` zod 字段声明
+  - MUST-2 (AC-5 缺 URL 重写断言)：grep 加 `/api/repos.*blobs/` 路径重写锚点
+  - MUST-3 (AC-6 baseline 已 3，≥3 无效)：实测 baseline = 3 个 test；改为 ≥ 6
+    （baseline 3 + 新增 ≥ 3）
+  - MUST-4 (resolveRelative leading "/" 语义模糊)：spec 显式声明
+    - `![](/images/x.jpg)` 当作"仓根绝对路径"处理（去掉 leading "/" 当 仓内 path 用）
+    - 不是浏览器绝对 URL；不 fallback；用 useSubtreeByPath 同样路径解析
 ---
 
 # Spec：MD 预览支持 `![](images/x.jpg)` → 仓内 blob 解析
@@ -38,7 +48,11 @@ In scope（与下方 AC 对齐）：
 - AC-2: BlobPage `validateSearch` 加 `commit?: string`（可选 sha；默认 undefined 时降级"无图片解析"）
 - AC-3: FilesSection 中所有跳 BlobPage 的 `<Link to="/blob/$owner/$name/$hash" search={{ path }} />` 改为带上 `commit: commit_hash`
 - AC-4: `TextOrMarkdownBody` 替换 `renderMinimalMarkdown` 为 `<ReactMarkdown remarkPlugins={[remarkGfm]} components={{img: <CustomImage>}}>`
-- AC-5: 新 `<CustomImage>` 组件：接 props `src` + 上下文（owner / name / commit / 当前 md path），用 useSubtreeByPath（path = dirname(当前 md path) + relative path 的 dirname）拿 tree → entries 里找 basename → entries[k].target_hash → 改 src 为 `/api/repos/{o}/{n}/blobs/{sha}`；若 commit 缺 / 找不到 / 是绝对 URL 直接 fallback 原 src
+- AC-5: 新 `<CustomImage>` 组件：接 props `src` + 上下文（owner / name / commit / 当前 md path），用 useSubtreeByPath（path = dirname(当前 md path) 拼 src 的相对 path）拿 tree → entries 里找 basename → entries[k].target_hash → 改 src 为 `/api/repos/{o}/{n}/blobs/{sha}`。**路径解析语义（v2 钉死）**：
+  - `src` 以 `http://` / `https://` / `data:` 起头 → **绝对 URL 透传**，不重写
+  - `src` 以 `/` 起头（如 `/images/a.jpg`）→ **视为仓根绝对路径**，去掉 leading `/` 后用 useSubtreeByPath 解析，**不 fallback**
+  - 其余（相对路径如 `images/a.jpg` / `./images/a.jpg` / `../sibling/x.jpg`）→ 与 mdPath dirname 拼接，resolveRelative 处理 `.` / `..` / 空段
+  - commit 缺 / tree miss / entry 找不到 → 透传原 src + 文字提示
 - AC-6: 测试 ≥ 3 用例：(a) MD 含 `![](images/a.jpg)` 渲染出 `<img src=/api/repos/.../blobs/<sha>>` (b) MD 含 `<img src="https://...">` 绝对 URL 不重写 (c) commit 缺时降级 fallback
 - AC-7: pnpm typecheck 0 errors
 - AC-8: 全 web vitest 不回归
@@ -59,11 +73,11 @@ In scope（与下方 AC 对齐）：
 | ID | kind | 描述 | 验证 | 期望 |
 |---|---|---|---|---|
 | AC-1 | static | react-markdown + remark-gfm 在 web deps | `grep -qE '"react-markdown"' apps/web/package.json && grep -qE '"remark-gfm"' apps/web/package.json` | 退出 0 |
-| AC-2 | static | BlobPage validateSearch 含 commit 字段 | `grep -qE "commit" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx` | 退出 0 |
+| AC-2 | static | BlobPage validateSearch 含 commit zod 字段声明 | `grep -qE 'commit\?:\s*z\.string\(\)|commit\?:\s*string' apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx` | 退出 0 |
 | AC-3 | static | FilesSection Link search 含 commit | `grep -q "commit:" apps/web/src/routes/repos/\$owner.\$name.tsx` | 退出 0 |
 | AC-4 | static | BlobPage 用 ReactMarkdown 替换 renderMinimalMarkdown | `grep -q "ReactMarkdown" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx` | 退出 0 |
-| AC-5 | static | 含自定义 img 组件解析逻辑（grep 锚定 "useSubtreeByPath\|target_hash\|/blobs/"） | `grep -qE "useSubtreeByPath|target_hash" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx` | 退出 0 |
-| AC-6 | behavioral | ≥ 3 单测覆盖 image rewrite / 绝对 URL / commit 缺 | 见 § "AC-6 完整命令" | numTotalTests ≥ 3 + 0 fail |
+| AC-5 | static | blob 页同文件含 useSubtreeByPath 引用 + /api/repos 重写路径模板（双锚） | `grep -q "useSubtreeByPath" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && grep -qE "/api/repos/.*blobs/" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx` | 退出 0 |
+| AC-6 | behavioral | blob.test.tsx ≥ 6（baseline 3 + 新增 ≥ 3：image rewrite / 绝对 URL / commit 缺）+ 0 fail | 见 § "AC-6 完整命令" | numTotalTests ≥ 6 + 0 fail |
 | AC-7 | static | pnpm typecheck 0 errors | `pnpm --filter web typecheck` | 退出 0 |
 | AC-8 | behavioral | 全 web vitest 不回归 | `cd apps/web && pnpm test -- --run` | 全 PASS |
 | AC-9 | static | self_check 含 run_web_blob_md_image_resolver | `grep -q "run_web_blob_md_image_resolver" scripts/_self_check.sh` | 退出 0 |
@@ -73,10 +87,10 @@ In scope（与下方 AC 对齐）：
 ```bash
 cd apps/web && pnpm test -- --run --reporter json src/routes/blob.test.tsx > /tmp/blob.raw 2>&1 && \
   grep -E '^{' /tmp/blob.raw > /tmp/blob.json && \
-  python3 -c "import json; d=json.load(open('/tmp/blob.json')); assert d['numFailedTests']==0 and d['numTotalTests']>=3, d"
+  python3 -c "import json; d=json.load(open('/tmp/blob.json')); assert d['numFailedTests']==0 and d['numTotalTests']>=6, ('baseline 3 + 新增 ≥3 =', d['numTotalTests'])"
 ```
 
-> baseline：当前 blob.test.tsx 用例数；改造时既要保留原有又要 ≥ 3。reviewer 复核数量。
+> baseline 已实测：blob.test.tsx 现有 3 个 test/it 用例（v2 reviewer 复核确认）；本 change 加 ≥ 3 用例 → numTotalTests ≥ 6。
 
 ## 风险
 
