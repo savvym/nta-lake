@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { routeTree } from "../routeTree.gen";
 
 const mockBlobMeta = vi.fn();
+const mockSubtreeByPath = vi.fn();
 
 vi.mock("../lib/api/queries", () => ({
   useMe: () => ({ data: null, refetch: vi.fn() }),
@@ -24,6 +25,7 @@ vi.mock("../lib/api/queries", () => ({
   useCreatePipelineRun: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePipelineRun: () => ({ data: undefined, isLoading: false }),
   useBlobMeta: () => mockBlobMeta(),
+  useSubtreeByPath: () => mockSubtreeByPath(),
 }));
 
 function renderBlob(initialUrl: string) {
@@ -41,6 +43,13 @@ function renderBlob(initialUrl: string) {
 
 beforeEach(() => {
   mockBlobMeta.mockReset();
+  mockSubtreeByPath.mockReset();
+  mockSubtreeByPath.mockReturnValue({
+    data: null,
+    isLoading: false,
+    isError: false,
+    error: null,
+  });
   vi.restoreAllMocks();
 });
 
@@ -96,5 +105,131 @@ describe("BlobPage rendering", () => {
       expect(screen.getByText(/文件过大/)).toBeInTheDocument();
     });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // --- web-blob-md-image-resolver-20260520 新增用例 ---
+
+  it("md image with relative path + commit → 重写 src 为 /api/.../blobs/<sha>", async () => {
+    const mdSha = "d".repeat(64);
+    const imgSha = "e".repeat(64);
+    const commit = "f".repeat(64);
+    mockBlobMeta.mockReturnValue({
+      data: { sha256: mdSha, size: 30 },
+      isLoading: false,
+      isError: false,
+    });
+    mockSubtreeByPath.mockReturnValue({
+      data: {
+        hash: "1".repeat(64),
+        entries: [
+          {
+            name: "a.jpg",
+            mode: 33188,
+            entry_type: "blob",
+            target_hash: imgSha,
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      return new Response("# hi\n\n![alt](images/a.jpg)\n", { status: 200 });
+    });
+
+    renderBlob(`/blob/demo/r/${mdSha}?path=paper.md&commit=${commit}`);
+
+    // 切换到 Rendered
+    await waitFor(() => {
+      expect(screen.getByText("Rendered")).toBeInTheDocument();
+    });
+    screen.getByText("Rendered").click();
+
+    await waitFor(() => {
+      const img = document.querySelector("img") as HTMLImageElement;
+      expect(img).not.toBeNull();
+      expect(img.src).toContain(`/api/repos/demo/r/blobs/${imgSha}`);
+    });
+  });
+
+  it("md image with absolute URL → 透传，不重写", async () => {
+    const mdSha = "d".repeat(64);
+    const commit = "f".repeat(64);
+    mockBlobMeta.mockReturnValue({
+      data: { sha256: mdSha, size: 30 },
+      isLoading: false,
+      isError: false,
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      return new Response("![](https://example.com/x.png)\n", { status: 200 });
+    });
+
+    renderBlob(`/blob/demo/r/${mdSha}?path=paper.md&commit=${commit}`);
+
+    await waitFor(() => {
+      expect(screen.getByText("Rendered")).toBeInTheDocument();
+    });
+    screen.getByText("Rendered").click();
+
+    await waitFor(() => {
+      const img = document.querySelector("img") as HTMLImageElement;
+      expect(img).not.toBeNull();
+      expect(img.src).toBe("https://example.com/x.png");
+    });
+  });
+
+  it("md image but no commit param → 透传原 src + 提示", async () => {
+    const mdSha = "d".repeat(64);
+    mockBlobMeta.mockReturnValue({
+      data: { sha256: mdSha, size: 30 },
+      isLoading: false,
+      isError: false,
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      return new Response("![](images/a.jpg)\n", { status: 200 });
+    });
+
+    renderBlob(`/blob/demo/r/${mdSha}?path=paper.md`);
+
+    await waitFor(() => {
+      expect(screen.getByText("Rendered")).toBeInTheDocument();
+    });
+    screen.getByText("Rendered").click();
+
+    await waitFor(() => {
+      const img = document.querySelector("img") as HTMLImageElement;
+      expect(img).not.toBeNull();
+      expect(img.src).toContain("images/a.jpg");
+      expect(
+        screen.getByText(/no commit ctx, src 不解析/),
+      ).toBeInTheDocument();
+    });
+  });
+});
+
+// --- web-blob-md-image-resolver-20260520: helper 单测 ---
+
+describe("path resolution helpers", () => {
+  it("resolveImagePath: 绝对 URL → null", async () => {
+    const { resolveImagePath } = await import("./blob.$owner.$name.$hash");
+    expect(resolveImagePath("paper.md", "https://x.com/a.png")).toBeNull();
+    expect(resolveImagePath("paper.md", "data:image/png;base64,xx")).toBeNull();
+  });
+
+  it("resolveImagePath: leading / → 仓根绝对路径", async () => {
+    const { resolveImagePath } = await import("./blob.$owner.$name.$hash");
+    expect(resolveImagePath("paper.md", "/images/a.jpg")).toBe("images/a.jpg");
+  });
+
+  it("resolveImagePath: 相对路径 + mdPath dirname 拼接", async () => {
+    const { resolveImagePath } = await import("./blob.$owner.$name.$hash");
+    expect(resolveImagePath("paper.md", "images/a.jpg")).toBe("images/a.jpg");
+    expect(resolveImagePath("papers/2026/a.md", "images/b.jpg")).toBe(
+      "papers/2026/images/b.jpg",
+    );
+    expect(resolveImagePath("papers/2026/a.md", "../shared/c.jpg")).toBe(
+      "papers/shared/c.jpg",
+    );
   });
 });

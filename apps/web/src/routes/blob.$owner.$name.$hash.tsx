@@ -1,5 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { z } from "zod";
 
 import { Button } from "../components/ui/button";
 import {
@@ -8,13 +11,17 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { useBlobMeta } from "../lib/api/queries";
+import { useBlobMeta, useSubtreeByPath } from "../lib/api/queries";
 
 export const Route = createFileRoute("/blob/$owner/$name/$hash")({
   component: BlobPage,
-  validateSearch: (search: Record<string, unknown>): { path: string } => ({
-    path: typeof search.path === "string" ? search.path : "",
-  }),
+  validateSearch: (search: Record<string, unknown>) =>
+    z
+      .object({
+        path: z.string().catch("").default(""),
+        commit: z.string().optional(),
+      })
+      .parse(search),
 });
 
 const MAX_PREVIEW_SIZE = 5 * 1024 * 1024;
@@ -76,9 +83,141 @@ function blobDownloadHref(owner: string, name: string, hash: string): string {
   return `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(hash)}`;
 }
 
+// --- web-blob-md-image-resolver-20260520: 路径解析 helpers ---
+
+export function isAbsoluteUrl(src: string): boolean {
+  return (
+    src.startsWith("http://") ||
+    src.startsWith("https://") ||
+    src.startsWith("data:")
+  );
+}
+
+// 解析 dir 和 rel：处理 "." / ".." / 空段，返合并后的仓内 path
+export function resolveRelative(dir: string, rel: string): string {
+  const segs = [
+    ...(dir ? dir.split("/") : []),
+    ...rel.split("/"),
+  ];
+  const out: string[] = [];
+  for (const seg of segs) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      out.pop();
+      continue;
+    }
+    out.push(seg);
+  }
+  return out.join("/");
+}
+
+// resolveImagePath：返 null 表示"不重写"（绝对 URL）；string 表示要查 tree 的仓内全路径
+export function resolveImagePath(
+  mdPath: string,
+  src: string,
+): string | null {
+  if (isAbsoluteUrl(src)) return null;
+  if (src.startsWith("/")) return resolveRelative("", src.slice(1));
+  const dir = mdPath.includes("/")
+    ? mdPath.slice(0, mdPath.lastIndexOf("/"))
+    : "";
+  return resolveRelative(dir, src);
+}
+
+function splitDirAndBasename(fullPath: string): [string, string] {
+  const idx = fullPath.lastIndexOf("/");
+  if (idx < 0) return ["", fullPath];
+  return [fullPath.slice(0, idx), fullPath.slice(idx + 1)];
+}
+
+const SHA256_RE = /^[0-9a-f]{64}$/;
+
+function CustomImage({
+  src,
+  alt,
+  owner,
+  name,
+  commit,
+  mdPath,
+}: {
+  src?: string;
+  alt?: string;
+  owner: string;
+  name: string;
+  commit?: string;
+  mdPath: string;
+}) {
+  const resolved =
+    typeof src === "string" ? resolveImagePath(mdPath, src) : null;
+  const shouldQuery =
+    !!src &&
+    resolved !== null &&
+    !!commit &&
+    SHA256_RE.test(commit);
+  const [dir, base] = shouldQuery
+    ? splitDirAndBasename(resolved as string)
+    : ["", ""];
+  // hooks rules: 无条件调用；shouldQuery=false 时 commit 传 "" 让 enabled=false
+  const subtreeQuery = useSubtreeByPath(
+    owner,
+    name,
+    shouldQuery ? (commit as string) : "",
+    dir,
+  );
+
+  if (!src) return null;
+  // 绝对 URL → 透传
+  if (resolved === null) {
+    return <img src={src} alt={alt ?? ""} />;
+  }
+  // commit 缺 → 透传 + 小字提示
+  if (!commit || !SHA256_RE.test(commit)) {
+    return (
+      <span>
+        <img src={src} alt={alt ?? ""} />
+        <span className="text-xs text-gray-400 ml-1">
+          (no commit ctx, src 不解析)
+        </span>
+      </span>
+    );
+  }
+  if (subtreeQuery.isLoading) {
+    return (
+      <span className="text-xs text-gray-400">(loading image: {src})</span>
+    );
+  }
+  if (subtreeQuery.isError || !subtreeQuery.data) {
+    return (
+      <span>
+        <img src={src} alt={alt ?? ""} />
+        <span className="text-xs text-orange-600 ml-1">(目录加载失败)</span>
+      </span>
+    );
+  }
+  const entry = subtreeQuery.data.entries.find(
+    (e) => e.name === base && e.entry_type === "blob",
+  );
+  if (!entry) {
+    return (
+      <span>
+        <img src={src} alt={alt ?? ""} />
+        <span className="text-xs text-orange-600 ml-1">
+          (找不到 {resolved})
+        </span>
+      </span>
+    );
+  }
+  return (
+    <img
+      src={`/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(entry.target_hash)}`}
+      alt={alt ?? ""}
+    />
+  );
+}
+
 function BlobPage() {
   const { owner, name, hash } = Route.useParams();
-  const { path } = Route.useSearch();
+  const { path, commit } = Route.useSearch();
   const displayPath = path || "(unknown path)";
   const metaQuery = useBlobMeta(owner, name, hash);
 
@@ -98,6 +237,7 @@ function BlobPage() {
         name={name}
         hash={hash}
         path={path}
+        commit={commit}
         size={metaQuery.data?.size ?? null}
         loading={metaQuery.isLoading}
         error={metaQuery.isError}
@@ -198,6 +338,7 @@ function BlobBody({
   name,
   hash,
   path,
+  commit,
   size,
   loading,
   error,
@@ -206,6 +347,7 @@ function BlobBody({
   name: string;
   hash: string;
   path: string;
+  commit?: string;
   size: number | null;
   loading: boolean;
   error: boolean;
@@ -281,6 +423,8 @@ function BlobBody({
       name={name}
       hash={hash}
       kind={kind}
+      path={path}
+      commit={commit}
     />
   );
 }
@@ -290,11 +434,15 @@ function TextOrMarkdownBody({
   name,
   hash,
   kind,
+  path,
+  commit,
 }: {
   owner: string;
   name: string;
   hash: string;
   kind: "text" | "markdown";
+  path: string;
+  commit?: string;
 }) {
   const [text, setText] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -352,8 +500,24 @@ function TextOrMarkdownBody({
               </code>
             </pre>
           ) : (
-            <div className="prose prose-sm max-w-none flex flex-col gap-2">
-              {renderMinimalMarkdown(text)}
+            <div className="prose prose-sm max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  img: ({ src, alt }) => (
+                    <CustomImage
+                      src={typeof src === "string" ? src : undefined}
+                      alt={typeof alt === "string" ? alt : undefined}
+                      owner={owner}
+                      name={name}
+                      commit={commit}
+                      mdPath={path}
+                    />
+                  ),
+                }}
+              >
+                {text}
+              </ReactMarkdown>
             </div>
           )}
         </CardContent>
@@ -373,100 +537,4 @@ function TextOrMarkdownBody({
       </CardContent>
     </Card>
   );
-}
-
-// renderMinimalMarkdown：4 类语法，fenced 优先级最高
-//   (i) heading: ^#{1-6} <text>
-//   (ii) list: 连续 ^- / ^* 行 → <ul><li>
-//   (iii) fenced code: ``` ... ``` （未闭合按"剩余全是 code"）
-//   (iv) paragraph: 其余非空行段
-// fenced 内行不触发 heading/list/paragraph 识别。
-// 不支持 inline emphasis / link / image / table / blockquote。
-export function renderMinimalMarkdown(src: string): ReactNode[] {
-  const lines = src.split("\n");
-  const out: ReactNode[] = [];
-  let i = 0;
-  let key = 0;
-
-  while (i < lines.length) {
-    const line = lines[i] ?? "";
-
-    // fenced code （优先级最高）
-    if (line.startsWith("```")) {
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !(lines[i] ?? "").startsWith("```")) {
-        codeLines.push(lines[i] ?? "");
-        i++;
-      }
-      // 跳过闭合 ```（如果有）
-      if (i < lines.length) i++;
-      out.push(
-        <pre
-          key={`code-${key++}`}
-          className="bg-gray-50 p-3 rounded text-xs overflow-auto"
-        >
-          <code className="font-mono whitespace-pre-wrap break-all">
-            {codeLines.join("\n")}
-          </code>
-        </pre>,
-      );
-      continue;
-    }
-
-    // heading
-    const headingMatch = /^(#{1,6})\s+(.+)$/.exec(line);
-    if (headingMatch) {
-      const level = headingMatch[1]!.length;
-      const text = headingMatch[2]!;
-      const sizeCls =
-        level === 1
-          ? "text-2xl font-bold"
-          : level === 2
-            ? "text-xl font-semibold"
-            : level === 3
-              ? "text-lg font-semibold"
-              : "text-base font-semibold";
-      out.push(
-        <div key={`h-${key++}`} className={sizeCls}>
-          {text}
-        </div>,
-      );
-      i++;
-      continue;
-    }
-
-    // unordered list（连续 ^- / ^* ）
-    if (/^[-*]\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^[-*]\s+/.test(lines[i] ?? "")) {
-        items.push((lines[i] ?? "").replace(/^[-*]\s+/, ""));
-        i++;
-      }
-      out.push(
-        <ul key={`ul-${key++}`} className="list-disc pl-6">
-          {items.map((it, idx) => (
-            <li key={idx}>{it}</li>
-          ))}
-        </ul>,
-      );
-      continue;
-    }
-
-    // skip blank
-    if (line.trim() === "") {
-      i++;
-      continue;
-    }
-
-    // paragraph
-    out.push(
-      <p key={`p-${key++}`} className="text-sm">
-        {line}
-      </p>,
-    );
-    i++;
-  }
-
-  return out;
 }

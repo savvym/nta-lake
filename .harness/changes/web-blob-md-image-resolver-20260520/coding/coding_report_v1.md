@@ -1,56 +1,35 @@
 ---
 change_id: web-blob-md-image-resolver-20260520
 version: 1
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
+authored_at: 2026-05-20T12:30:00Z
 branch: change/web-blob-md-image-resolver-20260520
 base_commit: 5ad8cfd
-head_commit: <当前 head sha>
+head_commit: TBD
 status: waiting_review
 ---
 
 # Coding Report v1
 
-## 改动文件清单
+## 改动
 
-| 路径 | 类型 | 一句话说明（改了什么 / 为什么） | 关联 task |
-|---|---|---|---|
-| _apps/api/dataplat_api/models/repository.py_ | new | 新增 Repository ORM 模型 | T-1 |
-| _apps/api/alembic/versions/0001_repository.py_ | new | 对应迁移 | T-1 |
-| _apps/api/dataplat_api/routers/repos.py_ | new | CRUD 路由 | T-2 |
+| 路径 | 改动 | 任务 |
+|---|---|---|
+| apps/web/package.json | + react-markdown ^9 + remark-gfm ^4 | T-1 |
+| apps/web/src/routes/blob.$owner.$name.$hash.tsx | validateSearch 加 commit zod 字段 / 新增 isAbsoluteUrl/resolveRelative/resolveImagePath/splitDirAndBasename helpers / TextOrMarkdownBody 用 ReactMarkdown+remarkGfm 替换 renderMinimalMarkdown / 新 CustomImage 组件用 useSubtreeByPath 解析路径重写 src | T-2/T-4a/T-4b/T-4c |
+| apps/web/src/routes/repos/$owner.$name.tsx | FilesSection blob link search 加 commit | T-3 |
+| apps/web/src/routes/blob.test.tsx | mock 加 useSubtreeByPath / 新 3 用例 (image rewrite / 绝对 URL / no commit) + 3 helper 单测 | T-5 |
+| scripts/_self_check.sh | run_web_blob_md_image_resolver 9 AC + filter + 全跑入口 | T-6 |
 
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 一致；当前分支必须是 `change/<change-id>`。
+renderMinimalMarkdown 完整删除（94 行 dead code）。
 
-## 与 tasks.md 的映射
+## 与 tasks 映射
 
-| Task ID | 状态 | commits | 备注 |
-|---|---|---|---|
-| T-1 | done | `<sha>` | |
-| T-2 | done | `<sha>` | |
-| T-3 | deferred | — | 单测阶段补 |
+T-1 done / T-2 done / T-3 done / T-4a done / T-4b done / T-4c done / T-5 done (9 用例) / T-6 done / T-7 done
 
-## 偏离 spec / trade-off
+## 本地
 
-> 若与 spec 有偏离，必须在这里讲清楚，给评审定夺。
-
-- _e.g. AC-2 改为只在 production env 强校验，dev 放宽——理由：避免本地开发摩擦；评审请确认。_
-
-## 本地校验结果
-
-```text
-bash scripts/_self_check.sh current <change-id>    → PASS
-uv run ruff check <changed-python-paths>            → 0 errors
-uv run mypy <changed-python-packages>               → 0 errors
-uv run pytest <changed-test-files> -q               → <n> passed
-pnpm --filter web lint                              → 0 errors（如适用）
-pnpm --filter web typecheck                         → 0 errors（如适用）
 ```
-
-## 已知未解决问题
-
-> 列出代码中已知但未在本 change 内修的小问题（评审时确认是否阻塞）。
-
-- _e.g. CAS GC 路径未覆盖 → 待 follow-up change_
-
-## 下一步
-
-进入阶段 4 编码评审：加载 `.harness/skills/code-review/SKILL.md`，由独立评审者写 `code_review_v1.md`。
+typecheck: 0 errors
+vitest: 39 passed (16 files)（含 blob.test.tsx 9 + 其他 30）
+self_check current: 18/18 PASS
+```
