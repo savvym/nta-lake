@@ -1,7 +1,13 @@
 ---
 change_id: web-jobs-list-page-20260520
-version: 1
+version: 2
 authored_at: 2026-05-20T13:00:00Z
+revised_at: 2026-05-20T13:25:00Z
+revision_notes: |
+  v2 修 stage 2 reviewer v1 报的 1 条 MUST FIX + 1 条 SHOULD FIX：
+  - MUST-1: T-3 与 spec AC-3 不一致 → 统一选 `@router.get("")`
+  - SHOULD-2 (T-4)：把 "400 非白名单 status" 用例从"可选"改为必选；
+    用例数下限从 ≥4 升 ≥5
 ---
 
 # Tasks
@@ -34,23 +40,32 @@ tasks:
     status: pending
 
   - id: T-3
-    title: routers/jobs.py 加 GET /jobs
+    title: routers/jobs.py 加 GET /jobs（path 空串）
     description: |
       apps/api/dataplat_api/routers/jobs.py。
-      @router.get("") response_model=JobListResponse；
+      用 `@router.get("", response_model=JobListResponse)` — path 是空串（与
+      prefix=/jobs 拼为 `/jobs` 无尾斜杠）；不要写 `@router.get("/")`（会变 `/jobs/`
+      产生重定向歧义）。
       Query: status / job_type(alias="type") / limit ge=1 le=200 / offset ge=0；
       白名单 status={queued,running,succeeded,failed} / type={ingest,process}；
       非白名单 → 400；Depends(require_admin)。
+      put before `@router.get("/{job_id}")` 以避免后者吞 path 兜底（FastAPI 按定义顺序）。
     depends_on: [T-2]
     estimated_stage: coding
     covers_ac: [AC-3]
     status: pending
 
   - id: T-4
-    title: pytest test_jobs_list.py ≥ 4 用例
+    title: pytest test_jobs_list.py ≥ 5 用例
     description: |
       apps/api/tests/test_jobs_list.py（沿 test_jobs.py 模式）。
-      用例：admin list / user 403 / status 过滤 / limit+offset 分页 /（可选）400 / type 过滤。
+      用例（≥ 5 全部必须）：
+        a. admin list / total + items 长度匹配
+        b. user 403
+        c. status=queued 过滤 → 仅含 queued
+        d. limit=1 + offset=1 翻页正确（按 created_at desc）
+        e. status=invalid → 400（白名单守门）
+      可选（不计 AC-8 下限）：type=ingest / type=process 过滤；offset 超 total。
     depends_on: [T-3]
     estimated_stage: unit_test
     covers_ac: [AC-8]

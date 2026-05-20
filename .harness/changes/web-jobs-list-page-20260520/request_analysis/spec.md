@@ -1,8 +1,16 @@
 ---
 change_id: web-jobs-list-page-20260520
-version: 1
+version: 2
 authored_at: 2026-05-20T13:00:00Z
+revised_at: 2026-05-20T13:25:00Z
 status: draft
+revision_notes: |
+  v2 修 stage 2 reviewer v1 报的 1 条 MUST FIX + 3 条 SHOULD FIX：
+  - MUST-1 (AC-3 grep 与 T-3 路径不一致)：统一选 `@router.get("")`（FastAPI
+    prefix=/jobs + path="" → /jobs，无尾斜杠歧义）；AC-3 grep 改匹配空引号
+  - SHOULD-1: 非范围补 "不加 JobORM 新列"
+  - SHOULD-2: T-4 (a-d) 4 个用例 + (e) "400 非白名单" 改必选，删 "可选" 标签
+  - SHOULD-3: AC-8 命令 `grep -c` 加 `|| true` 防止 0 命中误 FAIL
 ---
 
 # Spec：GET /jobs admin 列表端点 + Web Jobs 页（过滤 + 分页）
@@ -54,7 +62,7 @@ In scope（与下方 AC 对齐）：
 
 ## 非范围
 
-- 不加 JobORM.owner_id 列 + alembic（独立 follow-up `jobs-owner-acl-*`）
+- 不加 JobORM 任何新列（含 owner_id / cancel_reason / retry_count 等）；独立 follow-up `jobs-owner-acl-*` / `jobs-cancel-*`
 - 不引入 live poll / WebSocket 自动刷新（独立 follow-up `web-jobs-list-live-poll-*`）
 - 不引入 cancel / retry 按钮（独立 follow-up `jobs-cancel-*`）
 - 不动单 job 详情页 `jobs.$job_id.tsx`
@@ -66,7 +74,7 @@ In scope（与下方 AC 对齐）：
 |---|---|---|---|---|
 | AC-1 | static | schemas/job.py 含 JobListResponse | `cd apps/api && uv run python -c "from dataplat_api.schemas.job import JobListResponse; assert all(k in JobListResponse.model_fields for k in ('items','total','limit','offset'))"` | 退出 0 |
 | AC-2 | static | JobsService.list_jobs 函数存在 | `cd apps/api && uv run python -c "from dataplat_api.jobs.service import JobsService; assert hasattr(JobsService, 'list_jobs')"` | 退出 0 |
-| AC-3 | static | routers/jobs.py 含 GET /jobs（无 path 参数） + require_admin | `grep -qE '@router\.get\(\s*[\"\x27]/[\"\x27]\s*' apps/api/dataplat_api/routers/jobs.py && grep -q "require_admin" apps/api/dataplat_api/routers/jobs.py` | 退出 0 |
+| AC-3 | static | routers/jobs.py 含 `@router.get("")`（path 空串 → 拼 prefix=/jobs = `/jobs`） + 同行附近 require_admin | `grep -qE '@router\.get\(\s*[\"\x27][\"\x27]\s*[,)]' apps/api/dataplat_api/routers/jobs.py && grep -q "require_admin" apps/api/dataplat_api/routers/jobs.py` | 退出 0 |
 | AC-4 | static | queries.ts 加 useJobs | `grep -qE "export function useJobs" apps/web/src/lib/api/queries.ts` | 退出 0 |
 | AC-5 | static | jobs.tsx 路由文件 + createFileRoute + table 渲染 | `test -f apps/web/src/routes/jobs.tsx && grep -q 'createFileRoute("/jobs")' apps/web/src/routes/jobs.tsx` | 退出 0 |
 | AC-6 | static | 导航含 "Jobs" link 到 /jobs（grep "/jobs" 在 __root.tsx 或 NavBar） | `grep -rE 'to=["\x27]/jobs["\x27]' apps/web/src/routes/__root.tsx apps/web/src/components 2>/dev/null` | 命中 |
@@ -94,7 +102,7 @@ export DATAPLAT_DATABASE_URL=postgresql+asyncpg://dataplat:dataplat@localhost:${
   export DATAPLAT_REDIS_URL=redis://localhost:${DATAPLAT_REDIS_PORT:-6379}/0 && \
   export DATAPLAT_COOKIE_SECURE=false && \
   (cd apps/api && uv run pytest -q --tb=no tests/test_jobs_list.py) && \
-  [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_jobs_list.py 2>&1 | grep -cE 'test_jobs_list\.py::')" -ge 4 ]
+  [ "$(cd apps/api && uv run pytest --collect-only -q tests/test_jobs_list.py 2>&1 | grep -cE 'test_jobs_list\.py::' || true)" -ge 4 ]
 ```
 
 ## 风险
