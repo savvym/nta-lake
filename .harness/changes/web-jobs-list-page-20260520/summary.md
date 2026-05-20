@@ -3,9 +3,9 @@ change_id: web-jobs-list-page-20260520
 title: GET /jobs admin 列表端点 + Web Jobs 页（过滤 + 分页）
 owner: application-owner-agent
 started_at: 2026-05-20T04:54:04Z
-stage: coding
-status: waiting_review
-last_updated: 2026-05-20T13:50:00Z
+stage: deployment
+status: waiting_user_confirmation
+last_updated: 2026-05-20T14:20:00Z
 related_changes:
   - rq-worker-skeleton-20260517
 ---
@@ -31,10 +31,10 @@ related_changes:
 | 4 编码评审 | done | v2 | APPROVED | TBD | [code_review_v2.md](coding/review/code_review_v2.md) |
 | 5 单测编写 | done | v1 | — | TBD | [test_report_v1.md](unit_test/test_report_v1.md) |
 | 6 单测评审 | done | v2 | APPROVED | TBD | [test_review_v2.md](unit_test/review/test_review_v2.md) |
-| 7 代码推送 | | | | | _branch / push ref_ |
-| 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
-| 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
-| 10 用户确认 | | | | | _确认人 / 时间_ |
+| 7 代码推送 | done | — | — | 9bb50e2 / merge 45407ed | branch `change/web-jobs-list-page-20260520` pushed + merged --no-ff into main |
+| 8 CI 验证 | done | — | PASS | — | self_check `web-jobs-list-page` 10/10 PASS；full 链上其余 5 个 FAIL 均为 pre-existing flake（同 AC-13 标注） |
+| 9 部署验证 | done | v1 | PASS | — | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) — 5 项 curl 验证全过 |
+| 10 用户确认 | waiting | — | — | — | 等用户实测 /jobs 页 UI（filter / 翻页 / Refresh / 非 admin 看不到入口） |
 
 ## 关键决策
 

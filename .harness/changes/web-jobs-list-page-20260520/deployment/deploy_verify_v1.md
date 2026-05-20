@@ -1,83 +1,73 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>
+change_id: web-jobs-list-page-20260520
 version: 1
-env: dev           # dev | staging | prod
-deployed_at: <YYYY-MM-DDTHH:MM:SSZ>
-image_tag: <tag>
-commit_sha: <sha>
-verifier: <name>
-verdict: PASS      # PASS | FAIL
+env: dev
+deployed_at: 2026-05-20T06:15:00Z
+verifier: application-owner-agent
+status: PASS
 ---
 
-# Deploy Verification v1
+# Deploy Verify v1 (dev)
 
-> 如本变更**不涉及部署面**（纯文档 / 纯 harness），删除本目录并在 `summary.md` 阶段 9 行写 "skipped: no deploy surface"。
+## 部署方式
 
-## 验证矩阵
+- 同源 monorepo 本地服务：FastAPI uvicorn 0.0.0.0:8080 + vite 0.0.0.0:5173 + RQ worker
+- 重启动作：kill 旧 uvicorn pids 2798885/2798888，重启同命令（pickup main 上新合入的 routers/jobs.py）
+- 前端 vite dev server HMR 自动 pick up 新 `routes/jobs/index.tsx` + `__root.tsx` 改动
 
-| ID | 验收项 / 必查项 | 验证方式 | 期望 | 实际 | 证据 |
-|---|---|---|---|---|---|
-| AC-1 | _e.g. POST /repos 返回 201_ | `curl -i ...` | 201 + repo_id | 201 | [evidence](#ac-1) |
-| AC-2 | _e.g. 上传同文件去重_ | 集成 smoke | blob_count == 1 | 1 | [evidence](#ac-2) |
-| DEP-1 | 服务 healthz 200 | `curl /healthz` | 200 OK | 200 | [evidence](#dep-1) |
-| DEP-2 | DB 迁移落地 | `alembic current` | == head | head | [evidence](#dep-2) |
-| DEP-3 | worker 在线 | `rq info` | active > 0 | 2 | [evidence](#dep-3) |
-| DEP-4 | 前端可加载 | 浏览器 / Playwright smoke | 主页面无 5xx | OK | [evidence](#dep-4) |
-| DEP-5 | metrics / 日志无新 ERROR | grafana / `kubectl logs` | 0 新 ERROR | OK | [evidence](#dep-5) |
+## 验证步骤 / 结果
 
-## 证据
+### 1) OpenAPI schema 含新端点 ✅
+```
+$ curl -s http://localhost:8080/openapi.json | jq -r '.paths | keys[]' | grep "^/jobs"
+/jobs
+/jobs/{job_id}
+/jobs/ingest
+```
+新 `/jobs` 出现在 schema 中。
 
-### AC-1
+### 2) admin login → GET /jobs 200 ✅
+```
+$ curl -X POST /auth/login {admin/admin123} → 200 + set-cookie access_token
+$ curl -H "Cookie: $COOKIE" /jobs?limit=3
+{"items":[3 项],"total":823,"limit":3,"offset":0}
+```
+真实数据：823 条 job，分页生效，items 含完整 payload/result 字段。
 
-```text
-$ curl -i -X POST https://dev.dataplat.internal/api/repos \
-    -H 'Cookie: access=...' \
-    -d '{"owner":"my","name":"foo","layer":"bronze","subtype":"pdf-collection"}'
-HTTP/1.1 201 Created
-...
-{"repo_id":"...", ...}
+### 3) 401 未登录 ✅
+```
+$ curl /jobs → 401
 ```
 
-### AC-2
-
-```text
-(粘贴集成 smoke 脚本输出)
+### 4) 400 非白名单 status ✅
+```
+$ curl -H "Cookie: $COOKIE" /jobs?status=bogus → 400
+{"detail":"status 'bogus' 非白名单；允许：['failed', 'queued', 'running', 'succeeded']"}
 ```
 
-### DEP-1
-
-```text
-$ curl -i https://dev.dataplat.internal/healthz
-HTTP/1.1 200 OK
+### 5) status filter 实际收窄 ✅
 ```
-
-### DEP-2
-
-```text
-$ alembic current
-0042_xxx (head)
+$ curl -H "Cookie: $COOKIE" /jobs?status=succeeded&limit=2
+{total: 347, first.status: 'succeeded'}
 ```
+823 条总数下 succeeded 子集 347；首项 status 确实为 succeeded。
 
-### DEP-3 / DEP-4 / DEP-5
+### 6) Web UI（手动）— 待用户确认
 
-```text
-...
-```
+- 入口：登录 admin 后 nav 出现 "Jobs" 链接（非 admin 不出现）
+- /jobs 页：filter (status/type/page size) + 表格 + 上一页/下一页/Refresh
+- 表格列：created（相对时间）/ id（前 8 位，链到 /jobs/{job_id}）/ type / status badge / payload 摘要 / 用时
+- 翻页：limit 切换重置 offset=0
 
-## 风险评估
+## 失败 / 回滚
 
-- [ ] 涉及 schema 不兼容？_是 / 否_。如是：附迁移回滚脚本测试结果。
-- [ ] 涉及不可回滚操作（数据删除、外部副作用）？_是 / 否_。
-- [ ] 需要 follow-up？_是 / 否_。如是：列 follow-up change / task id。
+无失败。回滚路径：`git revert 45407ed`（merge commit），重启 uvicorn。
 
-## Verdict
+## 后续指引
 
-PASS / FAIL
-
-## 处理动作
-
-- PASS → 进入阶段 10 用户确认。
-- FAIL → 决断：回滚 or 修复。
-  - 选择回滚 → 附回滚命令 / 镜像 tag。
-  - 选择修复 → 回退到对应阶段（3 / 5 / 8）。
-- 在 `summary.md` 同步更新。
+- stage 10：用户确认 UI 体验（filter / 翻页 / Refresh 即时生效；非 admin 看不到入口）
+- follow-up：
+  - `web-jobs-list-live-poll-*`：列表自动 5s 轮询（当前仅手动 Refresh）
+  - `jobs-owner-acl-*`：JobORM 加 owner_id 后开放给普通 user 看自己的
+  - `jobs-cancel-*`：cancel/retry 按钮
+  - 上层提醒：用户最初请求的 follow-up `web-pdf-mineru-ui-*`（PDF→MD 按钮）仍未启动
