@@ -1,243 +1,256 @@
-# 开发流程规则：十阶段
+# 开发流程规则：三阶段（v2，2026-05-20 简化版）
 
 本文件是项目唯一的流程权威。Application Owner Agent 严格按此推进任何变更。
+
+## 为什么从 v1 (10 阶段) 简化到 v2 (3 阶段)
+
+23 个 change 实测后：
+
+- v1 把"需求/编码/单测/CI/部署"各自切出独立 stage + 独立 reviewer + 独立 report，文档开销大、reviewer 调用频繁
+- 70% 的 reviewer MUST FIX 集中在 spec 阶段；coding / unit_test 评审多数只抓到 NTH 或 SHOULD FIX
+- Doc-only change 跑完 3 个 reviewer 性价比极低
+
+简化决策（2026-05-20 用户授权直接落地，无 change-record-bureaucracy）：
+
+- 把"需求 + 评审"合 → **Phase 1 Design**（opus 出方案 + opus reviewer 把关）
+- 把"编码 + 单测 + 端到端验证 + push + PR"合 → **Phase 2 Implementation**（sonnet 端到端做完）
+- 把"PR 复核 + 用户确认"合 → **Phase 3 Verify**（opus reviewer 对照 Phase 1 设计验 PR）
 
 ## 总览
 
 ```text
-需求分析 → 需求评审 → 编码实现 → 编码评审 → 单测编写 → 单测评审
-       → 代码推送 → CI 验证 → 部署验证 → 用户确认
+Phase 1 Design (opus)  ──→  Phase 2 Implementation (sonnet)  ──→  Phase 3 Verify (opus)
+   ↓                            ↓                                     ↓
+design.md                  implementation.md                     verify_review.md
+design_review.md           (含 PR link)                          ↓
+   ↓                            ↓                              merge + close
+APPROVED / SMALL /         全部 AC PASS +
+BIG REWRITE                端到端验证通过
 ```
 
-每个阶段定义四要素：
+3 个阶段，5 个产物文件，每阶段一次 model spawn。
 
-- **Entry Criteria**：满足才能进入此阶段。
-- **Skill Injection**：进入时加载哪个 `.harness/skills/<name>/SKILL.md`。
-- **Quality Gate**：通过判定标准（必须可程序化或可机械化校验）。
-- **Rollback Route**：失败时回退到哪个阶段。
+## 模型分配硬约束
 
-所有产物按 `.harness/changes/<change-id>/` 下的对应子目录归档；`summary.md` 实时反映当前阶段与门禁状态。
+| 阶段 | 主模型 | 为什么 |
+|---|---|---|
+| Phase 1 Design | **opus** | 设计判断重，需要深度推理 + 架构视野 |
+| Phase 1 Reviewer | **opus** | 同上，复审需要至少跟设计同级别的判断力 |
+| Phase 2 Implementation | **sonnet** | 执行密度高，速度优先；端到端做完不打断 |
+| Phase 3 Reviewer | **opus** | 最终把关，对照原始设计验收 PR 是否落地 |
 
-### 自检分层
+违反此分配 → 流程失败。
 
-- **阶段内快检**：`bash scripts/_self_check.sh quick [change-id]`，只跑 reviewer/ac-kind 轻量守门和阶段产物 preflight。
-- **当前 change 检查**：`bash scripts/_self_check.sh current [change-id]`，等价于 quick + 当前 change 已注册的 AC block；新 change 尚未注册 block 时只记 SKIP，不阻塞阶段内迭代。
-- **最终门禁**：`bash scripts/_self_check.sh full`，跑全部历史回归。无参数入口为兼容旧流程，等价于 `full`，不要在阶段内循环使用。
-- 全量 `ruff` / `mypy` / web build / 历史回归默认放到阶段 8；阶段 3/5 只跑与本次改动面直接相关的最小命令集。
+## Phase 1：Design
 
-### Git 边界
+### 由谁做
 
-- 每个 change 只对应一个 `change/<change-id>` 分支。
-- 每个阶段 Quality Gate 通过后提交一次该阶段产物，并把 commit SHA 记录到 `summary.md`。
-- 阶段之间评估改动优先用 `git diff <上一阶段commit>...HEAD`；reviewer 不再靠人工翻历史文件判断增量。
+Application Owner（即当前会话的主 agent，默认 opus）。
 
----
+### Entry Criteria
 
-## 阶段 1 · 需求分析（request_analysis）
+- 用户提出明确诉求（即使只有一两句话）
+- 已通过 `bash scripts/harness_new_change.sh <change-id> [title]` 创建 `.harness/changes/<change-id>/`，切到 `change/<change-id>` 分支
 
-- **Entry Criteria**：用户已提出明确诉求；已通过 `bash scripts/harness_new_change.sh <change-id> [title]` 创建 `.harness/changes/<change-id>/` 并切到 `change/<change-id>` 分支。
-- **Skill Injection**：`skills/request-analysis/SKILL.md`。
-- **产出物**：
-  - `request_analysis/spec.md`：背景、问题陈述、范围、非范围、验收标准、风险。
-  - `request_analysis/tasks.md`：任务拆解清单（含依赖关系、预计阶段）。
-- **Quality Gate**：
-  - `spec.md` 存在且包含必填章节：背景 / 范围 / 非范围 / 验收标准 / 风险。
-  - 验收标准每一条都**可机械化或可演示验证**（不允许 "用户感觉良好"）。
-  - `tasks.md` 任务粒度足够细：每个任务能在 1-3 小时内完成。
-- **Rollback Route**：本阶段是起点，失败即终止变更或回到与用户的对话。
+### 产物：`design.md`（单个文件，spec + tasks 合并）
 
-## 阶段 2 · 需求评审（request_analysis/review）
+强制章节：
 
-- **Entry Criteria**：阶段 1 产物齐全。
-- **Skill Injection**：`skills/expert-reviewer/SKILL.md`（plan 模式）。
-- **执行者要求（硬约束）**：**必须由独立 reviewer agent 执行**；不允许同一会话同时扮演 generator 与 reviewer（self-review）；Application Owner 通过 `Agent(subagent_type="general-purpose", ...)` spawn 子 agent。详见 `.harness/agents/application-owner.md` § 7.5 spawn 模板 + `.harness/agents/reviewer-agent.md` + `.harness/skills/expert-reviewer/SKILL.md` § reviewer 字段填写规约。违反者被 `scripts/_self_check.sh` `run_reviewer_lint` 硬 FAIL。
-- **产出物**：
-  - `request_analysis/review/spec_review_v{N}.md`
-  - `request_analysis/review/tasks_review_v{N}.md`
-  - 每份 review 必须有 `verdict: APPROVED | REVISION REQUIRED`，且 MUST FIX 项有具体行号引用。
-  - reviewer 字段必须以 `claude-agent:` 起头（真 spawn 子 agent ID）或 `self-attest (<理由>)`（显式偏离声明）；裸 `application-owner-agent` 等价 self-review，被 lint 硬 FAIL。
-- **Quality Gate**：
-  - 评审报告存在且包含必填章节。
-  - 所有 MUST FIX 已在新 spec/tasks 版本中关闭。
-  - 最终一轮 verdict = APPROVED。
-  - reviewer 字段合规（白名单 `claude-agent:` 或 `self-attest (...)`）。
-- **Rollback Route**：REVISION REQUIRED → 回到阶段 1。
+1. **一句话目标**（≤ 30 字，复述用户诉求）
+2. **背景**（为什么现在做，1-2 段）
+3. **范围 / 非范围**（bullet list，非范围列出"不做 X：理由"）
+4. **验收标准**（AC 表，至少 1 条 `kind: behavioral`；纯 doc/治理变更可声明 `ac_kind_lint: exempt` + 理由）
+5. **任务清单**（粗粒度任务，标 covers_ac）
+6. **风险**（risk + 缓解，至少 1 条）
+7. **决策日志**（如果是从用户对话沉淀出来的，列时间戳 + 决策点）
 
-## 阶段 3 · 编码实现（coding）
+### Quality Gate：spawn Phase 1 Reviewer (opus)
 
-- **Entry Criteria**：阶段 2 verdict = APPROVED；`engineering-structure.md` 与 `coding-style.md` 已加载。
-- **Skill Injection**：`skills/coding-skill/SKILL.md`。
-- **产出物**：
-  - 实际代码改动（在 dataplat 代码区或 plugins/）。
-  - `coding/coding_report_v{N}.md`：改了哪些文件、为何这样改、tasks.md 中对应任务状态。
-- **Quality Gate**：
-  - 改动文件清单与 `tasks.md` 任务对得上（每个任务有对应改动或显式标记 "deferred 见 xxx"）。
-  - 本地最小校验通过：与本次改动面直接相关的 lint / type check / 测试为 0 错误，并通过 `bash scripts/_self_check.sh current <change-id>`。
-  - 没有引入未在 spec 中授权的依赖或目录。
-- **Rollback Route**：
-  - 编译/类型错误未修 → 留在本阶段。
-  - 发现 spec 缺失或自相矛盾 → 回阶段 1。
+Application Owner 完成 design.md 后 spawn **opus reviewer**，prompt 应含：
 
-## 阶段 4 · 编码评审（coding/review）
+- 读 design.md
+- 验证 AC 是否可机械化（建议 reviewer 真去跑 grep / awk 命令，特别是带 `awk '/start/,/end/'` 类的命令避坑）
+- 验证范围与非范围互不冲突 / 不漏
+- 验证至少 1 条 behavioral AC（或合规声明 exempt）
+- 验证决策日志真实（如有）
+- 不允许 reviewer 改 design.md，只能写 `design_review.md`
 
-- **Entry Criteria**：阶段 3 Quality Gate 通过。
-- **Skill Injection**：`skills/code-review/SKILL.md`。
-- **执行者要求（硬约束）**：**必须由独立 reviewer agent 执行**；不允许同一会话同时扮演 generator 与 reviewer（self-review）；Application Owner 通过 `Agent(subagent_type="general-purpose", ...)` spawn 子 agent。详见 `.harness/agents/application-owner.md` § 7.5 spawn 模板 + `.harness/agents/reviewer-agent.md`。违反者被 `scripts/_self_check.sh` `run_reviewer_lint` 硬 FAIL。
-- **产出物**：
-  - `coding/review/code_review_v{N}.md`：分类标 MUST FIX / SHOULD FIX / NICE TO HAVE，verdict。
-  - reviewer 字段必须以 `claude-agent:` 起头或 `self-attest (<理由>)`；裸 `application-owner-agent` 被 lint 硬 FAIL。
-- **Quality Gate**：
-  - 评审报告存在；所有 MUST FIX 已关闭；最终一轮 verdict = APPROVED。
-  - SHOULD FIX 若有未关闭项，须在 `summary.md` 显式说明 deferred 原因和跟进位置。
-  - reviewer 字段合规。
-- **Rollback Route**：REVISION REQUIRED → 回阶段 3。
+**Reviewer 三档 verdict**：
 
-## 阶段 5 · 单测编写（unit_test）
+| Verdict | 含义 | 后续 |
+|---|---|---|
+| `APPROVED` | 设计可直接进 Phase 2 | 进入 Phase 2 |
+| `SMALL REVISIONS` | 有 MUST FIX 但都是局部修订（typo / AC 命令错误 / 漏 1-2 条非范围）| Application Owner 一轮修订 design.md → **不再 spawn reviewer**，直接进 Phase 2 |
+| `BIG REWRITE` | 设计在范围 / 抽象 / 风险上有根本问题 | Application Owner 重写 design.md，**再 spawn 一次 reviewer** |
 
-- **Entry Criteria**：阶段 4 通过。
-- **Skill Injection**：`skills/unit-test-write/SKILL.md`。
-- **产出物**：
-  - 测试代码（与改动同 PR）。
-  - `unit_test/test_report_v{N}.md`：测试用例清单、覆盖的 spec 验收项、本地运行结果。
-- **Quality Gate**：
-  - **改动驱动**：本次改动新增/修改的每一个公共函数或路由，至少有一条直接测试。
-  - 本地 `pytest` / `vitest` 全部通过；测试数 > 0。
-  - 测试**不允许**对核心数据访问层做无条件 mock（详见 `coding-style.md` §测试）。
-- **Rollback Route**：本地测试失败 → 留在阶段 5 或回阶段 3。
+**反 over-engineering 约束**：reviewer 一次给出**所有** MUST FIX，不允许"v1 修了再说 v2 还有问题"挤牙膏。Application Owner 修完一轮就进 Phase 2。
 
-## 阶段 6 · 单测评审（unit_test/review）
+### Rollback Route
 
-- **Entry Criteria**：阶段 5 Quality Gate 通过。
-- **Skill Injection**：`skills/expert-reviewer/SKILL.md`（artifact 模式）。
-- **执行者要求（硬约束）**：**必须由独立 reviewer agent 执行**；不允许同一会话同时扮演 generator 与 reviewer（self-review）；Application Owner 通过 `Agent(subagent_type="general-purpose", ...)` spawn 子 agent。详见 `.harness/agents/application-owner.md` § 7.5 spawn 模板 + `.harness/agents/reviewer-agent.md`。违反者被 `scripts/_self_check.sh` `run_reviewer_lint` 硬 FAIL。
-- **产出物**：
-  - `unit_test/review/test_review_v{N}.md`
-  - reviewer 字段必须以 `claude-agent:` 起头或 `self-attest (<理由>)`；裸 `application-owner-agent` 被 lint 硬 FAIL。
-- **Quality Gate**：
-  - 每条 spec 验收标准都能追溯到具体测试用例（review 报告列出映射表）。
-  - 没有"空跑"测试（断言空、只 assert True、把异常 swallow）。
-  - verdict = APPROVED。
-  - reviewer 字段合规。
-- **Rollback Route**：REVISION REQUIRED → 回阶段 5。
-
-## 阶段 7 · 代码推送（push）
-
-- **Entry Criteria**：阶段 6 通过；本地 git 状态干净（无未追踪的应入库文件）。
-- **Skill Injection**：无（直接 git 操作）。
-- **产出物**：
-  - 已按阶段形成的一组 commit；推送到远端分支。
-  - `git push -u origin change/<change-id>`；禁止将未完成 change 直接推到 `main`。
-  - `summary.md` 更新 commit SHA、分支名。
-- **Quality Gate**：
-  - commit message 遵循约定（详见 `coding-style.md` §git）。
-  - 当前分支名匹配 `change/<change-id>`。
-  - `git status` 显示当前分支 up to date with `origin/change/<change-id>`（验证本地与 remote 同步）。
-- **Rollback Route**：
-  - 推送失败（鉴权 / 网络）→ 检查 ssh-agent / remote URL，重试；不解决前不进入下一阶段。
-  - 推送被拒（remote 有新 commit 未 pull）→ `git pull --rebase` 解决冲突后重试。
-
-## 阶段 8 · CI 验证（ci_result）
-
-- **Entry Criteria**：阶段 7 完成。
-- **本项目策略（self-attest 默认）**：**本地 pytest + `bash scripts/_self_check.sh full` 等价 CI**；**不引入 GitHub Actions / GitLab CI 等远程 CI**（理由：等价覆盖 + 反馈快 + 单作者无 PR review 摩擦）。新 change 标 stage 8 = `self-attest` 时**必须**引用本节理由文案（"本项目策略：本地 pytest + self_check.sh full 等价 CI..."）；**禁用**早期"无远程"系列旧理由（详 `harness-remote-push-onboarding-20260518` 撤销说明）。
-- **Skill Injection**：`skills/unit-test-ci/SKILL.md`（仅当未来引入远程 CI 时启用）。
-- **产出物**（仅在引入远程 CI 时）：
-  - `ci_result/ci_result_v{N}.md`：CI 运行链接、status、total_tests、passed_tests、failed_tests、coverage（如有）。
-  - self-attest 路径：在 `summary.md` 阶段 8 行填 `self-attest`，notes 引用本节策略。
-- **本地等价 CI 命令**：`bash scripts/_self_check.sh full` 必须通过；如本 change 涉及 Python/TS 代码，还需跑对应 workspace 的全量 lint/typecheck/build/test 命令并记录结果。
-- **Quality Gate**（**机械化**，仅远程 CI 路径）：
-  ```text
-  status == SUCCESS
-  total_tests > 0
-  passed_tests == total_tests
-  ```
-- **Rollback Route**：
-  - 失败属于代码 bug → 回阶段 3。
-  - 失败属于测试 bug → 回阶段 5。
-  - 失败属于 CI 配置 → 走 `ci-generate` Skill 修配置，可能开独立子变更。
-
-## 阶段 9 · 部署验证（deployment）
-
-- **Entry Criteria**：阶段 8 通过；变更涉及部署面（API、worker、web、plugin 镜像之一）。
-- **Skill Injection**：`skills/deploy-verify/SKILL.md`。
-- **产出物**：
-  - `deployment/deploy_verify_v{N}.md`：环境、部署版本、验证步骤、验证证据（请求/响应、UI 截图、日志摘录）。
-- **Quality Gate**（**硬约束，harness-ac-behavioral-tier-20260518 引入**）：
-
-  > 实证背景：`pipeline-orchestrator-mvp-20260518` stage 9 第一次真跑端到端 demo 抓到 3 个真 bug。如果允许 verdict=deferred 或证据空，这种价值就会被绕过。
-
-  - **(i) 默认**：`verdict: PASS`。`deployment/deploy_verify_v{N}.md` frontmatter `verdict` 字段非空且不为 `deferred` / `FAIL` / `unknown`。
-  - **(ii) 替代路径**：允许 `verdict: PASS via self-attest (理由)`，但**必填 4 字段**（缺一不可）：
-    - `理由`：一句话说明为什么用 self-attest（如"纯 harness 无部署面"、"本机已跑通但无 staging"）。
-    - `本机证据列表`：命令输出路径或粘贴块（如 `/tmp/dataplat-dev-logs/evidence/` 下文件清单 + 关键输出片段）。
-    - `跑过的命令`：bash 历史 / 命令列表（如 `bash scripts/lint/test_ac_kind_lint_fixture.sh`、`curl -X POST .../healthz` 等）。
-    - `时间`：ISO8601 UTC。
-  - **(iii) 禁止纯 `deferred`**：无 self-attest 或证据空 = self_check FAIL（未来 follow-up `harness-stage9-lint-*` 机械化此约束）。
-  - **(iv) AC 真实性**：deploy_verify_v{N}.md 至少 1 条 AC 与 `request_analysis/spec.md` 的 `kind: behavioral` AC 对应（详见 `.harness/skills/request-analysis/SKILL.md` § "AC 分层规约"）。
-
-  其他原有约束保留：
-  - 关键验证步骤每一条都有具体证据。
-  - 涉及数据库迁移的变更：迁移前后的 schema 对比、回滚脚本验证。
-  - 不留 "应该没问题" 类自然语言结论。
-
-- **self-attest 模板片段**（粘贴到 deploy_verify_v{N}.md frontmatter / 第一节）：
-
-  ```yaml
-  ---
-  change_id: <feature-slug>-<yyyymmdd>
-  version: 1
-  env: dev | staging | prod
-  deployed_at: <YYYY-MM-DDTHH:MM:SSZ>
-  commit_sha: <sha>
-  verifier: claude-agent:<change-id>-stage9-verifier-v1
-  verdict: PASS via self-attest (理由：一句话)
-  self_attest:
-    理由: <复述 + 链接到本机证据>
-    本机证据列表:
-      - /tmp/dataplat-dev-logs/evidence/01-foo.txt
-      - /tmp/dataplat-dev-logs/evidence/02-bar.json
-    跑过的命令:
-      - "bash scripts/lint/test_xxx_fixture.sh"
-      - "curl -X POST http://127.0.0.1:8080/foo ..."
-    时间: 2026-05-18T08:00:00Z
-  ---
-  ```
-
-- **Rollback Route**：失败 → 回到对应实现或 CI 阶段；线上若已部署需附回滚步骤。
-
-## 阶段 10 · 用户确认（user_confirmation）
-
-- **Entry Criteria**：阶段 9 通过（无部署面则阶段 8 通过即可）。
-- **Skill Injection**：无（与提出方对齐）。
-- **产出物**：
-  - `summary.md` 末段补上：用户确认时间、确认人、最终交付链接、关闭决议。
-- **Quality Gate**：
-  - 用户明确确认（不接受 "没有反对意见 = 默认通过"）。
-- **Rollback Route**：用户提出新问题 → 视性质开新 change 或回到对应阶段做新一轮。
+- 用户在 Phase 1 reviewer 之后反悔 → 直接改 design.md + 重写 design_review.md（记录"用户后撤一轮"）
+- Phase 2 中途发现设计不对 → 回到 Phase 1 改 design.md + 写 design_review_v2.md 说明改了什么
 
 ---
 
-## 典型回退路径（速查）
+## Phase 2：Implementation
 
-| 触发场景 | 回退到 |
-|---|---|
-| spec 不清晰 / 自相矛盾 | 阶段 1 需求分析 |
-| spec/tasks 评审不通过 | 阶段 1 需求分析 |
-| 代码评审不通过 | 阶段 3 编码 |
-| 单测为 0 或未覆盖关键路径 | 阶段 5 单测编写 |
-| 编译/类型错误 | 阶段 3 编码 |
-| 测试 mock 滥用被评审打回 | 阶段 5 单测编写 |
-| CI 失败（代码 bug） | 阶段 3 编码 |
-| CI 失败（CI 配置 bug） | 触发 `ci-generate` Skill |
-| 部署验证不通过 | 视失败位置回到阶段 3/5/8 |
-| 用户最终验收拒绝 | 视性质回到阶段 1 或开新 change |
+### 由谁做
+
+Application Owner spawn **sonnet** 实现 agent，sonnet **端到端**做完编码 + 测试 + 验证 + PR。
+
+### Entry Criteria
+
+- design.md APPROVED (或 SMALL REVISIONS + 一轮修订完成)
+- design_review.md 存在且 verdict ≠ BIG REWRITE
+
+### sonnet 必做事项（在一次 agent 调用内全部完成）
+
+1. **编码**：按 design.md § 任务清单 落实改动
+2. **单元测试**：写 pytest / vitest，按 AC 表覆盖 behavioral AC
+3. **端到端验证**：
+   - 跑 `bash scripts/_self_check.sh <change-id>` → 10/10 PASS（或本 change 实际 AC 数）
+   - 跑相关业务测试：`pnpm --filter web test` / `uv run pytest tests/test_<related>.py`
+   - 如涉及 UI：本地 curl smoke 验证 API 端点 / dev server 起来验证 import 不挂
+4. **修当前 change 引入的 lint / typecheck**：`pnpm --filter web typecheck` + `uv run ruff check` 全过
+5. **commit + push**：单一 commit（除非 design 明确分多个），推到 `change/<change-id>` 分支
+6. **提 PR**（如 gh 可用）或返回 branch ref + 等同 PR 描述
+
+### 产物：`implementation.md`（单个文件）
+
+sonnet 必填字段：
+
+1. **改动文件清单**（`git diff --name-only main...HEAD` 等同）
+2. **任务完成情况**（design.md 每个 task 标 done / partial / deferred + 理由）
+3. **测试通过证据**：self_check 输出 / pytest / vitest 末尾 PASS 行
+4. **端到端验证证据**：curl 命令 + 200 响应 / vitest snapshot / dev server log 等
+5. **偏离 design.md 的地方**（如有，每条带理由）
+6. **PR 链接**或 branch HEAD SHA + PR 描述草稿
+
+### Quality Gate（sonnet 自检 + Application Owner 收尾）
+
+- self_check `<change-id>` 全 PASS（FAIL 必须是 pre-existing flake 且在 implementation.md 标注）
+- 全 web vitest 不回归 / 全 pytest 当前 module 不回归
+- 没有 typecheck / lint 错误
+- branch 已 push
+
+### Rollback Route
+
+- 发现 design.md 漏了某个 AC 或漏了某个约束 → Application Owner 改 Phase 1 design.md + 写 design_review_v2 → sonnet 续做
+- 测试始终过不了 → 回 Phase 1 重新评估方案
 
 ---
 
-## 跨阶段约束
+## Phase 3：Verify
 
-1. **`summary.md` 实时更新**。每个阶段开始/通过/失败都要同步。
-2. **review 版本号永远递增**。`spec_review_v1.md` 不通过 → 不要覆盖，写 `spec_review_v2.md`。
-3. **多轮评审之间**：Generator 阶段产物也要新版本（`spec_v2.md` 等），保留历史。
-4. **小变更不裁剪阶段**。可以让某些阶段产物极简（一两句话），但**不能不存在**。
-5. **跨 change 依赖**：如果当前 change 依赖另一个未完成 change 的产物，在 `summary.md` 显式声明依赖与等待状态，不要在 `tasks.md` 偷偷绕过。
+### 由谁做
+
+Application Owner spawn **opus reviewer**。
+
+### Entry Criteria
+
+- implementation.md 写完
+- branch 已 push 且 PR 已开（或等同物：branch ref + PR 描述）
+- self_check `<change-id>` PASS
+
+### Phase 3 Reviewer 必做事项
+
+1. **读 design.md**（原始要求）
+2. **读 implementation.md**（声称的实现）
+3. **读 git diff**：`git diff main...change/<change-id>` 对照实际改动
+4. **运行 mechanical 检查**（reviewer 真去跑，不只是看声明）：
+   - `bash scripts/_self_check.sh <change-id>`
+   - 如涉及 API：用 curl 真打一次新端点
+   - 如涉及 UI：检查 vite build 不挂
+5. **判断 PR 是否兑现 design**：每条 AC 标 PASS / FAIL / NOT-VERIFIABLE
+6. **判断有没有偏离 design.md 且未在 implementation.md § 偏离 处声明**（隐式偏离 = MUST FIX）
+
+### 产物：`verify_review.md`
+
+frontmatter：
+```yaml
+---
+change_id: <id>
+reviewer: opus-phase3-reviewer
+authored_at: <ISO timestamp>
+verdict: APPROVED | MINOR FIX | MAJOR ISSUE
+---
+```
+
+正文：
+- **AC 对照表**：每条 AC PASS/FAIL + 证据命令
+- **隐式偏离审计**：implementation.md 没声明的偏离（如有）
+- **机械化检查日志**：reviewer 自己跑的命令 + 输出
+- **Verdict**
+
+**三档 verdict**：
+
+| Verdict | 含义 | 后续 |
+|---|---|---|
+| `APPROVED` | PR 兑现 design + AC 全 PASS + 无隐式偏离 | merge to main + close change |
+| `MINOR FIX` | 1-3 个小问题（test 漏一个 case / doc 错字 / 1 个文件漏改） | spawn sonnet 一轮修 → **不再 spawn 第二轮 verify**，直接 merge |
+| `MAJOR ISSUE` | 多个 AC 没兑现 / 实现跟 design 严重偏离 / 引入回归 | 回 Phase 2 重做，spawn 新 sonnet（带具体修订要求）|
+
+### Rollback Route
+
+- 用户在 Phase 3 之后实测发现问题 → 不开新 change，直接在当前 change 加 `verify_review_v2.md` + sonnet 续做
+
+---
+
+## change 目录结构（新，v2）
+
+```
+.harness/changes/<id>-<date>/
+├── summary.md          # 3 行阶段表 + meta（封面，永远是 SoT）
+├── design.md           # Phase 1 产物（含 spec + tasks）
+├── design_review.md    # Phase 1 reviewer 报告
+├── implementation.md   # Phase 2 产物（含编码/测试/e2e/PR）
+└── verify_review.md    # Phase 3 reviewer 报告
+```
+
+5 个文件。**废除** v1 的 `request_analysis/` / `coding/` / `unit_test/` / `ci_result/` / `deployment/` 目录结构。
+
+旧 change（v1 时期的 23 个）保留原结构，**不回写**。
+
+## 何时可以跳过 reviewer？
+
+- **极小变更**（< 3 行代码 + 不动 API / schema / 接口）：可由 Application Owner 自审
+- 自审仍要 design.md + implementation.md（即使简短，1 段就够）
+- 跳过的 reviewer 文件用 `<file>.md` 含 frontmatter `verdict: self-attest` + 一段理由代替
+
+不允许跳过的情况：
+- 涉及 schema 变更 / API 接口变更 / 跨 change 影响
+- 涉及违反 `.harness/rules/data-not-code-pivot.md` 任意一条（永不做清单）—— 这种 change 不允许做，reviewer 必查
+- 涉及 architecture pivot
+
+## 自检（保留 v1 逻辑）
+
+每个 change 仍要在 `scripts/_self_check.sh` 添加自己的 AC block（如适用）。
+
+- **阶段内快检**：`bash scripts/_self_check.sh quick [change-id]`
+- **当前 change 检查**：`bash scripts/_self_check.sh current [change-id]`
+- **最终门禁**：`bash scripts/_self_check.sh full`
+
+sonnet 在 Phase 2 完成前必须验证 `bash scripts/_self_check.sh <change-id>` PASS。
+
+## Git 边界（保留 v1 逻辑）
+
+- 每个 change 一个 `change/<change-id>` 分支
+- Phase 2 完成时一次 push；Phase 3 APPROVED 后 merge --no-ff 到 main
+- 不在 main 直接 commit（除非是当前这种"用户授权绕过流程改 harness 框架本身"的极特殊情况）
+
+## 跨 reviewer 反复迭代的硬约束
+
+为了防止 reviewer cycle 无限拉长：
+
+- Phase 1 reviewer 一次给完**所有** MUST FIX
+- Application Owner 修一轮就进 Phase 2，**不允许 spawn Phase 1 reviewer v2**（除非用户明确要求或 verdict 是 BIG REWRITE）
+- Phase 3 reviewer 给 MINOR FIX → sonnet 修一轮直接 merge，**不允许 spawn Phase 3 reviewer v2**
+- 反复迭代是 v1 时代的失败模式，v2 显式禁止
+
+---
+
+## v1 兼容（仅供历史参考）
+
+23 个 v1 时期 change 的目录结构（`request_analysis/spec.md` + `coding/coding_report_v1.md` + …）保留不动。新 change 一律按 v2 走。
+
+v1 流程文档：`.harness/rules/development-process-v1-deprecated.md`。

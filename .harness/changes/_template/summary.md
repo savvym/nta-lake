@@ -1,70 +1,60 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>     # 与目录名一致
+change_id: <feature-slug>-<yyyymmdd>
 title: <一句话概括>
-owner: <负责人>
+owner: application-owner-agent
 started_at: <YYYY-MM-DDTHH:MM:SSZ>
-stage: request_analysis                  # 当前所处阶段
-status: in_progress                      # in_progress | waiting_review | blocked | done | abandoned
+phase: <design | implementation | verify | done>
+status: <in_progress | waiting_review | blocked | done | abandoned>
 last_updated: <YYYY-MM-DDTHH:MM:SSZ>
-related_changes: []                      # 依赖或被依赖的其他 change id
+related_changes: []
 ---
 
 # Summary
 
-> 这是本变更的 Single Source of Truth。任何阶段开始 / 通过 / 失败都必须同步更新这里。
+> 三阶段简化流程下，本文件是 SoT。每阶段开始 / 通过 / 失败都同步这里。
 
 ## 一句话目标
 
-<复述用户诉求，不展开。>
+<复述用户诉求>
 
 ## 范围摘要
 
-- **In scope**：<bullet list>
-- **Out of scope**：<bullet list>
+- **In scope**：<bullets>
+- **Out of scope**：<bullets>
 
 ## 阶段进度
 
-| 阶段 | 状态 | 最新版本 | verdict | 阶段 commit | 产物 / 报告 |
+| 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| 1 需求分析 | _pending / in_progress / done_ | _v1_ | _APPROVED / REVISION REQUIRED / —_ | _sha_ | [spec.md](request_analysis/spec.md) · [tasks.md](request_analysis/tasks.md) |
-| 2 需求评审 | | | | | [spec_review_v1.md](request_analysis/review/spec_review_v1.md) · [tasks_review_v1.md](request_analysis/review/tasks_review_v1.md) |
-| 3 编码实现 | | | | | [coding_report_v1.md](coding/coding_report_v1.md) |
-| 4 编码评审 | | | | | [code_review_v1.md](coding/review/code_review_v1.md) |
-| 5 单测编写 | | | | | [test_report_v1.md](unit_test/test_report_v1.md) |
-| 6 单测评审 | | | | | [test_review_v1.md](unit_test/review/test_review_v1.md) |
-| 7 代码推送 | | | | | _branch / push ref_ |
-| 8 CI 验证 | | | | | [ci_result_v1.md](ci_result/ci_result_v1.md) |
-| 9 部署验证 | | | | | [deploy_verify_v1.md](deployment/deploy_verify_v1.md) |
-| 10 用户确认 | | | | | _确认人 / 时间_ |
+| Phase 1 Design | opus | _draft / reviewing / approved / small_revisions / big_rewrite_ | _APPROVED / SMALL REVISIONS / BIG REWRITE_ | _sha_ | [design.md](design.md) · [design_review.md](design_review.md) |
+| Phase 2 Implementation | sonnet | _in_progress / done_ | — | _sha_ | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | _reviewing / approved / minor_fix / major_issue_ | _APPROVED / MINOR FIX / MAJOR ISSUE_ | _sha_ | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
-| 时间 | 决策 | 理由 / 取舍 | 关联文件 |
+| 时间 | 决策 | 理由 | 关联 |
 |---|---|---|---|
-| _YYYY-MM-DD_ | _e.g. 选择 A 方案而非 B_ | _原因_ | _spec.md §x_ |
+| _YYYY-MM-DD_ | _e.g. 选 A 方案_ | _原因_ | _design.md §x_ |
 
 ## 当前阻塞
 
-- <如有阻塞，列在这里：等待谁的输入 / 待哪个上游 change 完成 / 待某个 ADR 决议>
+<如有>
 
-## Deferred 项（已 review 通过但未在本 change 内修）
+## Deferred 项
 
 | 类型 | 描述 | 跟进位置 |
 |---|---|---|
-| SHOULD FIX | _e.g. 加更细的并发测试_ | _follow-up change <id> 或 task <id>_ |
+| SHOULD FIX (verify) | <e.g. 加并发测试> | follow-up change <id> |
 
-## 交付
-
-> 关闭本变更时填写。
+## 交付（merge 时回填）
 
 - Branch：`change/<change-id>`
 - PR：<链接>
 - Merge commit：`<sha>`
-- 部署版本（如有）：`<image tag / release tag>`
-- 用户确认：<人 / 时间>
+- 用户确认（如适用）：<人 / 时间>
 - 关闭时间：<YYYY-MM-DDTHH:MM:SSZ>
 
 ## 复盘（可选）
 
-- 哪些步骤超预期顺利
-- 哪些步骤踩坑：根因 + 防复发机制（一定要落到 rules / skills 的修订）
+- 哪些顺利
+- 哪些踩坑：根因 + 防复发（落到 .harness/rules/ 或 .harness/skills/）

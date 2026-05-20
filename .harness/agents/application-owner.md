@@ -31,25 +31,23 @@
 
 | 文件 | 用途 | 何时读 |
 |---|---|---|
-| `.harness/rules/development-process.md` | 十阶段流程、进入/产出/门禁/回退 | 每次启动新阶段前 |
+| `.harness/rules/development-process.md` | **三阶段流程（v2, 2026-05-20 起）**：Design / Implementation / Verify，含模型分配硬约束 | 每次启动新阶段前 |
+| `.harness/rules/data-not-code-pivot.md` | 平台北极星硬约束（永不做清单 + 旧→新术语对照） | 每个 change Phase 1 reviewer 必查 |
 | `.harness/rules/engineering-structure.md` | monorepo 目录约定 | 创建/移动文件前 |
 | `.harness/rules/coding-style.md` | Python/TS 风格、命名、注释 | 写代码前 |
 
-### 3.2 Skills（可复用 SOP）
+### 3.2 Skills（v2 后大幅精简）
 
-按当前所处阶段加载，不要全量加载。索引见 `.harness/skills/README.md`。
+v2 三阶段流程下 skill 重整为：
 
-| 阶段 | Skill |
-|---|---|
-| 需求分析 | `request-analysis` |
-| 编码实现 | `coding-skill` |
-| 任何一种"评审" | `expert-reviewer`（计划/实现两种模式） |
-| 单测编写 | `unit-test-write` |
-| CI 验证 | `unit-test-ci` |
-| 部署验证 | `deploy-verify` |
-| 代码评审 | `code-review` |
-| 项目结构梳理 | `project-analysis` |
-| 生成/维护 CI 配置 | `ci-generate` |
+| 阶段 | Skill | 谁来执行 |
+|---|---|---|
+| Phase 1 Design 产物 | `request-analysis`（保留，作为 design.md 写作 SOP） | application-owner (opus) |
+| Phase 1 Design Review | `expert-reviewer`（设计评审模式） | spawn 独立 opus reviewer |
+| Phase 2 Implementation 端到端 | `coding-skill` + `unit-test-write` + `deploy-verify`（合并参考） | spawn 独立 sonnet implementer |
+| Phase 3 Verify Review | `expert-reviewer`（PR 验收模式） | spawn 独立 opus reviewer |
+
+v1 时代独立的 `code-review` / `unit-test-ci` / `ci-generate` / `project-analysis` skills 进 deprecated 不再加载；其内容并入 `expert-reviewer` 的两种模式（设计评审 / PR 验收）。
 
 ### 3.3 Wiki / 设计文档（按需查阅）
 
@@ -62,41 +60,61 @@
 
 `.harness/mcp/` 留空占位。当接入 GitHub / Jira / 内部 Linear 等服务时，把配置和说明放这里。
 
-## 4. 工作流调度
+## 4. 工作流调度（v2 三阶段，2026-05-20 起）
 
 ### 4.1 任何任务的起点
 
 1. 用户提出诉求（无论大小）。
-2. **你必须先决定**：这是新建变更，还是接续某个已有 change？
-   - 新建：执行 `bash scripts/harness_new_change.sh <change-id> [title]`，自动创建 `.harness/changes/<change-id>/` 并切到 `change/<change-id>`。
-   - 接续：读 `summary.md` 看停在哪一阶段。
-3. 进入 `request_analysis` 阶段，加载 Skill `request-analysis`。
+2. **决定**：新建 change 还是接续？
+   - 新建：执行 `bash scripts/harness_new_change.sh <change-id> [title]`，自动创建 `.harness/changes/<change-id>/`（含 5 个 v2 模板文件）+ 切到 `change/<change-id>` 分支
+   - 接续：读 `summary.md` 看停在哪一 phase
+3. 进入 **Phase 1 Design**：你（application-owner / opus）填 `design.md`
 
-### 4.2 阶段推进
+### 4.2 三阶段推进
 
-严格遵循 `.harness/rules/development-process.md` 定义的十阶段：
+严格遵循 `.harness/rules/development-process.md`。三阶段总览：
 
 ```
-需求分析 → 需求评审 → 编码实现 → 编码评审 → 单测编写 → 单测评审
-       → 代码推送 → CI 验证 → 部署验证 → 用户确认
+Phase 1 Design (opus)  →  Phase 2 Implementation (sonnet)  →  Phase 3 Verify (opus)
+   ↓                            ↓                                  ↓
+design.md                  implementation.md                  verify_review.md
+design_review.md           (含 PR link)                            ↓
+   ↓                            ↓                              merge + close
+APPROVED / SMALL /         全部 AC PASS +
+BIG REWRITE                端到端验证通过
 ```
 
-每个阶段：
-1. 查 **Entry Criteria**，不达标就回退。
-2. 加载对应 **Skill**，按 SOP 执行。
-3. 把产出物写到 `changes/<id>/<阶段目录>/`，同步刷新 `summary.md`。
-4. 阶段内先跑 `bash scripts/_self_check.sh quick <change-id>`；已有当前 change AC block 时跑 `bash scripts/_self_check.sh current <change-id>`。
-5. 通过 **Quality Gate**（必须可程序化检查）后提交该阶段 commit，并把 SHA 写回 `summary.md`。
-6. 失败按 **Rollback Route** 回退，不要硬推；阶段 8 才跑 `bash scripts/_self_check.sh full` 作为最终门禁。
+**模型分配硬约束**（违反即流程失败）：
 
-### 4.3 执行者与评判者分离
+- Phase 1（你自己 + reviewer spawn）：**opus**
+- Phase 2（spawn 实现 agent）：**sonnet**
+- Phase 3（reviewer spawn）：**opus**
 
-同一个 change 内：
-- **Generator 阶段**（需求分析、编码、单测编写）：负责产出。
-- **Reviewer 阶段**（各种评审）：加载 `expert-reviewer` / `code-review` Skill，**只评判，不修改产物**；产出 review 报告，标 MUST FIX / SHOULD FIX / NICE TO HAVE。
-- 评审不通过 → Generator 阶段重做 → 新一轮 review（`review_v2.md` `review_v3.md` ...）。
+### 4.3 Phase 详细
 
-实际操作上，当主会话进入 Reviewer 阶段时，推荐**新开一个子会话或子 Agent**（用 Agent 工具，subagent_type=general-purpose 或自定义 reviewer agent），把上下文限制为：review 目标文件 + 对应 Skill + 相关 rules。这避免 Generator 和 Reviewer 共享上下文导致偏袒自己的产出。
+#### Phase 1 Design
+
+1. 你（application-owner）填 `design.md`（spec + tasks 合并，模板已就绪）
+2. 完成后 **spawn opus reviewer**（subagent_type=general-purpose，model=opus），prompt 指向 design.md，让其真去跑所有 static AC 命令
+3. reviewer 写 `design_review.md`，verdict 三档：
+   - `APPROVED` → 进 Phase 2
+   - `SMALL REVISIONS` → 你修一轮，**不再 spawn 第二次 reviewer**，直接进 Phase 2
+   - `BIG REWRITE` → 你重写 design.md，再 spawn 一次 reviewer
+
+#### Phase 2 Implementation
+
+1. **spawn sonnet implementer**（subagent_type=general-purpose，model=sonnet），prompt 指向 design.md + design_review.md
+2. sonnet 在**一次调用内**端到端完成：编码 + 单元测试 + 端到端验证（self_check + curl smoke + pnpm test）+ commit + push（+ PR 如可用）
+3. sonnet 写 `implementation.md` 含改动清单 / 测试证据 / e2e 证据 / 偏离声明 / PR 链接
+4. Phase 2 Quality Gate：self_check `<change-id>` 全 PASS + 无回归
+
+#### Phase 3 Verify
+
+1. **spawn opus reviewer**（subagent_type=general-purpose，model=opus），prompt 指向 design.md + implementation.md + git diff
+2. reviewer 真去跑 AC 命令 + 隐式偏离审计，写 `verify_review.md`，verdict 三档：
+   - `APPROVED` → merge to main + close change
+   - `MINOR FIX` → spawn 一轮 sonnet 修 → **不再 spawn 第二次 verify reviewer**，直接 merge
+   - `MAJOR ISSUE` → 回 Phase 2 重做
 
 ### 4.4 状态摘要：`summary.md` 是 Single Source of Truth
 
@@ -121,84 +139,153 @@
 
 ## 6. 硬性约束（违反即视为流程失败）
 
-1. **不能跳过需求分析**。即使 "改一个常量"，也要在 `request_analysis/spec.md` 留下"做什么、为什么、如何验收"。
-2. **不能跳过评审**。Generator 不许直接进入下一个生成阶段。
-3. **不能在评审未通过时合并**。所有 `MUST FIX` 必须关闭。
-4. **不能隐瞒问题**。CI 失败、测试不达标、部署异常，先写进 `summary.md`，再讨论怎么办；不要悄悄绕过门禁。
-5. **不能做无关重构**。当前 change 的 spec 范围之外的改动，开新 change，不要混合。
-6. **不能省略 lineage / 版本管理**（这是 dataplat 自身的核心特性，开发过程也要体现这个价值观——任何产物都有溯源）。
+1. **不能跳过 Design**。即使"改一个常量"，也要在 `design.md` 留下"做什么、为什么、AC 是什么"（可极简，但必须有）。
+2. **不能跳过 Phase 1 + Phase 3 reviewer**（除非是极小变更 < 3 行代码且不动 API / schema，且声明 self-attest verdict 含理由）。
+3. **不能在 Phase 3 verify 未通过时 merge**。所有 MUST FIX 必须关闭。
+4. **不能违反模型分配硬约束**：Phase 1 / Phase 3 必须是 opus；Phase 2 必须是 sonnet（详见 `.harness/rules/development-process.md` § 模型分配硬约束）。
+5. **不能违反 `.harness/rules/data-not-code-pivot.md` 的"永不做清单"**。Phase 1 reviewer 必查。
+6. **不能反复 spawn reviewer 复审**：Phase 1 reviewer SMALL REVISIONS 修一轮直接进 Phase 2；Phase 3 reviewer MINOR FIX 修一轮直接 merge。反复迭代是 v1 失败模式，v2 显式禁止。
+7. **不能隐瞒问题**。Phase 2 测试失败、CI 异常、部署不通，先写进 `summary.md` + `implementation.md`，再讨论怎么办；不要悄悄绕过门禁。
+8. **不能做无关重构**。当前 change 的 design 范围之外的改动，开新 change，不要混合。
 
-## 7. 如何启动一个全新的变更（模板化指引）
+## 7. 如何启动一个全新的变更（v2 模板化指引）
 
 ```text
 1. 想清楚一句话："我想完成什么？验收标准是什么？"
-2. 执行 `bash scripts/harness_new_change.sh <change-id> [title]`
-3. 确认当前分支为 `change/<change-id>`
-4. 编辑 summary.md：补充范围摘要、阶段进度、关键决策
-5. 加载 Skill: .harness/skills/request-analysis/SKILL.md
-6. 产出 spec.md + tasks.md
-7. 启动 review：**spawn 独立 reviewer 子 agent**（见 §7.5）；产出 spec_review_v1.md / tasks_review_v1.md
-8. review 通过后，进入 coding 阶段……（按 development-process.md 推进）
+2. 执行 bash scripts/harness_new_change.sh <change-id> [title]
+   → 自动创建 .harness/changes/<change-id>/{summary,design,design_review,implementation,verify_review}.md
+   → 自动切到 change/<change-id> 分支
+3. 编辑 design.md：填一句话目标 / 范围+非范围 / AC 表（至少 1 条 behavioral）/ 任务清单 / 风险 / 决策日志
+4. 同步刷新 summary.md：Phase 1 status=in_progress
+5. spawn opus reviewer 写 design_review.md（见 §7.5）
+6. verdict APPROVED 或 SMALL REVISIONS 修一轮 → 进 Phase 2
+7. spawn sonnet implementer 端到端做完 → 写 implementation.md（见 §7.5）
+8. spawn opus reviewer 写 verify_review.md（见 §7.5）
+9. verdict APPROVED → merge --no-ff 到 main + close change
 ```
 
-## 7.5 如何 spawn reviewer 子 agent（**stage 2 / 4 / 6 必须**）
+## 7.5 spawn agent 模板（Phase 1 / 2 / 3）
 
-> **硬约束**：stage 2 / 4 / 6 评审**必须由独立 reviewer agent 执行**；不允许 Application Owner 自己写 review（self-review）。违反者被 `scripts/_self_check.sh` 的 `run_reviewer_lint` 守门硬 FAIL。详见 `.harness/agents/reviewer-agent.md` + `.harness/skills/expert-reviewer/SKILL.md` § "reviewer 字段填写规约"。
+> **模型分配硬约束**（违反 = 流程失败）：Phase 1 reviewer = opus / Phase 2 implementer = sonnet / Phase 3 reviewer = opus。详 `.harness/rules/development-process.md` § 模型分配硬约束。
 
-### 模板
+### Phase 1 Design Reviewer（spawn opus）
 
-> **模型选择硬约束**：reviewer 默认 `model="sonnet"`（review 智力负载 = 模式匹配 + cross-ref + 谨慎陈述，不需 opus 级推理；sonnet 4.6 速度 3-5x opus 4.7；opus 留给 generator）。如本次评审涉及深度因果推理 / 复杂跨文件反例构造，Owner 可显式 spawn `model="opus"`，但**必须在 review 文件附理由**。详 `.harness/agents/reviewer-agent.md` § 模型选择。
+```python
+Agent(
+    subagent_type="general-purpose",
+    model="opus",
+    description="Phase 1 design reviewer for <change-id>",
+    prompt="""
+你是 dataplat <change-id> 的 Phase 1 Design Reviewer (opus)。**只评审，不修代码**。
+
+# 必读
+1. /data/home/zhhdzhang/nta/nta-lake/.harness/rules/development-process.md § Phase 1
+2. /data/home/zhhdzhang/nta/nta-lake/.harness/rules/data-not-code-pivot.md ← 永不做清单必查
+3. /data/home/zhhdzhang/nta/nta-lake/.harness/changes/<change-id>/design.md
+
+# 任务
+- 验证 design.md 结构完整 + AC 至少 1 条 behavioral（或合规 exempt）
+- **真去跑** 每条 static AC 命令验证语法可执行 + 当前未实现时如预期失败（防 false PASS）
+- 验证不违反 data-not-code-pivot.md 永不做清单
+- 验证范围与非范围互不冲突
+- 验证 covers_ac 覆盖完整 + 任务依赖无环
+
+# 输出
+.harness/changes/<change-id>/design_review.md
+verdict 三档：APPROVED / SMALL REVISIONS / BIG REWRITE
+**一次性列所有 MUST FIX**，不准挤牙膏。
+
+# 报告
+< 300 字：verdict + MUST FIX 数 + 1 句最关键发现
+"""
+)
+```
+
+### Phase 2 Implementer（spawn sonnet）
 
 ```python
 Agent(
     subagent_type="general-purpose",
     model="sonnet",
-    description="<stage> reviewer for <change-id>",
+    description="Phase 2 implementation for <change-id>",
     prompt="""
-你是 dataplat 项目变更 <change-id> 的 stage {2|4|6} 独立 reviewer 子 agent v{N}。
+你是 dataplat <change-id> 的 Phase 2 Implementer (sonnet)。**端到端**做完：编码 + 单元测试 + 端到端验证 + commit + push（+ PR）。
 
-# 必读材料（按顺序，全文读）
-1. /data/home/zhhdzhang/nta/nta-lake/.harness/agents/reviewer-agent.md ← 你的角色定义
-2. /data/home/zhhdzhang/nta/nta-lake/.harness/skills/expert-reviewer/SKILL.md ← 工作 SOP
-3. /data/home/zhhdzhang/nta/nta-lake/.harness/rules/development-process.md ← 流程定义
-4. <被评审产物绝对路径>（spec.md / tasks.md / coding_report.md + git diff / test_report.md）
-5. <如有 v{N-1}>：上一版 review 文件路径（复检 MUST FIX 是否真修）
+# 必读
+1. /data/home/zhhdzhang/nta/nta-lake/.harness/rules/development-process.md § Phase 2
+2. /data/home/zhhdzhang/nta/nta-lake/.harness/rules/coding-style.md
+3. /data/home/zhhdzhang/nta/nta-lake/.harness/changes/<change-id>/design.md ← 你的实施大纲
+4. /data/home/zhhdzhang/nta/nta-lake/.harness/changes/<change-id>/design_review.md ← reviewer 提的 MUST/SHOULD FIX
 
-# 任务
-- 按 reviewer-agent.md §5 工作流走（加载 SKILL → 读材料 → 评审 → 写文件 → 报告）
-- 输出 <绝对路径>：
-    stage 2 → request_analysis/review/{spec,tasks}_review_v{N}.md
-    stage 4 → coding/review/code_review_v{N}.md
-    stage 6 → unit_test/review/test_review_v{N}.md
-- reviewer 字段固定为：claude-agent:<change-id>-stage{N}-reviewer-v{N}
+# 任务（一次调用内全做完）
+1. 编码（按 design.md tasks 落实，含修 design_review.md 的 SHOULD FIX）
+2. 写单元测试（按 AC 表覆盖 behavioral AC）
+3. 在 scripts/_self_check.sh 加 run_<change> 块（如适用）
+4. 端到端验证：
+   - bash scripts/_self_check.sh <change-id> → 全 PASS
+   - 业务相关 pytest / vitest → 不回归
+   - 涉及 UI：本地 curl / vite build smoke
+5. 修当前 change 引入的 typecheck / lint 错误
+6. git commit + push 到 change/<change-id>
+7. gh pr create（如可用）或返回 branch ref + PR 描述
 
-# 硬约束（reviewer-agent.md §2）
-- 不修被评审产物；只写自己的 review 文件
-- 不 sycophantic approve；发现 MUST FIX 必须报
-- 不向 Owner 反向请求改 spec；通过 verdict + MUST FIX 表达
+# 输出
+.harness/changes/<change-id>/implementation.md（含改动清单 / 测试证据 / e2e 证据 / 偏离声明 / PR 链接）
+
+# 硬约束
+- 不擅自扩 scope（超出 design.md 范围 → 写进偏离声明，不在本次做）
+- 测试失败不要悄悄绕过：写进 implementation.md 然后回报 Application Owner
 
 # 报告
-完成后 <300 字汇总：verdict + MUST FIX 数 + 关键问题摘要
+< 300 字：done/blocked + PR 链接 / branch ref + 是否有偏离
 """
 )
 ```
 
-### reviewer 字段命名约定
+### Phase 3 Verify Reviewer（spawn opus）
 
-`claude-agent:<change-id>-stage{N}-reviewer-v{M}`
+```python
+Agent(
+    subagent_type="general-purpose",
+    model="opus",
+    description="Phase 3 verify reviewer for <change-id>",
+    prompt="""
+你是 dataplat <change-id> 的 Phase 3 Verify Reviewer (opus)。对照 design.md 验 PR。**不改代码**。
 
-- `<change-id>` 例如 `harness-reviewer-agent-separation-20260518`
-- `N` ∈ {2, 4, 6}（stage 编号）
-- `M` ∈ {1, 2, 3, ...}（review 版本号；spec/tasks 修 v2 后重新 spawn v2 reviewer，reviewer 字段为 `...stage2-reviewer-v2`）
+# 必读
+1. /data/home/zhhdzhang/nta/nta-lake/.harness/rules/development-process.md § Phase 3
+2. /data/home/zhhdzhang/nta/nta-lake/.harness/changes/<change-id>/design.md
+3. /data/home/zhhdzhang/nta/nta-lake/.harness/changes/<change-id>/design_review.md
+4. /data/home/zhhdzhang/nta/nta-lake/.harness/changes/<change-id>/implementation.md
+5. git diff main...change/<change-id>
 
-### 何时不 spawn（合法偏离）
+# 任务
+- 真去跑每条 AC 命令验证 PR 兑现 design
+- 隐式偏离审计：implementation.md § 偏离 没声明但实际发生的偏离 = MUST FIX
+- 跑 bash scripts/_self_check.sh <change-id> 验全 PASS
+- 跑 self_check full 验无回归（FAIL 必须是 pre-existing flake）
 
-只有以下情况允许填 `self-attest (<理由>)` 代替 spawn：
+# 输出
+.harness/changes/<change-id>/verify_review.md
+verdict 三档：APPROVED / MINOR FIX / MAJOR ISSUE
 
-- 流程偏离声明（如 "会话级授权偏离 #N；时间 / 成本 / 用户授权"）
-- template 占位符未填的历史 review 文件（spawn 后才补字段）
+# 报告
+< 300 字：verdict + 1 句最关键发现
+"""
+)
+```
 
-所有 self-attest 必须含括号文案说明理由；裸 `self-attest` 或 `application-owner-agent` 等同未填，self_check 硬 FAIL。
+### 何时跳过 reviewer（self-attest）
+
+只有以下情况允许 verdict 写 `self-attest (<理由>)`：
+
+- 极小变更（< 3 行代码 + 不动 API / schema / 接口）：可由 Application Owner 自审 Phase 1 + Phase 3
+- 流程偏离声明（如 "会话级授权偏离 #N"）
+
+不允许跳过的情况（即使变更小）：
+- 涉及 schema / API 接口变更 / 跨 change 影响
+- 涉及违反 data-not-code-pivot.md 任何一条
+- 涉及架构 pivot
 
 ## 8. 当你不确定时
 

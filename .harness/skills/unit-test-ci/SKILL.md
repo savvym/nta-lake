@@ -11,6 +11,11 @@ outputs:
 
 # unit-test-ci Skill
 
+> ⚠ **DEPRECATED (2026-05-20, v2 pivot)**：v2 三阶段流程下，本 skill 不再单独加载。其职责并入：
+> - 设计评审 / PR 验收 → `.harness/skills/expert-reviewer/SKILL.md`（两种模式）
+> - 编码 + 测试 + 端到端 → Phase 2 sonnet implementer 端到端做（见 `.harness/rules/development-process.md` § Phase 2）
+> 本文件保留只为历史 change 引用。新 change 请按 v2 流程走。
+
 ## 进入条件
 
 - 阶段 7 推送完成，远端分支存在。

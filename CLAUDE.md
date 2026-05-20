@@ -8,8 +8,8 @@
 
 - 你作为 Application Owner 的角色与硬性约束
 - 当前应当加载的 Rules / Skills / Wiki 索引
-- 十阶段开发流程的入口、产物、质量门禁与回退路径
-- 任何任务的标准操作流程：先做需求分析 → 再写计划 → 评审 → 实现 → 评审 → 单测 → CI → 部署 → 用户确认
+- **三阶段开发流程**（v2，2026-05-20 起）的入口、产物、质量门禁与回退路径
+- 任何任务的标准操作流程：**Phase 1 Design (opus) → Phase 2 Implementation (sonnet 端到端) → Phase 3 Verify (opus)**
 
 ## 项目背景
 
@@ -22,7 +22,8 @@
 | 你想做什么 | 去哪里 |
 |---|---|
 | 理解当前流程怎么跑 | [.harness/agents/application-owner.md](.harness/agents/application-owner.md) |
-| 看十阶段流程定义 | [.harness/rules/development-process.md](.harness/rules/development-process.md) |
+| 看**三阶段流程**定义（v2，2026-05-20 起） | [.harness/rules/development-process.md](.harness/rules/development-process.md) |
+| 看 v1 十阶段定义（deprecated，仅供历史参考） | [.harness/rules/development-process-v1-deprecated.md](.harness/rules/development-process-v1-deprecated.md) |
 | 写代码前对齐风格 | [.harness/rules/coding-style.md](.harness/rules/coding-style.md) |
 | 了解目录约束 | [.harness/rules/engineering-structure.md](.harness/rules/engineering-structure.md) |
 | 用某个阶段的 SOP | [.harness/skills/README.md](.harness/skills/README.md) |
@@ -32,12 +33,14 @@
 
 ## 硬性约束（违反即视为流程失败）
 
-1. **任何对代码或目录结构的修改都必须挂在一个 change 下**。change 目录在 `.harness/changes/<feature-slug>-<yyyymmdd>/`，从 `_template/` 拷贝。
-2. **不允许跳过需求分析直接写代码**。即使是 "加一行 log" 这种小改动，也要在对应 change 的 `request_analysis/spec.md` 里留下一两句说明和验收标准。
-3. **不允许在评审未通过时进入下一阶段**。阶段间用 `summary.md` 串联状态。
-4. **不允许声称完成而没有机械化证据**：CI 报告、测试通过数、部署验证截图/输出，缺一不可。
-5. **发现 Agent / 流程缺陷，把防复发机制补回 `.harness/`**（rules 或 skills），不要只在当前会话临时绕过。
-6. **任何 change 不得违反 [.harness/rules/data-not-code-pivot.md](.harness/rules/data-not-code-pivot.md)** 的"永不做清单"（branch / merge / cherry-pick / rollback / row-diff / blob 派生图 / Asset / manifest.yaml 强制 / silver 文件树 / bronze 强 schema）。stage 2 reviewer 必查该 rule。
+1. **任何代码 / 目录结构修改都必须挂在一个 change 下**。`bash scripts/harness_new_change.sh <id> [title]` 创建。
+2. **不允许跳过 Design（Phase 1）**。即使"加一行 log"也要在 `design.md` 留一句说明 + AC。
+3. **不允许跳过 Phase 1 + Phase 3 reviewer**（除非极小变更且声明 self-attest verdict + 理由）。
+4. **模型分配硬约束**：Phase 1 reviewer = **opus** / Phase 2 implementer = **sonnet** / Phase 3 reviewer = **opus**。违反 = 流程失败。
+5. **不允许声称完成而没有机械化证据**：测试通过数、self_check 输出、curl 响应、PR 链接，缺一不可。
+6. **发现 Agent / 流程缺陷，把防复发机制补回 `.harness/`**（rules 或 skills）；harness 框架本身的改动可以由用户授权直接落地（如 2026-05-20 的 v1→v2 pivot），但要在 `.harness/changes/harness-*-<yyyymmdd>/` 留 meta 记录。
+7. **任何 change 不得违反 [.harness/rules/data-not-code-pivot.md](.harness/rules/data-not-code-pivot.md)** 的"永不做清单"（branch / merge / cherry-pick / rollback / row-diff / blob 派生图 / Asset / manifest.yaml 强制 / silver 文件树 / bronze 强 schema）。Phase 1 reviewer 必查。
+8. **反复 spawn reviewer 是 v1 失败模式 v2 显式禁止**：Phase 1 SMALL REVISIONS 修一轮就进 Phase 2；Phase 3 MINOR FIX 修一轮就 merge。
 
 ## 当下项目状态
 

@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Create a new harness change and switch to its git branch.
+# Create a new harness change (v2 3-phase) and switch to its git branch.
 #
 # Usage:
 #   bash scripts/harness_new_change.sh <change-id> [title]
 #
-# Policy:
-#   - change artifacts live in .harness/changes/<change-id>/
-#   - git branch is change/<change-id>
-#   - start from a clean worktree unless HARNESS_ALLOW_DIRTY=1 is set
+# v2 (2026-05-20) 简化流程：
+#   - change 目录只含 5 个文件：summary.md / design.md / design_review.md /
+#     implementation.md / verify_review.md
+#   - 废除 v1 的 request_analysis/ coding/ unit_test/ ci_result/ deployment/ 子目录
+#   - git branch 仍是 change/<change-id>
+#
+# 详见 .harness/rules/development-process.md。
 
 set -euo pipefail
 
@@ -57,7 +60,6 @@ fi
 git switch -c "$BRANCH"
 
 cp -R .harness/changes/_template "$CHANGE_DIR"
-rm -f "$CHANGE_DIR/README.md"
 
 TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 BASE_SHA="$(git rev-parse --short HEAD)"
@@ -70,9 +72,9 @@ change_dir = Path(sys.argv[1])
 change_id, title, ts, branch, base_sha = sys.argv[2:7]
 
 summary = change_dir / "summary.md"
-spec = change_dir / "request_analysis" / "spec.md"
-coding = change_dir / "coding" / "coding_report_v1.md"
-ci = change_dir / "ci_result" / "ci_result_v1.md"
+design = change_dir / "design.md"
+implementation = change_dir / "implementation.md"
+
 
 def update_frontmatter(path: Path, values: dict[str, str]) -> None:
     lines = path.read_text().splitlines()
@@ -93,6 +95,7 @@ def update_frontmatter(path: Path, values: dict[str, str]) -> None:
                 lines[i] = f"{key}: {value}"
     path.write_text("\n".join(lines) + "\n")
 
+
 update_frontmatter(
     summary,
     {
@@ -101,18 +104,33 @@ update_frontmatter(
         "owner": "application-owner-agent",
         "started_at": ts,
         "last_updated": ts,
+        "phase": "design",
+        "status": "in_progress",
     },
 )
 summary_text = summary.read_text().replace("Branch：`change/<change-id>`", f"Branch：`{branch}`")
 summary.write_text(summary_text)
 
-update_frontmatter(spec, {"change_id": change_id, "authored_at": ts})
-spec_text = spec.read_text().replace("# Spec：<标题>", f"# Spec：{title}", 1)
-spec.write_text(spec_text)
+update_frontmatter(design, {"change_id": change_id, "authored_at": ts})
+design_text = design.read_text().replace("# Design：<标题>", f"# Design：{title}", 1)
+design.write_text(design_text)
 
-update_frontmatter(coding, {"change_id": change_id, "branch": branch, "base_commit": base_sha})
-update_frontmatter(ci, {"change_id": change_id, "branch": branch})
+update_frontmatter(implementation, {"change_id": change_id, "base_commit": base_sha, "branch": branch})
+
+# design_review.md / verify_review.md 留空模板，filled when reviewers spawn
+for fname in ("design_review.md", "verify_review.md"):
+    p = change_dir / fname
+    update_frontmatter(p, {"change_id": change_id})
 PY
 
 echo "created $CHANGE_DIR"
 echo "switched to $BRANCH"
+echo ""
+echo "next:"
+echo "  1. 填 $CHANGE_DIR/design.md（Phase 1 Design，由 application-owner / opus 完成）"
+echo "  2. 完成后 spawn opus reviewer 写 $CHANGE_DIR/design_review.md"
+echo "  3. APPROVED → spawn sonnet 执行 Phase 2 → 写 implementation.md"
+echo "  4. Phase 2 完成后 spawn opus reviewer 写 verify_review.md"
+echo "  5. APPROVED → merge to main + close"
+echo ""
+echo "详见 .harness/rules/development-process.md"

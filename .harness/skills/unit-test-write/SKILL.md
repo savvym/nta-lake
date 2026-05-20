@@ -14,6 +14,11 @@ outputs:
 
 # unit-test-write Skill
 
+> ⚠ **DEPRECATED (2026-05-20, v2 pivot)**：v2 三阶段流程下，本 skill 不再单独加载。其职责并入：
+> - 设计评审 / PR 验收 → `.harness/skills/expert-reviewer/SKILL.md`（两种模式）
+> - 编码 + 测试 + 端到端 → Phase 2 sonnet implementer 端到端做（见 `.harness/rules/development-process.md` § Phase 2）
+> 本文件保留只为历史 change 引用。新 change 请按 v2 流程走。
+
 ## 核心原则
 
 1. **改动驱动**：本次改动的每一个公共函数 / 路由 / 组件，必须有直接测试。
