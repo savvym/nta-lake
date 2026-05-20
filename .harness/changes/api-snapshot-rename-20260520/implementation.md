@@ -7,7 +7,7 @@ author: sonnet-phase2-implementer
 model_used: claude-sonnet-4-6
 branch: change/api-snapshot-rename-20260520
 base_commit: 0e4bf66
-head_commit: <sonnet push 后回填>
+head_commit: f3c997e
 pr_url: n/a
 ---
 
