@@ -36,7 +36,7 @@ from dataplat_api.models import CommitORM, RefORM
 from dataplat_api.runner.processor_registry import get_processor_registry
 from dataplat_api.runner.repo_view import DbRepoView
 from dataplat_api.runner.runcontext import StandardRunContext
-from dataplat_api.schemas.commit import CommitCreate
+from dataplat_api.schemas._commit_internal import CommitCreate
 from dataplat_api.schemas.tree import TreeCreate, TreeEntryCreate
 from dataplat_api.services.commit import CommitService
 

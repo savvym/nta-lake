@@ -123,6 +123,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Jobs
+         * @description admin only。spec web-jobs-list-page-20260520 AC-3。
+         */
+        get: operations["list_jobs_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs/ingest": {
         parameters: {
             query?: never;
@@ -151,6 +171,57 @@ export interface paths {
         get: operations["get_job_jobs__job_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipelines/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Pipeline Run */
+        post: operations["create_pipeline_run_pipelines_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipelines/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pipeline Run */
+        get: operations["get_pipeline_run_pipelines_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipelines/runs:from-yaml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Pipeline Run From Yaml */
+        post: operations["create_pipeline_run_from_yaml_pipelines_runs_from_yaml_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -245,6 +316,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/repos/{owner}/{name}/blobs/{sha256}/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Blob Meta */
+        get: operations["get_blob_meta_repos__owner___name__blobs__sha256__meta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/repos/{owner}/{name}/commits": {
         parameters: {
             query?: never;
@@ -254,8 +342,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Commit */
-        post: operations["create_commit_repos__owner___name__commits_post"];
+        /**
+         * Redirect Create Commit
+         * @description 308 Permanent Redirect: POST /commits → /snapshots（W1-1 T-3）。
+         */
+        post: operations["_redirect_create_commit_repos__owner___name__commits_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -269,8 +360,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Commit */
-        get: operations["get_commit_repos__owner___name__commits__hash__get"];
+        /**
+         * Redirect Get Commit
+         * @description 308 Permanent Redirect: GET /commits/{hash} → /snapshots/{hash}（W1-1 T-3）。
+         */
+        get: operations["_redirect_get_commit_repos__owner___name__commits__hash__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -316,7 +410,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/repos/{owner}/{name}/tree/{commit_hash}": {
+    "/repos/{owner}/{name}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Snapshot */
+        post: operations["create_snapshot_repos__owner___name__snapshots_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repos/{owner}/{name}/snapshots/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Snapshot */
+        get: operations["get_snapshot_repos__owner___name__snapshots__hash__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repos/{owner}/{name}/tree/{snapshot_hash}": {
         parameters: {
             query?: never;
             header?: never;
@@ -324,7 +452,29 @@ export interface paths {
             cookie?: never;
         };
         /** Get Tree */
-        get: operations["get_tree_repos__owner___name__tree__commit_hash__get"];
+        get: operations["get_tree_repos__owner___name__tree__snapshot_hash__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repos/{owner}/{name}/trees/{tree_hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Subtree By Hash
+         * @description 按任意 tree hash（root 或 subtree）取该层 entries。
+         *
+         *     跨 repo 不暴露：即便 hash 相同，请求 repo 与 owner 不匹配 → 404。
+         */
+        get: operations["get_subtree_by_hash_repos__owner___name__trees__tree_hash__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -353,6 +503,13 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** BlobMetaResponse */
+        BlobMetaResponse: {
+            /** Sha256 */
+            sha256: string;
+            /** Size */
+            size: number;
+        };
         /** BlobUploadResponse */
         BlobUploadResponse: {
             /** Deduplicated */
@@ -363,43 +520,6 @@ export interface components {
             size: number;
             /** Storage Key */
             storage_key: string;
-        };
-        /** CommitCreate */
-        CommitCreate: {
-            /** Author Id */
-            author_id: string;
-            lineage?: components["schemas"]["Lineage"] | null;
-            /** Message */
-            message?: string | null;
-            /** Parents */
-            parents?: string[];
-            /** Ref */
-            ref?: string | null;
-            tree: components["schemas"]["TreeCreate"];
-        };
-        /** CommitRead */
-        CommitRead: {
-            /** Author Id */
-            author_id: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Deduplicated */
-            deduplicated: boolean;
-            /** Hash */
-            hash: string;
-            lineage: components["schemas"]["Lineage"] | null;
-            /** Message */
-            message: string | null;
-            /** Parents */
-            parents: string[];
-            /** Repo Id */
-            repo_id: string;
-            tree: components["schemas"]["TreeRead"];
-            /** Tree Hash */
-            tree_hash: string;
         };
         /** CreateUserRequest */
         CreateUserRequest: {
@@ -449,8 +569,8 @@ export interface components {
         };
         /** IngestResponse */
         IngestResponse: {
-            commit: components["schemas"]["CommitRead"];
             ingest_summary: components["schemas"]["IngestSummary"];
+            snapshot: components["schemas"]["SnapshotRead"];
         };
         /** IngestSummary */
         IngestSummary: {
@@ -489,6 +609,20 @@ export interface components {
             /** Owner */
             owner: string;
             request: components["schemas"]["IngestRequest"];
+        };
+        /**
+         * JobListResponse
+         * @description GET /jobs 列表响应（spec web-jobs-list-page-20260520 AC-1）。
+         */
+        JobListResponse: {
+            /** Items */
+            items: components["schemas"]["JobRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
         };
         /** JobRead */
         JobRead: {
@@ -543,6 +677,59 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** PipelineNodeRunResponse */
+        PipelineNodeRunResponse: {
+            /** Cache Hit */
+            cache_hit: boolean;
+            /** Cache Key */
+            cache_key?: string | null;
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error?: string | null;
+            /** Input Commits */
+            input_commits?: string[] | null;
+            /** Node Id */
+            node_id: string;
+            /** Output Commit Hash */
+            output_commit_hash?: string | null;
+            /** Processor Name */
+            processor_name: string;
+            /** Processor Version */
+            processor_version: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * PipelineRunCreatedResponse
+         * @description POST /pipelines/runs 202 response。
+         */
+        PipelineRunCreatedResponse: {
+            /** Job Id */
+            job_id: string;
+            /** Run Id */
+            run_id: string;
+        };
+        /**
+         * PipelineRunResponse
+         * @description GET /pipelines/runs/{run_id} response（T-6a）。
+         */
+        PipelineRunResponse: {
+            /** Created By */
+            created_by: string;
+            /** Error */
+            error?: string | null;
+            /** Node Runs */
+            node_runs: components["schemas"]["PipelineNodeRunResponse"][];
+            /** Recipe Name */
+            recipe_name: string;
+            /** Run Id */
+            run_id: string;
+            /** Status */
+            status: string;
+        };
         /** ProcessRequest */
         ProcessRequest: {
             /** Author Id */
@@ -589,12 +776,41 @@ export interface components {
             /** Version */
             version: string;
         };
-        /** RefRead */
-        RefRead: {
-            /** Commit Hash */
-            commit_hash: string;
+        /** Recipe */
+        Recipe: {
             /** Name */
             name: string;
+            /** Nodes */
+            nodes: components["schemas"]["RecipeNode"][];
+        };
+        /**
+         * RecipeCreateRequest
+         * @description POST /pipelines/runs JSON 入口 body（T-6a）。
+         */
+        RecipeCreateRequest: {
+            recipe: components["schemas"]["Recipe"];
+        };
+        /** RecipeNode */
+        RecipeNode: {
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: string;
+            /** Inputs */
+            inputs: string[];
+            /** Output */
+            output: string;
+            /** Processor */
+            processor: string;
+        };
+        /** RefRead */
+        RefRead: {
+            /** Name */
+            name: string;
+            /** Snapshot Hash */
+            snapshot_hash: string;
         };
         /** RepositoryCreate */
         RepositoryCreate: {
@@ -709,6 +925,43 @@ export interface components {
             /** Visibility */
             visibility?: ("private" | "internal" | "public") | null;
         };
+        /** SnapshotCreate */
+        SnapshotCreate: {
+            /** Author Id */
+            author_id: string;
+            lineage?: components["schemas"]["Lineage"] | null;
+            /** Message */
+            message?: string | null;
+            /** Parent */
+            parent?: string | null;
+            /** Ref */
+            ref?: string | null;
+            tree: components["schemas"]["TreeCreate"];
+        };
+        /** SnapshotRead */
+        SnapshotRead: {
+            /** Author Id */
+            author_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deduplicated */
+            deduplicated: boolean;
+            /** Hash */
+            hash: string;
+            lineage: components["schemas"]["Lineage"] | null;
+            /** Message */
+            message: string | null;
+            /** Parent */
+            parent: string | null;
+            /** Repo Id */
+            repo_id: string;
+            tree: components["schemas"]["TreeRead"];
+            /** Tree Hash */
+            tree_hash: string;
+        };
         /** TreeCreate */
         TreeCreate: {
             /** Entries */
@@ -719,9 +972,9 @@ export interface components {
             /**
              * Entry Type
              * @default blob
-             * @constant
+             * @enum {string}
              */
-            entry_type: "blob";
+            entry_type: "blob" | "tree";
             /** Mode */
             mode: number;
             /** Name */
@@ -733,9 +986,9 @@ export interface components {
         TreeEntryRead: {
             /**
              * Entry Type
-             * @constant
+             * @enum {string}
              */
-            entry_type: "blob";
+            entry_type: "blob" | "tree";
             /** Mode */
             mode: number;
             /** Name */
@@ -958,6 +1211,40 @@ export interface operations {
             };
         };
     };
+    list_jobs_jobs_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                type?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     enqueue_ingest_job_jobs_ingest_post: {
         parameters: {
             query?: never;
@@ -1009,6 +1296,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_pipeline_run_pipelines_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineRunCreatedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pipeline_run_pipelines_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_pipeline_run_from_yaml_pipelines_runs_from_yaml_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "text/yaml": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineRunCreatedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1284,21 +1668,18 @@ export interface operations {
             };
         };
     };
-    create_commit_repos__owner___name__commits_post: {
+    get_blob_meta_repos__owner___name__blobs__sha256__meta_get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 owner: string;
                 name: string;
+                sha256: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CommitCreate"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -1306,7 +1687,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CommitRead"];
+                    "application/json": components["schemas"]["BlobMetaResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1320,7 +1701,39 @@ export interface operations {
             };
         };
     };
-    get_commit_repos__owner___name__commits__hash__get: {
+    _redirect_create_commit_repos__owner___name__commits_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    _redirect_get_commit_repos__owner___name__commits__hash__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1339,7 +1752,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CommitRead"];
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -1422,14 +1835,119 @@ export interface operations {
             };
         };
     };
-    get_tree_repos__owner___name__tree__commit_hash__get: {
+    create_snapshot_repos__owner___name__snapshots_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 owner: string;
                 name: string;
-                commit_hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnapshotCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_snapshot_repos__owner___name__snapshots__hash__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tree_repos__owner___name__tree__snapshot_hash__get: {
+        parameters: {
+            query?: {
+                /** @description True: 递归展开所有 type=tree entry 为 leaf blob 列表 */
+                recursive?: boolean;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                snapshot_hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_subtree_by_hash_repos__owner___name__trees__tree_hash__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                tree_hash: string;
             };
             cookie?: never;
         };

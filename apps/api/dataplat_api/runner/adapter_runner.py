@@ -34,7 +34,7 @@ from dataplat_api.llm.factory import get_llm_gateway
 from dataplat_api.models import CommitORM, RefORM
 from dataplat_api.runner.registry import get_registry
 from dataplat_api.runner.runcontext import StandardRunContext
-from dataplat_api.schemas.commit import CommitCreate
+from dataplat_api.schemas._commit_internal import CommitCreate
 from dataplat_api.schemas.ingest import IngestRequest
 from dataplat_api.schemas.tree import TreeCreate, TreeEntryCreate
 from dataplat_api.services.commit import CommitService

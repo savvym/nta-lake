@@ -42,6 +42,26 @@
         "title": "AuthenticatedUser",
         "type": "object"
       },
+      "BlobMetaResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sha256",
+          "size"
+        ],
+        "title": "BlobMetaResponse",
+        "type": "object"
+      },
       "BlobUploadResponse": {
         "additionalProperties": false,
         "properties": {
@@ -70,142 +90,6 @@
           "deduplicated"
         ],
         "title": "BlobUploadResponse",
-        "type": "object"
-      },
-      "CommitCreate": {
-        "additionalProperties": false,
-        "properties": {
-          "author_id": {
-            "title": "Author Id",
-            "type": "string"
-          },
-          "lineage": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Lineage"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          },
-          "parents": {
-            "items": {
-              "pattern": "^[0-9a-f]{64}$",
-              "type": "string"
-            },
-            "title": "Parents",
-            "type": "array"
-          },
-          "ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ref"
-          },
-          "tree": {
-            "$ref": "#/components/schemas/TreeCreate"
-          }
-        },
-        "required": [
-          "tree",
-          "author_id"
-        ],
-        "title": "CommitCreate",
-        "type": "object"
-      },
-      "CommitRead": {
-        "additionalProperties": false,
-        "properties": {
-          "author_id": {
-            "title": "Author Id",
-            "type": "string"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "deduplicated": {
-            "title": "Deduplicated",
-            "type": "boolean"
-          },
-          "hash": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Hash",
-            "type": "string"
-          },
-          "lineage": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Lineage"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          },
-          "parents": {
-            "items": {
-              "pattern": "^[0-9a-f]{64}$",
-              "type": "string"
-            },
-            "title": "Parents",
-            "type": "array"
-          },
-          "repo_id": {
-            "title": "Repo Id",
-            "type": "string"
-          },
-          "tree": {
-            "$ref": "#/components/schemas/TreeRead"
-          },
-          "tree_hash": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Tree Hash",
-            "type": "string"
-          }
-        },
-        "required": [
-          "hash",
-          "repo_id",
-          "tree_hash",
-          "parents",
-          "author_id",
-          "created_at",
-          "message",
-          "lineage",
-          "tree",
-          "deduplicated"
-        ],
-        "title": "CommitRead",
         "type": "object"
       },
       "CreateUserRequest": {
@@ -352,15 +236,15 @@
       "IngestResponse": {
         "additionalProperties": false,
         "properties": {
-          "commit": {
-            "$ref": "#/components/schemas/CommitRead"
-          },
           "ingest_summary": {
             "$ref": "#/components/schemas/IngestSummary"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/SnapshotRead"
           }
         },
         "required": [
-          "commit",
+          "snapshot",
           "ingest_summary"
         ],
         "title": "IngestResponse",
@@ -441,6 +325,39 @@
           "request"
         ],
         "title": "JobIngestRequest",
+        "type": "object"
+      },
+      "JobListResponse": {
+        "additionalProperties": false,
+        "description": "GET /jobs 列表响应（spec web-jobs-list-page-20260520 AC-1）。",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "JobListResponse",
         "type": "object"
       },
       "JobRead": {
@@ -580,6 +497,162 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "PipelineNodeRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_hit": {
+            "title": "Cache Hit",
+            "type": "boolean"
+          },
+          "cache_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache Key"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "input_commits": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Commits"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "output_commit_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Commit Hash"
+          },
+          "processor_name": {
+            "title": "Processor Name",
+            "type": "string"
+          },
+          "processor_version": {
+            "title": "Processor Version",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "processor_name",
+          "processor_version",
+          "config",
+          "status",
+          "cache_hit"
+        ],
+        "title": "PipelineNodeRunResponse",
+        "type": "object"
+      },
+      "PipelineRunCreatedResponse": {
+        "additionalProperties": false,
+        "description": "POST /pipelines/runs 202 response。",
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "job_id"
+        ],
+        "title": "PipelineRunCreatedResponse",
+        "type": "object"
+      },
+      "PipelineRunResponse": {
+        "additionalProperties": false,
+        "description": "GET /pipelines/runs/{run_id} response（T-6a）。",
+        "properties": {
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "node_runs": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineNodeRunResponse"
+            },
+            "title": "Node Runs",
+            "type": "array"
+          },
+          "recipe_name": {
+            "title": "Recipe Name",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "recipe_name",
+          "status",
+          "created_by",
+          "node_runs"
+        ],
+        "title": "PipelineRunResponse",
+        "type": "object"
+      },
       "ProcessRequest": {
         "additionalProperties": false,
         "properties": {
@@ -710,22 +783,98 @@
         "title": "ProducedBy",
         "type": "object"
       },
+      "Recipe": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/RecipeNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "nodes"
+        ],
+        "title": "Recipe",
+        "type": "object"
+      },
+      "RecipeCreateRequest": {
+        "additionalProperties": false,
+        "description": "POST /pipelines/runs JSON 入口 body（T-6a）。",
+        "properties": {
+          "recipe": {
+            "$ref": "#/components/schemas/Recipe"
+          }
+        },
+        "required": [
+          "recipe"
+        ],
+        "title": "RecipeCreateRequest",
+        "type": "object"
+      },
+      "RecipeNode": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "inputs": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Inputs",
+            "type": "array"
+          },
+          "output": {
+            "title": "Output",
+            "type": "string"
+          },
+          "processor": {
+            "title": "Processor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "processor",
+          "inputs",
+          "output"
+        ],
+        "title": "RecipeNode",
+        "type": "object"
+      },
       "RefRead": {
         "additionalProperties": false,
         "properties": {
-          "commit_hash": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Commit Hash",
-            "type": "string"
-          },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "snapshot_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Hash",
             "type": "string"
           }
         },
         "required": [
           "name",
-          "commit_hash"
+          "snapshot_hash"
         ],
         "title": "RefRead",
         "type": "object"
@@ -1083,6 +1232,150 @@
         "title": "RepositoryUpdate",
         "type": "object"
       },
+      "SnapshotCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "lineage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lineage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "tree": {
+            "$ref": "#/components/schemas/TreeCreate"
+          }
+        },
+        "required": [
+          "tree",
+          "author_id"
+        ],
+        "title": "SnapshotCreate",
+        "type": "object"
+      },
+      "SnapshotRead": {
+        "additionalProperties": false,
+        "properties": {
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deduplicated": {
+            "title": "Deduplicated",
+            "type": "boolean"
+          },
+          "hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Hash",
+            "type": "string"
+          },
+          "lineage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lineage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "repo_id": {
+            "title": "Repo Id",
+            "type": "string"
+          },
+          "tree": {
+            "$ref": "#/components/schemas/TreeRead"
+          },
+          "tree_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Tree Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash",
+          "repo_id",
+          "tree_hash",
+          "parent",
+          "author_id",
+          "created_at",
+          "message",
+          "lineage",
+          "tree",
+          "deduplicated"
+        ],
+        "title": "SnapshotRead",
+        "type": "object"
+      },
       "TreeCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1104,8 +1397,11 @@
         "additionalProperties": false,
         "properties": {
           "entry_type": {
-            "const": "blob",
             "default": "blob",
+            "enum": [
+              "blob",
+              "tree"
+            ],
             "title": "Entry Type",
             "type": "string"
           },
@@ -1135,7 +1431,10 @@
         "additionalProperties": false,
         "properties": {
           "entry_type": {
-            "const": "blob",
+            "enum": [
+              "blob",
+              "tree"
+            ],
             "title": "Entry Type",
             "type": "string"
           },
@@ -1482,6 +1781,95 @@
         ]
       }
     },
+    "/jobs": {
+      "get": {
+        "description": "admin only。spec web-jobs-list-page-20260520 AC-3。",
+        "operationId": "list_jobs_jobs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Jobs",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
     "/jobs/ingest": {
       "post": {
         "operationId": "enqueue_ingest_job_jobs_ingest_post",
@@ -1562,6 +1950,131 @@
         "summary": "Get Job",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/pipelines/runs": {
+      "post": {
+        "operationId": "create_pipeline_run_pipelines_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineRunCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Pipeline Run",
+        "tags": [
+          "pipelines"
+        ]
+      }
+    },
+    "/pipelines/runs/{run_id}": {
+      "get": {
+        "operationId": "get_pipeline_run_pipelines_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pipeline Run",
+        "tags": [
+          "pipelines"
+        ]
+      }
+    },
+    "/pipelines/runs:from-yaml": {
+      "post": {
+        "operationId": "create_pipeline_run_from_yaml_pipelines_runs_from_yaml_post",
+        "requestBody": {
+          "content": {
+            "text/yaml": {
+              "schema": {
+                "title": "Body",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineRunCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Pipeline Run From Yaml",
+        "tags": [
+          "pipelines"
         ]
       }
     },
@@ -1921,7 +2434,7 @@
         },
         "summary": "Upload Blob",
         "tags": [
-          "commits"
+          "snapshots"
         ]
       }
     },
@@ -1980,13 +2493,75 @@
         },
         "summary": "Download Blob",
         "tags": [
-          "commits"
+          "snapshots"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/blobs/{sha256}/meta": {
+      "get": {
+        "operationId": "get_blob_meta_repos__owner___name__blobs__sha256__meta_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Sha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlobMetaResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Blob Meta",
+        "tags": [
+          "snapshots"
         ]
       }
     },
     "/repos/{owner}/{name}/commits": {
       "post": {
-        "operationId": "create_commit_repos__owner___name__commits_post",
+        "description": "308 Permanent Redirect: POST /commits → /snapshots（W1-1 T-3）。",
+        "operationId": "_redirect_create_commit_repos__owner___name__commits_post",
         "parameters": [
           {
             "in": "path",
@@ -2007,23 +2582,11 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CommitCreate"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommitRead"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -2039,15 +2602,16 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Create Commit",
+        "summary": " Redirect Create Commit",
         "tags": [
-          "commits"
+          "snapshots"
         ]
       }
     },
     "/repos/{owner}/{name}/commits/{hash}": {
       "get": {
-        "operationId": "get_commit_repos__owner___name__commits__hash__get",
+        "description": "308 Permanent Redirect: GET /commits/{hash} → /snapshots/{hash}（W1-1 T-3）。",
+        "operationId": "_redirect_get_commit_repos__owner___name__commits__hash__get",
         "parameters": [
           {
             "in": "path",
@@ -2072,7 +2636,6 @@
             "name": "hash",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-f]{64}$",
               "title": "Hash",
               "type": "string"
             }
@@ -2082,9 +2645,7 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommitRead"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -2100,9 +2661,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Commit",
+        "summary": " Redirect Get Commit",
         "tags": [
-          "commits"
+          "snapshots"
         ]
       }
     },
@@ -2228,9 +2789,70 @@
         ]
       }
     },
-    "/repos/{owner}/{name}/tree/{commit_hash}": {
+    "/repos/{owner}/{name}/snapshots": {
+      "post": {
+        "operationId": "create_snapshot_repos__owner___name__snapshots_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Snapshot",
+        "tags": [
+          "snapshots"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/snapshots/{hash}": {
       "get": {
-        "operationId": "get_tree_repos__owner___name__tree__commit_hash__get",
+        "operationId": "get_snapshot_repos__owner___name__snapshots__hash__get",
         "parameters": [
           {
             "in": "path",
@@ -2252,12 +2874,85 @@
           },
           {
             "in": "path",
-            "name": "commit_hash",
+            "name": "hash",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-f]{64}$",
-              "title": "Commit Hash",
+              "title": "Hash",
               "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Snapshot",
+        "tags": [
+          "snapshots"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/tree/{snapshot_hash}": {
+      "get": {
+        "operationId": "get_tree_repos__owner___name__tree__snapshot_hash__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Hash",
+              "type": "string"
+            }
+          },
+          {
+            "description": "True: 递归展开所有 type=tree entry 为 leaf blob 列表",
+            "in": "query",
+            "name": "recursive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "True: 递归展开所有 type=tree entry 为 leaf blob 列表",
+              "title": "Recursive",
+              "type": "boolean"
             }
           }
         ],
@@ -2285,7 +2980,69 @@
         },
         "summary": "Get Tree",
         "tags": [
-          "commits"
+          "snapshots"
+        ]
+      }
+    },
+    "/repos/{owner}/{name}/trees/{tree_hash}": {
+      "get": {
+        "description": "按任意 tree hash（root 或 subtree）取该层 entries。\n\n跨 repo 不暴露：即便 hash 相同，请求 repo 与 owner 不匹配 → 404。",
+        "operationId": "get_subtree_by_hash_repos__owner___name__trees__tree_hash__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tree_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Tree Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TreeRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Subtree By Hash",
+        "tags": [
+          "snapshots"
         ]
       }
     }

@@ -1,5 +1,5 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>
+change_id: api-snapshot-rename-20260520
 phase: verify
 reviewer: claude-agent:opus-phase3-reviewer
 model_used: opus

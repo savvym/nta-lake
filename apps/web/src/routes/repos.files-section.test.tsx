@@ -57,16 +57,16 @@ vi.mock("../lib/api/queries", () => ({
     refetch: vi.fn(),
   }),
   useRepoRef: () => ({
-    data: { name: "main", commit_hash: FAKE_COMMIT_HASH },
+    data: { name: "main", snapshot_hash: FAKE_COMMIT_HASH },
     isLoading: false,
     isError: false,
   }),
-  useCommit: () => ({
+  useSnapshot: () => ({
     data: {
       hash: FAKE_COMMIT_HASH,
       repo_id: "r1",
       tree_hash: "t".repeat(64),
-      parents: [],
+      parent: null,
       author_id: "admin",
       created_at: "2026-05-17T00:00:00Z",
       message: "init",
@@ -110,8 +110,8 @@ beforeEach(() => {
 });
 
 describe("repo detail Files section", () => {
-  it("legacy 扁平 commit：渲染扁平 entry list，无 folder icon，下载链可用", async () => {
-    // 模拟 legacy 扁平 commit：所有 entries 都是 type=blob，name 含 /
+  it("legacy 扁平 snapshot：渲染扁平 entry list，无 folder icon，下载链可用", async () => {
+    // 模拟 legacy 扁平 snapshot：所有 entries 都是 type=blob，name 含 /
     mockSubtreeState.data = {
       hash: "t".repeat(64),
       entries: [
@@ -130,7 +130,7 @@ describe("repo detail Files section", () => {
     });
     // legacy 提示
     expect(
-      screen.getByText(/legacy 扁平 commit/),
+      screen.getByText(/legacy 扁平 snapshot/),
     ).toBeInTheDocument();
   });
 

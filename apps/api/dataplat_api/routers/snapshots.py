@@ -1,16 +1,21 @@
-"""Commit / Blob / Tree HTTP 路由（spec commit-api-mvp-20260517 AC-4/5/6）。
+"""Snapshot / Blob / Tree HTTP 路由（W1-1 api-snapshot-rename-20260520；前称 commits.py）。
 
 Prefix 钉死：`APIRouter(prefix="/repos")` + main `include_router(router)` 不再加 prefix
 （与 repo-api-mvp / auth-scaffold 规则一致）。
 
 Auth + visibility 矩阵：
-- POST blob / POST commit：`Depends(require_admin)` + repo 存在性校验
-- GET blob / commit / tree：`Depends(get_optional_user)` + `RepoService.get_by_owner_name`
+- POST blob / POST snapshot：`Depends(require_admin)` + repo 存在性校验
+- GET blob / snapshot / tree：`Depends(get_optional_user)` + `RepoService.get_by_owner_name`
   做 visibility 过滤（404 不区分"不存在 vs 不可见"避免存在性泄露）
+
+308 兼容端点（W1-1 T-3）：
+- POST /{owner}/{name}/commits → 308 → /snapshots
+- GET  /{owner}/{name}/commits/{hash} → 308 → /snapshots/{hash}
 """
 
 from __future__ import annotations
 
+import logging
 import tempfile
 import uuid
 from collections.abc import AsyncIterator
@@ -27,7 +32,7 @@ from fastapi import (
     Request,
     status,
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -35,14 +40,16 @@ from dataplat_api.auth.deps import get_optional_user, require_admin
 from dataplat_api.db import get_session
 from dataplat_api.models import CommitORM, RepositoryORM, TreeEntryORM, TreeORM
 from dataplat_api.schemas.blob import BlobMetaResponse, BlobUploadResponse
-from dataplat_api.schemas.commit import CommitCreate, CommitRead
+from dataplat_api.schemas.snapshot import SnapshotCreate, SnapshotRead
 from dataplat_api.schemas.tree import TreeEntryRead, TreeRead
 from dataplat_api.services.blob import BlobService
 from dataplat_api.services.commit import CommitService
 from dataplat_api.services.repo import RepoService
 from dataplat_api.storage import get_blob_store
 
-router = APIRouter(prefix="/repos", tags=["commits"])
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/repos", tags=["snapshots"])
 
 _SHA256_PATTERN = r"^[0-9a-f]{64}$"
 
@@ -63,7 +70,7 @@ async def _resolve_repo(
     return repo
 
 
-def _commit_to_read(commit: CommitORM, deduplicated: bool) -> CommitRead:
+def _snapshot_to_read(commit: CommitORM, deduplicated: bool) -> SnapshotRead:
     tree_entries = [
         TreeEntryRead(
             name=e.name,
@@ -78,11 +85,19 @@ def _commit_to_read(commit: CommitORM, deduplicated: bool) -> CommitRead:
         if commit.lineage_json is not None
         else None
     )
-    return CommitRead(
+    parents = list(commit.parents)
+    if len(parents) > 1:
+        log.warning(
+            "snapshot %s has %d parents; API returns only first (W1-1 single-parent policy)",
+            commit.hash,
+            len(parents),
+        )
+    parent = parents[0] if parents else None
+    return SnapshotRead(
         hash=commit.hash,
         repo_id=str(commit.repo_id),
         tree_hash=commit.tree_hash,
-        parents=list(commit.parents),
+        parent=parent,
         author_id=commit.author_id,
         created_at=commit.created_at,
         message=commit.message,
@@ -174,41 +189,41 @@ async def get_blob_meta(
 
 
 @router.post(
-    "/{owner}/{name}/commits",
-    response_model=CommitRead,
+    "/{owner}/{name}/snapshots",
+    response_model=SnapshotRead,
 )
-async def create_commit(
+async def create_snapshot(
     owner: str,
     name: str,
-    payload: CommitCreate,
+    payload: SnapshotCreate,
     _admin: AuthenticatedUser = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
     store: BlobStore = Depends(get_blob_store),
-) -> CommitRead:
+) -> SnapshotRead:
     repo = await _resolve_repo(session, owner, name, _admin)
-    commit, dedup = await CommitService.create_commit(session, store, repo.id, payload)
-    return _commit_to_read(commit, dedup)
+    commit, dedup = await CommitService.create_snapshot(session, store, repo.id, payload)
+    return _snapshot_to_read(commit, dedup)
 
 
 @router.get(
-    "/{owner}/{name}/commits/{hash}",
-    response_model=CommitRead,
+    "/{owner}/{name}/snapshots/{hash}",
+    response_model=SnapshotRead,
 )
-async def get_commit(
+async def get_snapshot(
     owner: str,
     name: str,
     hash: str = Path(pattern=_SHA256_PATTERN),
     current_user: AuthenticatedUser | None = Depends(get_optional_user),
     session: AsyncSession = Depends(get_session),
-) -> CommitRead:
+) -> SnapshotRead:
     repo = await _resolve_repo(session, owner, name, current_user)
     commit = await CommitService.get_with_tree(session, repo.id, hash)
     if commit is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Commit {hash} 在 {owner}/{name} 不存在",
+            detail=f"Snapshot {hash} 在 {owner}/{name} 不存在",
         )
-    return _commit_to_read(commit, deduplicated=False)
+    return _snapshot_to_read(commit, deduplicated=False)
 
 
 async def _load_subtree_entries(
@@ -297,23 +312,23 @@ async def _expand_tree_recursive(
 
 
 @router.get(
-    "/{owner}/{name}/tree/{commit_hash}",
+    "/{owner}/{name}/tree/{snapshot_hash}",
     response_model=TreeRead,
 )
 async def get_tree(
     owner: str,
     name: str,
-    commit_hash: str = Path(pattern=_SHA256_PATTERN),
+    snapshot_hash: str = Path(pattern=_SHA256_PATTERN),
     recursive: bool = Query(False, description="True: 递归展开所有 type=tree entry 为 leaf blob 列表"),
     current_user: AuthenticatedUser | None = Depends(get_optional_user),
     session: AsyncSession = Depends(get_session),
 ) -> TreeRead:
     repo = await _resolve_repo(session, owner, name, current_user)
-    tree = await CommitService.get_tree_by_commit(session, repo.id, commit_hash)
+    tree = await CommitService.get_tree_by_commit(session, repo.id, snapshot_hash)
     if tree is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tree for commit {commit_hash} 在 {owner}/{name} 不存在",
+            detail=f"Tree for snapshot {snapshot_hash} 在 {owner}/{name} 不存在",
         )
     if recursive:
         entries = await _expand_tree_recursive(session, repo.id, tree.hash)
@@ -362,3 +377,31 @@ async def get_subtree_by_hash(
         for e in entries_orm
     ]
     return TreeRead(hash=tree_hash, entries=entries)
+
+
+# ---------- T-3: 308 兼容端点（保留 1 个版本周期；cleanup 见 follow-up） ----------
+
+
+@router.post("/{owner}/{name}/commits")
+async def _redirect_create_commit(
+    owner: str,
+    name: str,
+) -> RedirectResponse:
+    """308 Permanent Redirect: POST /commits → /snapshots（W1-1 T-3）。"""
+    return RedirectResponse(
+        url=f"/repos/{owner}/{name}/snapshots",
+        status_code=308,
+    )
+
+
+@router.get("/{owner}/{name}/commits/{hash}")
+async def _redirect_get_commit(
+    owner: str,
+    name: str,
+    hash: str,
+) -> RedirectResponse:
+    """308 Permanent Redirect: GET /commits/{hash} → /snapshots/{hash}（W1-1 T-3）。"""
+    return RedirectResponse(
+        url=f"/repos/{owner}/{name}/snapshots/{hash}",
+        status_code=308,
+    )

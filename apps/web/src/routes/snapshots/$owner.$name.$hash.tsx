@@ -1,16 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { useCommit } from "../lib/api/queries";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { useSnapshot } from "../../lib/api/queries";
 
-export const Route = createFileRoute("/commits/$owner/$name/$hash")({
-  component: CommitPage,
+export const Route = createFileRoute("/snapshots/$owner/$name/$hash")({
+  component: SnapshotPage,
 });
 
-function CommitPage() {
+function SnapshotPage() {
   const { owner, name, hash } = Route.useParams();
-  const { data, isLoading, isError, refetch } = useCommit(owner, name, hash);
+  const { data, isLoading, isError, refetch } = useSnapshot(owner, name, hash);
 
   if (isLoading) return <div className="text-gray-500">加载中…</div>;
   if (isError) {
@@ -27,7 +27,7 @@ function CommitPage() {
     return (
       <div className="flex flex-col items-start gap-2">
         <div className="text-gray-700">
-          Commit {hash} 在 {owner}/{name} 不存在或无权访问。
+          Snapshot {hash} 在 {owner}/{name} 不存在或无权访问。
         </div>
         <Link to="/repos/$owner/$name" params={{ owner, name }} search={{ tab: "files", path: "" }}>
           <Button variant="outline" size="sm">
@@ -42,7 +42,7 @@ function CommitPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Commit</h1>
+          <h1 className="text-2xl font-semibold">Snapshot</h1>
           <div className="font-mono text-sm text-gray-500 break-all">
             {data.hash}
           </div>
@@ -68,24 +68,18 @@ function CommitPage() {
             <dd>{new Date(data.created_at).toLocaleString()}</dd>
             <dt className="text-gray-500">tree_hash</dt>
             <dd className="font-mono text-xs break-all">{data.tree_hash}</dd>
-            <dt className="text-gray-500">parents</dt>
+            <dt className="text-gray-500">parent</dt>
             <dd>
-              {data.parents.length === 0 ? (
-                <span className="text-gray-400">（root commit）</span>
+              {data.parent == null ? (
+                <span className="text-gray-400">（root snapshot）</span>
               ) : (
-                <ul className="flex flex-col gap-1">
-                  {data.parents.map((p) => (
-                    <li key={p}>
-                      <Link
-                        to="/commits/$owner/$name/$hash"
-                        params={{ owner, name, hash: p }}
-                        className="font-mono text-xs text-blue-700 hover:underline break-all"
-                      >
-                        {p}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <Link
+                  to="/snapshots/$owner/$name/$hash"
+                  params={{ owner, name, hash: data.parent }}
+                  className="font-mono text-xs text-blue-700 hover:underline break-all"
+                >
+                  {data.parent}
+                </Link>
               )}
             </dd>
             <dt className="text-gray-500">lineage</dt>

@@ -160,4 +160,4 @@ async def get_ref(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Ref {ref_name} 在 {owner}/{name} 不存在",
         )
-    return RefRead(name=ref.name, commit_hash=ref.commit_hash)
+    return RefRead(name=ref.name, snapshot_hash=ref.commit_hash)

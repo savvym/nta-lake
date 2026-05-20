@@ -49,7 +49,7 @@ vi.mock("../lib/api/queries", () => ({
     refetch: vi.fn(),
   }),
   useRepoRef: () => ({ data: null, isLoading: false, isError: false }),
-  useCommit: () => ({ data: null, isLoading: false, isError: false }),
+  useSnapshot: () => ({ data: null, isLoading: false, isError: false }),
   useSubtreeByPath: () => ({
     data: null,
     isLoading: false,

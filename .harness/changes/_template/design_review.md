@@ -1,7 +1,7 @@
 ---
 change_id: <feature-slug>-<yyyymmdd>
 phase: design_review
-reviewer: opus-phase1-reviewer
+reviewer: claude-agent:opus-phase1-reviewer
 model_used: opus
 authored_at: <YYYY-MM-DDTHH:MM:SSZ>
 verdict: <APPROVED | SMALL REVISIONS | BIG REWRITE>

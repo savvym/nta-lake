@@ -1,14 +1,14 @@
 """dataplat CLI（Typer-based；design.md §7.3）。
 
 子命令布局：
-  dataplat login         # POST /auth/login
-  dataplat repo create   # POST /repos
-  dataplat repo get      # GET  /repos/{o}/{n}
-  dataplat blob upload   # POST /repos/{o}/{n}/blobs
-  dataplat commit create # POST /repos/{o}/{n}/commits
-  dataplat ingest        # POST /jobs/ingest
-  dataplat process       # POST /process
-  dataplat jobs get      # GET  /jobs/{id}
+  dataplat login           # POST /auth/login
+  dataplat repo create     # POST /repos
+  dataplat repo get        # GET  /repos/{o}/{n}
+  dataplat blob upload     # POST /repos/{o}/{n}/blobs
+  dataplat snapshot create # POST /repos/{o}/{n}/snapshots
+  dataplat ingest          # POST /jobs/ingest
+  dataplat process         # POST /process
+  dataplat jobs get        # GET  /jobs/{id}
 
 全局参数：
   --url            dataplat API base URL（env DATAPLAT_URL；默认 http://localhost:8000）
@@ -18,6 +18,9 @@
 
 约束：每个子命令都用 `dataplat_sdk.cli.Client` 构造 client；测试时
 monkeypatch 这个名字替换为 fake，CliRunner.invoke 就能拦截。
+
+W1-1（api-snapshot-rename-20260520）：commit_app → snapshot_app，
+dataplat commit create → dataplat snapshot create，--parents → --parent。
 """
 
 from __future__ import annotations
@@ -36,12 +39,12 @@ app = typer.Typer(name="dataplat", help="dataplat CLI", no_args_is_help=True)
 
 repo_app = typer.Typer(help="Repository 操作", no_args_is_help=True)
 blob_app = typer.Typer(help="Blob 上传", no_args_is_help=True)
-commit_app = typer.Typer(help="Commit 操作", no_args_is_help=True)
+snapshot_app = typer.Typer(help="Snapshot 操作", no_args_is_help=True)
 jobs_app = typer.Typer(help="Job 查询", no_args_is_help=True)
 
 app.add_typer(repo_app, name="repo")
 app.add_typer(blob_app, name="blob")
-app.add_typer(commit_app, name="commit")
+app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(jobs_app, name="jobs")
 
 
@@ -127,14 +130,14 @@ def blob_upload_cmd(
     typer.echo(sha)
 
 
-# ---------- commit ----------
+# ---------- snapshot ----------
 
 
-@commit_app.command("create")
-def commit_create_cmd(
+@snapshot_app.command("create")
+def snapshot_create_cmd(
     owner: str,
     name: str,
-    author_id: Annotated[str, typer.Option(help="commit author")],
+    author_id: Annotated[str, typer.Option(help="snapshot author")],
     entries_json: Annotated[
         str,
         typer.Option(
@@ -144,19 +147,18 @@ def commit_create_cmd(
     ],
     message: Annotated[str | None, typer.Option()] = None,
     ref: Annotated[str | None, typer.Option()] = None,
-    parents_json: Annotated[
-        str | None, typer.Option("--parents", help="JSON list of commit sha256")
+    parent: Annotated[
+        str | None, typer.Option("--parent", help="parent snapshot sha256 (single)")
     ] = None,
     url: Annotated[str | None, typer.Option(envvar="DATAPLAT_URL")] = None,
     token: Annotated[str | None, typer.Option(envvar="DATAPLAT_TOKEN")] = None,
 ) -> None:
     entries = json.loads(entries_json)
-    parents = json.loads(parents_json) if parents_json else None
     client = _make_client(url, token)
-    commit = client.create_commit(
-        owner, name, entries, author_id, parents, message, ref
+    snapshot = client.create_snapshot(
+        owner, name, entries, author_id, parent, message, ref
     )
-    _emit(commit)
+    _emit(snapshot)
 
 
 # ---------- ingest ----------

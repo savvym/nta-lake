@@ -47,7 +47,7 @@ vi.mock("../lib/api/queries", () => ({
     isLoading: false,
     isError: false,
   }),
-  useCommit: () => ({
+  useSnapshot: () => ({
     data: null,
     isLoading: false,
     isError: false,

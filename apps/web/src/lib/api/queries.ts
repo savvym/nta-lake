@@ -46,11 +46,11 @@ export interface TreeRead {
   entries: TreeEntryRead[];
 }
 
-export interface CommitRead {
+export interface SnapshotRead {
   hash: string;
   repo_id: string;
   tree_hash: string;
-  parents: string[];
+  parent: string | null;
   author_id: string;
   created_at: string;
   message: string | null;
@@ -61,7 +61,7 @@ export interface CommitRead {
 
 export interface RefRead {
   name: string;
-  commit_hash: string;
+  snapshot_hash: string;
 }
 
 export interface JobRead {
@@ -136,12 +136,12 @@ export function useRepo(owner: string, name: string) {
   });
 }
 
-export function useCommit(owner: string, name: string, hash: string) {
+export function useSnapshot(owner: string, name: string, hash: string) {
   return useQuery({
-    queryKey: ["commit", owner, name, hash],
+    queryKey: ["snapshot", owner, name, hash],
     queryFn: () =>
-      fetchJson<CommitRead>(
-        `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/commits/${encodeURIComponent(hash)}`,
+      fetchJson<SnapshotRead>(
+        `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/snapshots/${encodeURIComponent(hash)}`,
       ),
     enabled: !!hash && /^[0-9a-f]{64}$/.test(hash),
   });
