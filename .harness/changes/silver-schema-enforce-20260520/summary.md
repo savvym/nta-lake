@@ -3,9 +3,9 @@ change_id: silver-schema-enforce-20260520
 title: silver/gold repo 创建强制 schema_id + row_format (W1-3)
 owner: application-owner-agent
 started_at: 2026-05-20T19:35:00Z
-phase: design
-status: in_progress
-last_updated: 2026-05-20T19:35:00Z
+phase: verify
+status: approved
+last_updated: 2026-05-20T20:30:00Z
 related_changes:
   - api-snapshot-rename-20260520 (W1-1, merged a51a126)
   - operator-protocol-20260520 (W1-2, merged af8a7d5)
@@ -30,9 +30,9 @@ silver/gold repo 创建强制必带已注册 schema_id + row_format ∈ {parquet
 
 | 阶段 | 模型 | 状态 | verdict | commit | 产物 |
 |---|---|---|---|---|---|
-| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | _待填_ | [design.md](design.md) |
-| Phase 2 Implementation | sonnet | pending | — | _待填_ | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | pending | — | _待填_ | [verify_review.md](verify_review.md) |
+| Phase 1 Design | opus (application-owner 自写) | done | n/a (v3 无 Phase 1 reviewer) | e83af06 | [design.md](design.md) |
+| Phase 2 Implementation | sonnet | done | — | 4580a9d | [implementation.md](implementation.md) |
+| Phase 3 Verify | opus | done | APPROVED | (review only) | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
