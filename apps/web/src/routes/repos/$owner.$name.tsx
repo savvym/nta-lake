@@ -416,7 +416,10 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
                           <Link
                             to="/blob/$owner/$name/$hash"
                             params={{ owner, name, hash: e.target_hash }}
-                            search={{ path: fullPath }}
+                            search={{
+                              path: fullPath,
+                              commit: commitQuery.data?.hash,
+                            }}
                             className="text-blue-700 hover:underline"
                           >
                             {e.name}

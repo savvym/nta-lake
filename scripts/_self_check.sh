@@ -1308,6 +1308,37 @@ run_web_ingest_path_default() {
     bash -c 'grep -q "run_web_ingest_path_default" scripts/_self_check.sh'
 }
 
+run_web_blob_md_image_resolver() {
+  echo "=== web-blob-md-image-resolver-20260520 :: 9 AC ==="
+
+  run_ac AC-1 "react-markdown + remark-gfm 在 web deps" \
+    bash -c 'grep -qE "\"react-markdown\"" apps/web/package.json && grep -qE "\"remark-gfm\"" apps/web/package.json'
+
+  run_ac AC-2 "BlobPage validateSearch 含 commit zod 字段声明" \
+    bash -c 'grep -qE "commit\?:[[:space:]]+z\.string\(\)|commit:[[:space:]]*z\.string\(\)\.optional" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx'
+
+  run_ac AC-3 "FilesSection blob link 含 commit" \
+    bash -c 'grep -q "commit:" apps/web/src/routes/repos/\$owner.\$name.tsx'
+
+  run_ac AC-4 "BlobPage 用 ReactMarkdown 替换 renderMinimalMarkdown" \
+    bash -c 'grep -q "ReactMarkdown" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && ! grep -q "renderMinimalMarkdown" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx'
+
+  run_ac AC-5 "含 useSubtreeByPath + /api/repos.*blobs/ 重写路径（双锚）" \
+    bash -c 'grep -q "useSubtreeByPath" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && grep -qE "/api/repos/.*blobs/" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx'
+
+  run_ac AC-6 "blob.test.tsx ≥ 6 + 全 PASS（baseline 3 + 新增 ≥ 3）" \
+    bash -c 'cd apps/web && pnpm test -- --run --reporter json src/routes/blob.test.tsx > /tmp/blob.raw 2>&1 && grep -E "^{" /tmp/blob.raw > /tmp/blob.json && python3 -c "import json; d=json.load(open(\"/tmp/blob.json\")); assert d[\"numFailedTests\"]==0 and d[\"numTotalTests\"]>=6, d"'
+
+  run_ac AC-7 "pnpm typecheck 全 PASS" \
+    bash -c 'pnpm --filter web typecheck'
+
+  run_ac AC-8 "全 web vitest 不回归" \
+    bash -c 'cd apps/web && pnpm test -- --run > /dev/null 2>&1'
+
+  run_ac AC-9 "self_check 含 run_web_blob_md_image_resolver" \
+    bash -c 'grep -q "run_web_blob_md_image_resolver" scripts/_self_check.sh'
+}
+
 run_sdk_cli_mvp() {
   echo "=== sdk-cli-mvp-20260518 :: 13 AC ==="
 
@@ -1575,7 +1606,7 @@ run_repo_files_tab_v2() {
     bash -c 'test -f apps/web/src/routes/repos/\$owner.\$name.tsx && grep -q "tab=" apps/web/src/routes/repos/\$owner.\$name.tsx && grep -q "\"files\"" apps/web/src/routes/repos/\$owner.\$name.tsx && grep -q "\"ingest\"" apps/web/src/routes/repos/\$owner.\$name.tsx && grep -q "\"pipelines\"" apps/web/src/routes/repos/\$owner.\$name.tsx && { grep -q "Route.useSearch" apps/web/src/routes/repos/\$owner.\$name.tsx || grep -q "useSearch(" apps/web/src/routes/repos/\$owner.\$name.tsx ; }'
 
   run_ac AC-4 "blob.\$owner.\$name.\$hash.tsx 存在 + createFileRoute + useBlobMeta + 5MB 常量 + Markdown renderer + 图片扩展名" \
-    bash -c 'test -f apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && grep -q "createFileRoute(\"/blob/\$owner/\$name/\$hash\")" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && grep -q "useBlobMeta" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && { grep -qE "5 ?\\* ?1024 ?\\* ?1024" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "5242880" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MAX_PREVIEW_SIZE" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; } && { grep -q "renderMinimalMarkdown" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MarkdownView" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MarkdownRendered" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; } && { grep -q "\\.png" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "\\.jpg" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "\\.jpeg" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; }'
+    bash -c 'test -f apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && grep -q "createFileRoute(\"/blob/\$owner/\$name/\$hash\")" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && grep -q "useBlobMeta" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx && { grep -qE "5 ?\\* ?1024 ?\\* ?1024" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "5242880" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MAX_PREVIEW_SIZE" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; } && { grep -q "renderMinimalMarkdown" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MarkdownView" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "MarkdownRendered" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "ReactMarkdown" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; } && { grep -q "\\.png" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "\\.jpg" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx || grep -q "\\.jpeg" apps/web/src/routes/blob.\$owner.\$name.\$hash.tsx ; }'
 
   run_ac AC-5 "FilesSection 函数体含 /blob/\$owner/\$name/\$hash + search（awk 状态机锚定）" \
     bash -c 'awk "/function FilesSection/{p=1;next} p && /^function /{exit} p" apps/web/src/routes/repos/\$owner.\$name.tsx | grep -q "/blob/\$owner/\$name/\$hash" && awk "/function FilesSection/{p=1;next} p && /^function /{exit} p" apps/web/src/routes/repos/\$owner.\$name.tsx | grep -q "search"'
@@ -1850,6 +1881,9 @@ run_change_block() {
     web-ingest-path-default|web-ingest-path-default-20260520)
       run_web_ingest_path_default
       ;;
+    web-blob-md-image-resolver|web-blob-md-image-resolver-20260520)
+      run_web_blob_md_image_resolver
+      ;;
     sdk-cli-mvp|sdk-cli-mvp-20260518)
       run_sdk_cli_mvp
       ;;
@@ -1936,6 +1970,8 @@ run_full() {
   run_web_tree_nested_ui
   echo
   run_web_ingest_path_default
+  echo
+  run_web_blob_md_image_resolver
   echo
   run_sdk_cli_mvp
   echo
