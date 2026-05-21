@@ -16,8 +16,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
-
 from dataplat_core.operators.dpo_pair_gen import DPOPairGenOperator
 from dataplat_core.operators.registry import OperatorRegistry
 from dataplat_core.protocols.llm import LLMRequest, LLMResponse
