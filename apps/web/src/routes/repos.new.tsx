@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -21,6 +21,14 @@ const SUBTYPES_BY_LAYER: Record<string, string[]> = {
 };
 const VISIBILITIES = ["private", "internal", "public"] as const;
 
+// schema_id 列表与 packages/core/src/dataplat_core/schemas/_builtin.py 同步；
+// schema 增到 ≥5 时改用 GET /schemas API（follow-up web-schemas-api-*）。
+const SCHEMA_IDS_BY_LAYER: Record<string, string[]> = {
+  silver: ["silver-text-v1"],
+  gold: ["gold-sft-v1"],
+};
+const ROW_FORMATS = ["parquet", "jsonl"] as const;
+
 const schema = z.object({
   owner: z.string().min(1, "owner 必填"),
   name: z.string().min(1, "name 必填"),
@@ -28,6 +36,8 @@ const schema = z.object({
   subtype: z.string().min(1, "subtype 必填"),
   visibility: z.enum(VISIBILITIES),
   description: z.string().optional(),
+  schema_id: z.string().optional(),
+  row_format: z.enum(ROW_FORMATS).optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -40,6 +50,7 @@ function NewRepoPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     defaultValues: {
@@ -49,11 +60,27 @@ function NewRepoPage() {
       subtype: "pdf",
       visibility: "private",
       description: "",
+      schema_id: undefined,
+      row_format: undefined,
     },
   });
 
   const selectedLayer = watch("layer");
   const subtypeOptions = SUBTYPES_BY_LAYER[selectedLayer] ?? [];
+
+  // layer 切换时自动设置 schema_id 和 row_format 默认值
+  useEffect(() => {
+    if (selectedLayer === "silver") {
+      setValue("schema_id", "silver-text-v1");
+      setValue("row_format", "parquet");
+    } else if (selectedLayer === "gold") {
+      setValue("schema_id", "gold-sft-v1");
+      setValue("row_format", "parquet");
+    } else {
+      setValue("schema_id", undefined);
+      setValue("row_format", undefined);
+    }
+  }, [selectedLayer, setValue]);
 
   const onSubmit = async (values: FormData) => {
     setError(null);
@@ -70,6 +97,8 @@ function NewRepoPage() {
         subtype: parsed.data.subtype,
         visibility: parsed.data.visibility,
         description: parsed.data.description || null,
+        schema_id: parsed.data.schema_id || undefined,
+        row_format: parsed.data.row_format || undefined,
       });
       router.navigate({
         to: "/repos/$owner/$name",
@@ -161,6 +190,38 @@ function NewRepoPage() {
                 </select>
               </div>
             </div>
+            {(selectedLayer === "silver" || selectedLayer === "gold") && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="schema_id">schema_id</Label>
+                  <select
+                    id="schema_id"
+                    className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
+                    {...register("schema_id")}
+                  >
+                    {(SCHEMA_IDS_BY_LAYER[selectedLayer] ?? []).map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="row_format">row_format</Label>
+                  <select
+                    id="row_format"
+                    className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
+                    {...register("row_format")}
+                  >
+                    {ROW_FORMATS.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="description">description (可选)</Label>
               <Textarea

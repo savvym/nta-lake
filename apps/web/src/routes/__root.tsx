@@ -30,6 +30,20 @@ function RootLayout() {
           <div className="flex items-center gap-3">
             {me ? (
               <>
+                <Link
+                  to="/repos"
+                  className="text-sm text-gray-700 hover:underline"
+                >
+                  Repos
+                </Link>
+                {me.role === "admin" && (
+                  <Link
+                    to="/repos/new"
+                    className="text-sm text-gray-700 hover:underline"
+                  >
+                    New Repo
+                  </Link>
+                )}
                 {me.role === "admin" && (
                   <>
                     <Link
@@ -47,6 +61,13 @@ function RootLayout() {
                     </Link>
                   </>
                 )}
+                <Link
+                  to="/recipes/builder"
+                  search={{}}
+                  className="text-sm text-gray-700 hover:underline"
+                >
+                  Recipes Builder
+                </Link>
                 <span className="text-sm text-gray-600">{me.username}</span>
                 <Button variant="outline" size="sm" onClick={handleLogout}>
                   logout
