@@ -495,3 +495,55 @@ export function useBlobMeta(owner: string, name: string, sha256: string) {
     enabled: /^[0-9a-f]{64}$/.test(sha256),
   });
 }
+
+// --- W4-4: snapshot export mutation hook ---
+
+export interface SnapshotExportResult {
+  blob: Blob;
+  rowCount: string | null;
+  blobSha: string | null;
+}
+
+export interface SnapshotExportArgs {
+  owner: string;
+  name: string;
+  hash: string;
+  format: "hf_datasets" | "jsonl" | "parquet";
+  blobSha?: string;
+  split?: string;
+}
+
+export function useSnapshotExport() {
+  return useMutation({
+    mutationFn: async (args: SnapshotExportArgs): Promise<SnapshotExportResult> => {
+      const { owner, name, hash, format, blobSha, split } = args;
+      const resp = await fetch(
+        `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/snapshots/${encodeURIComponent(hash)}/exports`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            format,
+            blob_sha: blobSha ?? null,
+            split: split ?? "train",
+          }),
+        },
+      );
+      if (!resp.ok) {
+        let detail = `export failed ${resp.status}`;
+        try {
+          const j = await resp.json() as { detail?: string };
+          if (j.detail) detail = j.detail;
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(detail);
+      }
+      const blob = await resp.blob();
+      const rowCount = resp.headers.get("X-Snapshot-Row-Count");
+      const blobShaHeader = resp.headers.get("X-Snapshot-Blob-Sha");
+      return { blob, rowCount, blobSha: blobShaHeader };
+    },
+  });
+}
