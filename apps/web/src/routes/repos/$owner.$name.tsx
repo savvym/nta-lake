@@ -408,6 +408,9 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
                         </tr>
                       );
                     }
+                    const isJsonl =
+                      e.name.toLowerCase().endsWith(".jsonl") ||
+                      e.name.toLowerCase().endsWith(".jsonl.gz");
                     return (
                       <tr
                         key={e.name}
@@ -431,14 +434,24 @@ function FilesSection({ owner, name }: { owner: string; name: string }) {
                           {e.target_hash.slice(0, 12)}…
                         </td>
                         <td className="py-2 text-right">
-                          <a
-                            href={`/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(e.target_hash)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-700 hover:underline text-xs"
-                          >
-                            下载
-                          </a>
+                          <div className="flex items-center justify-end gap-2">
+                            <a
+                              href={`/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blobs/${encodeURIComponent(e.target_hash)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-700 hover:underline text-xs"
+                            >
+                              下载
+                            </a>
+                            {isJsonl && commitQuery.data && (
+                              <a
+                                href={`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/snapshots/${encodeURIComponent(commitQuery.data.hash)}/export?format=hf_datasets&blobSha=${encodeURIComponent(e.target_hash)}`}
+                                className="text-green-700 hover:underline text-xs"
+                              >
+                                导出
+                              </a>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

@@ -15,16 +15,21 @@ Auth + visibility 矩阵：
 
 from __future__ import annotations
 
+import io
 import logging
+import tarfile
 import tempfile
 import uuid
 from collections.abc import AsyncIterator
+from pathlib import Path as FsPath
 
 from dataplat_core.domain.lineage import Lineage
+from dataplat_core.exporters.hf_datasets import export_to_hf_datasets
 from dataplat_core.protocols.auth import AuthenticatedUser
 from dataplat_core.protocols.storage import BlobStore
 from fastapi import (
     APIRouter,
+    Body,
     Depends,
     HTTPException,
     Path,
@@ -42,6 +47,7 @@ from dataplat_api.models import CommitORM, RepositoryORM, TreeEntryORM, TreeORM
 from dataplat_api.schemas._commit_internal import CommitCreate
 from dataplat_api.schemas.blob import BlobMetaResponse, BlobUploadResponse
 from dataplat_api.schemas.snapshot import SnapshotCreate, SnapshotRead
+from dataplat_api.schemas.snapshot_export import SnapshotExportTriggerBody
 from dataplat_api.schemas.snapshot_rows import SilverRowRead, SnapshotRowsResponse
 from dataplat_api.schemas.tree import TreeEntryRead, TreeRead
 from dataplat_api.services.blob import BlobService
@@ -395,6 +401,40 @@ async def get_subtree_by_hash(
 # ---------- W4-1: snapshot rows endpoint ----------
 
 
+async def _resolve_silver_jsonl_blob_sha(
+    session: AsyncSession,
+    repo_id: uuid.UUID,
+    commit: CommitORM,
+) -> str:
+    """从 snapshot tree 中解析唯一 .jsonl/.jsonl.gz entry 的 blob sha。
+
+    0 个 → 422 silver_snapshot_no_jsonl_entry
+    ≥2 个 → 422 silver_snapshot_ambiguous_blob_sha
+    1 个 → 返回该 entry 的 target_hash。
+
+    被 get_snapshot_rows（W4-1）与 export_snapshot（W4-4）共用。
+    """
+    entries = await _load_subtree_entries(session, repo_id, commit.tree_hash)
+    if entries is None:
+        entries = []
+    jsonl_entries = [
+        e
+        for e in entries
+        if e.name.lower().endswith(".jsonl") or e.name.lower().endswith(".jsonl.gz")
+    ]
+    if len(jsonl_entries) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="silver_snapshot_no_jsonl_entry",
+        )
+    if len(jsonl_entries) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"silver_snapshot_ambiguous_blob_sha; snapshot 含 {len(jsonl_entries)} 个 jsonl entry，请显式传 blob_sha",
+        )
+    return jsonl_entries[0].target_hash
+
+
 @router.get(
     "/{owner}/{name}/snapshots/{hash}/rows",
     response_model=SnapshotRowsResponse,
@@ -429,26 +469,12 @@ async def get_snapshot_rows(
             detail=f"Snapshot {hash} 在 {owner}/{name} 不存在",
         )
 
-    # 解析 blob_sha：传入 → 直接用；否则从 root tree 找唯一 .jsonl entry
+    # 解析 blob_sha：传入 → 直接用；否则从 root tree 找唯一 .jsonl entry（复用 helper）
     sha: str
     if blob_sha is not None:
         sha = blob_sha
     else:
-        entries = await _load_subtree_entries(session, repo.id, commit.tree_hash)
-        if entries is None:
-            entries = []
-        jsonl_entries = [e for e in entries if e.name.lower().endswith(".jsonl")]
-        if len(jsonl_entries) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="silver_snapshot_no_jsonl_entry",
-            )
-        if len(jsonl_entries) > 1:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="silver_snapshot_ambiguous_blob_sha; pass ?blob_sha=",
-            )
-        sha = jsonl_entries[0].target_hash
+        sha = await _resolve_silver_jsonl_blob_sha(session, repo.id, commit)
 
     # 读 blob bytes（store.get 返回 AsyncIterator[bytes]，concat 成 bytes）
     try:
@@ -480,6 +506,88 @@ async def get_snapshot_rows(
         offset=offset,
         limit=limit,
         blob_sha=sha,
+    )
+
+
+# ---------- W4-4: snapshot export endpoint ----------
+
+
+@router.post("/{owner}/{name}/snapshots/{hash}/exports")
+async def export_snapshot(
+    owner: str,
+    name: str,
+    hash: str = Path(pattern=_SHA256_PATTERN),
+    body: SnapshotExportTriggerBody = Body(default_factory=SnapshotExportTriggerBody),
+    current_user: AuthenticatedUser | None = Depends(get_optional_user),
+    session: AsyncSession = Depends(get_session),
+    store: BlobStore = Depends(get_blob_store),
+) -> StreamingResponse:
+    """触发 snapshot export，返回 tar.gz 流。
+
+    - format=hf_datasets（唯一实现）：调 W3-7 export_to_hf_datasets → tar.gz StreamingResponse
+    - format=jsonl → 422（direct blob download 已由 GET /blobs/{sha} 提供）
+    - format=parquet → 422（follow-up gold-exporter-parquet-*）
+    """
+    # format 路由
+    if body.format == "jsonl":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "format=jsonl 未实现；可直接 GET "
+                f"/repos/{owner}/{name}/blobs/{{blob_sha}} 获取原始 silver JSONL"
+            ),
+        )
+    if body.format == "parquet":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="format=parquet 未实现；follow-up gold-exporter-parquet-*",
+        )
+
+    # format == "hf_datasets"
+    repo = await _resolve_repo(session, owner, name, current_user)
+    commit = await CommitService.get_with_tree(session, repo.id, hash)
+    if commit is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Snapshot {hash} 在 {owner}/{name} 不存在",
+        )
+
+    # 解析 blob_sha：body 传了用 body；否则从 tree 解析唯一 .jsonl entry
+    sha: str
+    if body.blob_sha is not None:
+        sha = body.blob_sha
+    else:
+        sha = await _resolve_silver_jsonl_blob_sha(session, repo.id, commit)
+
+    # 导出到临时目录
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        result = await export_to_hf_datasets(
+            sha,
+            FsPath(tmp_dir) / "dataset",
+            store,
+            split=body.split,
+        )
+
+        # 把临时目录打包为 tar.gz（全装内存返；见 design D-4）
+        buf = io.BytesIO()
+        dataset_path = FsPath(result.target_path)
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            for fpath in sorted(dataset_path.rglob("*")):
+                if fpath.is_file():
+                    arcname = fpath.relative_to(dataset_path)
+                    tar.add(str(fpath), arcname=str(arcname))
+        tarball_bytes = buf.getvalue()
+
+    filename = f"snapshot-{hash[:12]}.tar.gz"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "X-Snapshot-Row-Count": str(result.row_count),
+        "X-Snapshot-Blob-Sha": sha,
+    }
+    return StreamingResponse(
+        io.BytesIO(tarball_bytes),
+        media_type="application/gzip",
+        headers=headers,
     )
 
 
