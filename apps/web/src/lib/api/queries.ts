@@ -515,6 +515,46 @@ export interface SnapshotExportArgs {
   split?: string;
 }
 
+// --- web-recipe-structured-config-20260521: operator metadata ---
+
+export interface OperatorMeta {
+  name: string;
+  version: string;
+  config_schema: Record<string, unknown>;
+}
+
+export function useOperatorsQuery() {
+  return useQuery<OperatorMeta[]>({
+    queryKey: ["operators"],
+    queryFn: () => fetchJson<OperatorMeta[]>("/api/operators") as Promise<OperatorMeta[]>,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCreateRunFromYaml() {
+  return useMutation<{ run_id: string; job_id?: string }, Error, string>({
+    mutationFn: async (yamlBody: string) => {
+      const res = await fetch("/api/pipelines/runs:from-yaml", {
+        method: "POST",
+        headers: { "Content-Type": "text/yaml" },
+        body: yamlBody,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        let detail = res.statusText;
+        try {
+          const data = (await res.json()) as { detail?: string };
+          detail = data.detail ?? detail;
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(detail);
+      }
+      return (await res.json()) as { run_id: string; job_id?: string };
+    },
+  });
+}
+
 // --- W4-7: observability metrics ---
 
 export interface OperatorMetrics {

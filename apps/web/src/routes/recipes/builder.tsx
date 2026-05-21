@@ -4,7 +4,7 @@
  * 路由：/recipes/builder
  * 三栏布局：Palette（左）| Chain（中）| YAML Preview（右）
  *
- * LOADER_NAMES / OPERATOR_NAMES 来自 lib/recipe-v2-builder.ts（与 packages/core 注册对齐）
+ * LOADER_NAMES 来自 lib/recipe-v2-builder.ts；operator 列表由 useOperatorsQuery 运行时拉取
  * 拖拽排序：@dnd-kit/sortable（垂直可拖序列表；tests 不模拟拖拽事件）
  * yaml 序列化：buildRecipeYaml（js-yaml stringify）
  */
@@ -20,16 +20,21 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import yaml from "js-yaml";
 import { GripVertical, X } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
+import { OperatorConfigForm } from "../../components/operator-config-form";
 import { Button } from "../../components/ui/button";
 import {
+  useCreateRunFromYaml,
+  useMe,
+  useOperatorsQuery,
+} from "../../lib/api/queries";
+import {
   LOADER_NAMES,
-  OPERATOR_NAMES,
   type BuilderState,
   buildRecipeYaml,
 } from "../../lib/recipe-v2-builder";
@@ -50,17 +55,21 @@ export const Route = createFileRoute("/recipes/builder")({
 // ────────────────────────────────────────────────────────────────────────────
 
 interface SortableOperatorCardProps {
-  op: { id: string; name: string; configYaml: string };
+  op: { id: string; name: string; configYaml: string; configObject: Record<string, unknown> };
   idx: number;
+  schema: Record<string, unknown> | undefined;
   onRemove: (id: string) => void;
   onConfigChange: (id: string, yaml: string) => void;
+  onConfigObjectChange: (id: string, obj: Record<string, unknown>) => void;
 }
 
 function SortableOperatorCard({
   op,
   idx,
+  schema,
   onRemove,
   onConfigChange,
+  onConfigObjectChange,
 }: SortableOperatorCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: op.id });
@@ -100,16 +109,14 @@ function SortableOperatorCard({
           <X size={16} />
         </button>
       </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-gray-500">config (yaml)</label>
-        <textarea
-          value={op.configYaml}
-          onChange={(e) => onConfigChange(op.id, e.target.value)}
-          className="font-mono text-xs border border-gray-200 rounded p-1.5 w-full min-h-[60px] resize-y"
-          placeholder="key: value"
-          spellCheck={false}
-        />
-      </div>
+      <OperatorConfigForm
+        schema={schema}
+        value={op.configObject}
+        onChange={(obj) => onConfigObjectChange(op.id, obj)}
+        fallbackYaml={op.configYaml}
+        onFallbackYamlChange={(y) => onConfigChange(op.id, y)}
+        testIdPrefix={`op-cfg-${idx}`}
+      />
     </div>
   );
 }
@@ -129,14 +136,23 @@ function BuilderPage() {
     operators: [],
   });
 
+  // operator list from backend (replaces OPERATOR_NAMES hardcode)
+  const operatorsQuery = useOperatorsQuery();
+  const operatorNames = operatorsQuery.data?.map((o) => o.name) ?? [];
+  const schemaForOp = (name: string) =>
+    operatorsQuery.data?.find((o) => o.name === name)?.config_schema;
+
+  const meQuery = useMe();
+  const isAdmin = meQuery.data?.role === "admin";
+  const runMutation = useCreateRunFromYaml();
+
   const [selectedLoader, setSelectedLoader] = useState<string>(
     LOADER_NAMES[0],
   );
-  const [selectedOperator, setSelectedOperator] = useState<string>(
-    OPERATOR_NAMES[0],
-  );
+  const [selectedOperator, setSelectedOperator] = useState<string>("");
   const [validateResult, setValidateResult] = useState<string | null>(null);
   const [copyDone, setCopyDone] = useState(false);
+  const [runFeedback, setRunFeedback] = useState<string | null>(null);
 
   // ── 序列化 yaml ───────────────────────────────────────────────────────────
 
@@ -160,12 +176,14 @@ function BuilderPage() {
   }
 
   function addOperator() {
+    const opName = selectedOperator || operatorNames[0] || "";
+    if (!opName) return;
     const id = `op-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setState((prev) => ({
       ...prev,
       operators: [
         ...prev.operators,
-        { id, name: selectedOperator, configYaml: "" },
+        { id, name: opName, configYaml: "", configObject: {} },
       ],
     }));
   }
@@ -184,6 +202,15 @@ function BuilderPage() {
       ...prev,
       operators: prev.operators.map((o) =>
         o.id === opId ? { ...o, configYaml } : o,
+      ),
+    }));
+  }
+
+  function updateOperatorConfigObject(opId: string, configObject: Record<string, unknown>) {
+    setState((prev) => ({
+      ...prev,
+      operators: prev.operators.map((o) =>
+        o.id === opId ? { ...o, configObject } : o,
       ),
     }));
   }
@@ -241,6 +268,16 @@ function BuilderPage() {
     }
   }
 
+  async function handleRun() {
+    setRunFeedback("运行中…");
+    try {
+      const result = await runMutation.mutateAsync(displayYaml);
+      setRunFeedback(`✓ 已提交 run_id=${result.run_id}`);
+    } catch (err) {
+      setRunFeedback(`✗ ${String(err instanceof Error ? err.message : err)}`);
+    }
+  }
+
   // ────────────────────────────────────────────────────────────────────────
   // Render
   // ────────────────────────────────────────────────────────────────────────
@@ -283,23 +320,28 @@ function BuilderPage() {
           <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
             Operator
           </span>
-          <select
-            data-testid="operator-select"
-            value={selectedOperator}
-            onChange={(e) => setSelectedOperator(e.target.value)}
-            className="border border-gray-300 rounded text-sm px-2 py-1 bg-white"
-          >
-            {OPERATOR_NAMES.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+          {operatorsQuery.isLoading ? (
+            <span className="text-xs text-gray-400 italic">加载中…</span>
+          ) : (
+            <select
+              data-testid="operator-select"
+              value={selectedOperator || operatorNames[0] || ""}
+              onChange={(e) => setSelectedOperator(e.target.value)}
+              className="border border-gray-300 rounded text-sm px-2 py-1 bg-white"
+            >
+              {operatorNames.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          )}
           <Button
             size="sm"
             onClick={addOperator}
             data-testid="operator-add"
             className="w-full text-xs"
+            disabled={operatorNames.length === 0}
           >
             + Add Operator
           </Button>
@@ -399,8 +441,10 @@ function BuilderPage() {
                       key={op.id}
                       op={op}
                       idx={idx}
+                      schema={schemaForOp(op.name)}
                       onRemove={removeOperator}
                       onConfigChange={updateOperatorConfig}
+                      onConfigObjectChange={updateOperatorConfigObject}
                     />
                   ))}
                 </div>
@@ -440,6 +484,17 @@ function BuilderPage() {
           >
             校验
           </Button>
+          {isAdmin && (
+            <Button
+              size="sm"
+              data-testid="run-recipe-btn"
+              onClick={() => { void handleRun(); }}
+              disabled={runMutation.isPending}
+              className="text-xs"
+            >
+              {runMutation.isPending ? "运行中…" : "运行 Recipe"}
+            </Button>
+          )}
         </div>
 
         {validateResult && (
@@ -451,6 +506,32 @@ function BuilderPage() {
             }`}
           >
             {validateResult}
+          </div>
+        )}
+
+        {runFeedback && (
+          <div
+            className={`text-xs rounded p-2 ${
+              runFeedback.startsWith("✓")
+                ? "bg-green-50 text-green-700"
+                : runFeedback === "运行中…"
+                  ? "bg-blue-50 text-blue-600"
+                  : "bg-red-50 text-red-600"
+            }`}
+          >
+            {runFeedback}
+            {runFeedback.startsWith("✓") && (
+              <>
+                {" "}
+                <Link
+                  to="/jobs"
+                  search={{ status: "", type: "", limit: 50, offset: 0 }}
+                  className="underline"
+                >
+                  查看 Jobs
+                </Link>
+              </>
+            )}
           </div>
         )}
 
