@@ -284,3 +284,84 @@ async def test_run_recipe_v2_records_metrics() -> None:
     assert chunker_snap.rows_in == 1
     assert chunker_snap.rows_out == 2
     assert chunker_snap.errors == 0
+
+
+# ---------------------------------------------------------------------------
+# AC-3（W4-8）: run_recipe_v2 支持 async operator（eval_gen）
+# ---------------------------------------------------------------------------
+
+
+async def test_run_recipe_v2_supports_async_operator() -> None:
+    """AC-3(W4-8): run_recipe_v2 跑含 EvalGenOperator 的 recipe → 完成 + metrics 含 eval_gen entry。
+
+    stub loader 返 1 row（text=150 chars）：
+      - eval_gen：async operator，1→1；metrics rows_in=1, rows_out=1
+    FakeLLMClient 注入到 ctx.llm，返合法 JSON（4 选项 + answer='A'）。
+    """
+    import json
+    from types import SimpleNamespace
+
+    from dataplat_core.metrics import get_metrics_registry, reset_metrics_registry
+    from dataplat_core.protocols.llm import LLMRequest, LLMResponse
+    from dataplat_core.recipe import RecipeLoaderSpec, RecipeOperatorSpec, RecipeV2, run_recipe_v2
+
+    _VALID_EVAL_JSON = json.dumps(
+        {
+            "question": "这段文本的主要主题是什么？",
+            "options": {"A": "科技发展", "B": "历史事件", "C": "自然现象", "D": "经济政策"},
+            "answer": "A",
+        }
+    )
+
+    class _FakeLLMClient:
+        async def call(self, req: LLMRequest) -> LLMResponse:
+            return LLMResponse(text=_VALID_EVAL_JSON, model_id=req.model_id)
+
+    reset_metrics_registry()
+
+    recipe = RecipeV2(
+        name="test-async-eval-gen",
+        version=2,
+        loader=RecipeLoaderSpec(
+            name="test-loader-recipe-v2",
+            config={},
+            input={"blob_sha": "feedface" * 8},
+        ),
+        operators=[
+            RecipeOperatorSpec(name="eval_gen", config={"model_id": "fake-model"}),
+        ],
+    )
+
+    ctx = SimpleNamespace(
+        logger=None,
+        metrics=None,
+        secrets=None,
+        cancel_event=None,
+        llm=_FakeLLMClient(),
+    )
+    result = await run_recipe_v2(recipe, ctx)  # type: ignore[arg-type]
+
+    # 基本结果：1→1
+    assert result.total_input == 1
+    assert result.total_output == 1
+    assert len(result.rows) == 1
+
+    # eval_items 写入 stats
+    out_row = result.rows[0]
+    eval_items = out_row.stats.get("eval_items", [])
+    assert len(eval_items) == 1
+    assert eval_items[0]["answer"] == "A"
+    assert "error" not in eval_items[0]
+
+    # metrics 含 eval_gen entry
+    registry = get_metrics_registry()
+    snaps = registry.snapshot()
+    assert len(snaps) >= 1, f"期望至少 1 个 metrics entry，实得 {len(snaps)}"
+    names = [s.operator_name for s in snaps]
+    assert "eval_gen" in names, f"期望 metrics 含 eval_gen，实得 {names}"
+
+    eval_gen_snap = next(s for s in snaps if s.operator_name == "eval_gen")
+    assert eval_gen_snap.runs == 1
+    assert eval_gen_snap.rows_in == 1
+    assert eval_gen_snap.rows_out == 1
+    assert eval_gen_snap.errors == 0
