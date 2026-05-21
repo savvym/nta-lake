@@ -2,6 +2,8 @@
 
 env `DATAPLAT_LLM_PROVIDER` ∈ {`anthropic`, `fake`}；缺省 `fake`（CI/dev
 默认 deterministic 不消耗 API 配额）。
+
+W4-5 扩展：注入 CostController + DEFAULT_RATES 到 LLMGateway。
 """
 
 from __future__ import annotations
@@ -9,10 +11,12 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 
+from dataplat_core.cost import DEFAULT_RATES
 from dataplat_core.protocols.llm import LLMClient
 
 from dataplat_api.jobs.redis_client import get_redis
 from dataplat_api.llm.cache import RedisLLMCache
+from dataplat_api.llm.cost import get_cost_controller
 from dataplat_api.llm.gateway import LLMGateway
 from dataplat_api.llm.providers.anthropic import AnthropicProvider
 from dataplat_api.llm.providers.fake import FakeLLMProvider
@@ -32,7 +36,14 @@ def get_llm_gateway() -> LLMGateway:
         cache: RedisLLMCache | None = RedisLLMCache(get_redis())
     except Exception:
         cache = None
-    return LLMGateway(provider=provider, cache=cache)
+    controller = get_cost_controller()
+    return LLMGateway(
+        provider=provider,
+        cache=cache,
+        cost=controller,
+        rates=DEFAULT_RATES,
+        scope="default",
+    )
 
 
 def reset_llm_gateway() -> None:
