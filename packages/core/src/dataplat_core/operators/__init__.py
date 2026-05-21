@@ -11,10 +11,12 @@
     ImageCaptionStubOperator  — 将 images 元数据拼占位符注入 text（W2-3）
     SnapshotTagOperator       — 给行打 source_snapshot 标签（W2-4）
     SnapshotSampleOperator    — 基于 sha256 确定性哈希做按权重抽样（W2-4）
+    EvalGenOperator           — 调 LLM 生成多选题写入 stats.eval_items（W4-8）
 """
 
 from dataplat_core.operators.chunker import ChunkerOperator
 from dataplat_core.operators.dedup import DedupOperator
+from dataplat_core.operators.eval_gen import EvalGenOperator
 from dataplat_core.operators.filter import FilterOperator
 from dataplat_core.operators.identity import IdentityOperator
 from dataplat_core.operators.image_caption_stub import ImageCaptionStubOperator
@@ -35,9 +37,10 @@ __all__ = [
     "ImageCaptionStubOperator",
     "SnapshotTagOperator",
     "SnapshotSampleOperator",
+    "EvalGenOperator",
 ]
 
-# 模块级自动注册 9 个内置算子；try/except 防止模块重复 import 时重复注册。
+# 模块级自动注册 10 个内置算子；try/except 防止模块重复 import 时重复注册。
 for _name, _cls in [
     ("identity", IdentityOperator),
     ("filter", FilterOperator),
@@ -48,6 +51,7 @@ for _name, _cls in [
     ("image_caption_stub", ImageCaptionStubOperator),
     ("snapshot_tag", SnapshotTagOperator),
     ("snapshot_sample", SnapshotSampleOperator),
+    ("eval_gen", EvalGenOperator),
 ]:
     try:
         OperatorRegistry.register(_name, _cls)

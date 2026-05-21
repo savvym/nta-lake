@@ -40,6 +40,10 @@ class Operator(Protocol):
 
     实现者须声明 name / version / spec 三个属性，并实现 run()。
     run() 必须返回新 row 列表，**不得原地修改输入 row**（lineage_ops 不变性）。
+
+    注：run() 可返 list[SilverRow]（同步）或 Coroutine[list[SilverRow]]（异步）；
+    executor（run_recipe_v2）会自动检测 asyncio.iscoroutine(result) 并 await。
+    现有同步 operator 无需改动；async operator（如 EvalGenOperator）直接 async def run。
     """
 
     name: str

@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from time import perf_counter
 from typing import Any, Literal
 
@@ -188,7 +189,10 @@ async def run_recipe_v2(recipe: RecipeV2, ctx: RunContext) -> RecipeRunResult:
         t0 = perf_counter()
         try:
             for row in rows:
-                new_rows.extend(op.run(row, op_spec.config, ctx))
+                result = op.run(row, op_spec.config, ctx)
+                if asyncio.iscoroutine(result):
+                    result = await result
+                new_rows.extend(result)
         except Exception:
             duration_ms = (perf_counter() - t0) * 1000
             await registry.record_op_run(op_spec.name, rows_in_count, 0, duration_ms, error=True)
