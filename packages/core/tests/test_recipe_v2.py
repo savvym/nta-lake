@@ -12,10 +12,8 @@ stub 说明：_StubRecipeV2Loader 在本文件 inline 定义并注册到 LoaderR
 from __future__ import annotations
 
 import pytest
-
 from dataplat_core.loaders.registry import LoaderRegistry
 from dataplat_core.protocols.loader import LoadResult, SilverRow
-
 
 # ---------------------------------------------------------------------------
 # Stub Loader（test 内 inline 定义 + 注册）
@@ -136,8 +134,8 @@ nodes: []
 # ---------------------------------------------------------------------------
 
 
-def test_run_recipe_v2_end_to_end() -> None:
-    """AC-3: run_recipe_v2 端到端验证。
+async def test_run_recipe_v2_end_to_end() -> None:
+    """AC-3: run_recipe_v2 端到端验证（改为 async 支持 await，W4-7）。
 
     Operator chain：filter(min_chars=50) → chunker(max_chars=100) → snapshot_tag(snapshot_name="test-snap")
 
@@ -151,7 +149,10 @@ def test_run_recipe_v2_end_to_end() -> None:
       - total_output == 2（chain 后）
       - 每行 lineage_ops 含 3 个 op 记录（filter / chunker / snapshot_tag）
     """
-    from dataplat_core.recipe import RecipeV2, RecipeLoaderSpec, RecipeOperatorSpec, run_recipe_v2
+    from dataplat_core.metrics import reset_metrics_registry
+    from dataplat_core.recipe import RecipeLoaderSpec, RecipeOperatorSpec, RecipeV2, run_recipe_v2
+
+    reset_metrics_registry()
 
     recipe = RecipeV2(
         name="test-e2e",
@@ -169,7 +170,7 @@ def test_run_recipe_v2_end_to_end() -> None:
     )
 
     ctx = _make_ctx()
-    result = run_recipe_v2(recipe, ctx)  # type: ignore[arg-type]
+    result = await run_recipe_v2(recipe, ctx)  # type: ignore[arg-type]
 
     # 总量断言
     assert result.total_input == 1, f"total_input 期望 1，实得 {result.total_input}"
@@ -193,9 +194,12 @@ def test_run_recipe_v2_end_to_end() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_run_recipe_v2_empty_operators() -> None:
+async def test_run_recipe_v2_empty_operators() -> None:
     """AC-4: run_recipe_v2 空 operators → rows 即 loader 原样输出；total_input == total_output；lineage_ops 不被追加。"""
-    from dataplat_core.recipe import RecipeV2, RecipeLoaderSpec, run_recipe_v2
+    from dataplat_core.metrics import reset_metrics_registry
+    from dataplat_core.recipe import RecipeLoaderSpec, RecipeV2, run_recipe_v2
+
+    reset_metrics_registry()
 
     recipe = RecipeV2(
         name="test-empty-ops",
@@ -209,7 +213,7 @@ def test_run_recipe_v2_empty_operators() -> None:
     )
 
     ctx = _make_ctx()
-    result = run_recipe_v2(recipe, ctx)  # type: ignore[arg-type]
+    result = await run_recipe_v2(recipe, ctx)  # type: ignore[arg-type]
 
     assert result.total_input == 1
     assert result.total_output == 1
@@ -218,3 +222,65 @@ def test_run_recipe_v2_empty_operators() -> None:
 
     # stub loader 返的 row 没有 lineage_ops，空 operators 不追加任何记录
     assert result.rows[0].lineage_ops == [], f"期望 lineage_ops 为空，实得 {result.rows[0].lineage_ops}"
+
+
+# ---------------------------------------------------------------------------
+# AC-5（W4-7）: run_recipe_v2 埋点测试
+# ---------------------------------------------------------------------------
+
+
+async def test_run_recipe_v2_records_metrics() -> None:
+    """AC-3(W4-7): run_recipe_v2 跑 [filter, chunker] → snapshot 含 2 operator entry + rows_in/out 正确。
+
+    stub loader 返 1 row（text=150 chars）：
+      - filter(min_chars=50)：rows_in=1, rows_out=1（150 >= 50 通过）
+      - chunker(max_chars=100)：rows_in=1, rows_out=2（150 chars → 2 chunks）
+    """
+    from dataplat_core.metrics import get_metrics_registry, reset_metrics_registry
+    from dataplat_core.recipe import RecipeLoaderSpec, RecipeOperatorSpec, RecipeV2, run_recipe_v2
+
+    reset_metrics_registry()
+
+    recipe = RecipeV2(
+        name="test-metrics",
+        version=2,
+        loader=RecipeLoaderSpec(
+            name="test-loader-recipe-v2",
+            config={},
+            input={"blob_sha": "aabbccdd" * 8},
+        ),
+        operators=[
+            RecipeOperatorSpec(name="filter", config={"min_chars": 50}),
+            RecipeOperatorSpec(name="chunker", config={"max_chars": 100}),
+        ],
+    )
+
+    ctx = _make_ctx()
+    result = await run_recipe_v2(recipe, ctx)  # type: ignore[arg-type]
+
+    # 基本执行结果
+    assert result.total_input == 1
+    assert result.total_output == 2
+
+    # metrics snapshot 检查
+    registry = get_metrics_registry()
+    snaps = registry.snapshot()
+    assert len(snaps) == 2, f"期望 2 个 operator metrics entry，实得 {len(snaps)}"
+
+    # 按字母序：chunker < filter
+    names = [s.operator_name for s in snaps]
+    assert names == ["chunker", "filter"], f"期望 ['chunker', 'filter']，实得 {names}"
+
+    # filter：rows_in=1, rows_out=1（150 chars 通过 min_chars=50）
+    filter_snap = next(s for s in snaps if s.operator_name == "filter")
+    assert filter_snap.runs == 1
+    assert filter_snap.rows_in == 1
+    assert filter_snap.rows_out == 1
+    assert filter_snap.errors == 0
+
+    # chunker：rows_in=1, rows_out=2（150 chars / max_chars=100 → 2 chunks）
+    chunker_snap = next(s for s in snaps if s.operator_name == "chunker")
+    assert chunker_snap.runs == 1
+    assert chunker_snap.rows_in == 1
+    assert chunker_snap.rows_out == 2
+    assert chunker_snap.errors == 0

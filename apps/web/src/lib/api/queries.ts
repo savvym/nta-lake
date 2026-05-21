@@ -513,6 +513,32 @@ export interface SnapshotExportArgs {
   split?: string;
 }
 
+// --- W4-7: observability metrics ---
+
+export interface OperatorMetrics {
+  operator_name: string;
+  runs: number;
+  rows_in: number;
+  rows_out: number;
+  errors: number;
+  duration_ms_total: number;
+  duration_ms_avg: number;
+}
+
+export interface MetricsResponse {
+  operators: OperatorMetrics[];
+  collected_at: string;
+}
+
+export function useMetrics(opts?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["metrics"],
+    queryFn: () => fetchJson<MetricsResponse>("/api/metrics"),
+    refetchInterval: 5000,
+    enabled: opts?.enabled ?? true,
+  });
+}
+
 export function useSnapshotExport() {
   return useMutation({
     mutationFn: async (args: SnapshotExportArgs): Promise<SnapshotExportResult> => {

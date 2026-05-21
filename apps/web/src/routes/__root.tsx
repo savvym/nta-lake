@@ -31,13 +31,21 @@ function RootLayout() {
             {me ? (
               <>
                 {me.role === "admin" && (
-                  <Link
-                    to="/jobs"
-                    search={{ status: "", type: "", limit: 50, offset: 0 }}
-                    className="text-sm text-gray-700 hover:underline"
-                  >
-                    Jobs
-                  </Link>
+                  <>
+                    <Link
+                      to="/jobs"
+                      search={{ status: "", type: "", limit: 50, offset: 0 }}
+                      className="text-sm text-gray-700 hover:underline"
+                    >
+                      Jobs
+                    </Link>
+                    <Link
+                      to="/observability"
+                      className="text-sm text-gray-700 hover:underline"
+                    >
+                      Observability
+                    </Link>
+                  </>
                 )}
                 <span className="text-sm text-gray-600">{me.username}</span>
                 <Button variant="outline" size="sm" onClick={handleLogout}>

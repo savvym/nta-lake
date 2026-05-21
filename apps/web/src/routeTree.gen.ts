@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ObservabilityRouteImport } from './routes/observability'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReposIndexRouteImport } from './routes/repos/index'
@@ -23,6 +24,11 @@ import { Route as BlobOwnerNameHashRouteImport } from './routes/blob.$owner.$nam
 import { Route as SnapshotsOwnerNameHashRowsRouteImport } from './routes/snapshots/$owner.$name.$hash/rows'
 import { Route as ReposOwnerNameSnapshotsHashExportRouteImport } from './routes/repos/$owner.$name/snapshots/$hash/export'
 
+const ObservabilityRoute = ObservabilityRouteImport.update({
+  id: '/observability',
+  path: '/observability',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -94,6 +100,7 @@ const ReposOwnerNameSnapshotsHashExportRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/observability': typeof ObservabilityRoute
   '/jobs/$job_id': typeof JobsJob_idRoute
   '/recipes/builder': typeof RecipesBuilderRoute
   '/repos/new': typeof ReposNewRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/observability': typeof ObservabilityRoute
   '/jobs/$job_id': typeof JobsJob_idRoute
   '/recipes/builder': typeof RecipesBuilderRoute
   '/repos/new': typeof ReposNewRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/observability': typeof ObservabilityRoute
   '/jobs/$job_id': typeof JobsJob_idRoute
   '/recipes/builder': typeof RecipesBuilderRoute
   '/repos/new': typeof ReposNewRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/observability'
     | '/jobs/$job_id'
     | '/recipes/builder'
     | '/repos/new'
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/observability'
     | '/jobs/$job_id'
     | '/recipes/builder'
     | '/repos/new'
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/login'
+    | '/observability'
     | '/jobs/$job_id'
     | '/recipes/builder'
     | '/repos/new'
@@ -188,6 +200,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  ObservabilityRoute: typeof ObservabilityRoute
   JobsJob_idRoute: typeof JobsJob_idRoute
   RecipesBuilderRoute: typeof RecipesBuilderRoute
   ReposNewRoute: typeof ReposNewRoute
@@ -200,6 +213,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/observability': {
+      id: '/observability'
+      path: '/observability'
+      fullPath: '/observability'
+      preLoaderRoute: typeof ObservabilityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -326,6 +346,7 @@ const SnapshotsOwnerNameHashRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  ObservabilityRoute: ObservabilityRoute,
   JobsJob_idRoute: JobsJob_idRoute,
   RecipesBuilderRoute: RecipesBuilderRoute,
   ReposNewRoute: ReposNewRoute,
