@@ -83,6 +83,8 @@ export interface CreateRepoRequest {
   subtype: string;
   visibility: string;
   description?: string | null;
+  schema_id?: string | null;
+  row_format?: 'parquet' | 'jsonl' | null;
 }
 
 export interface UpdateRepoRequest {
