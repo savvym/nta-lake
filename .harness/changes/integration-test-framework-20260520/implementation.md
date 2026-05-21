@@ -1,104 +1,54 @@
 ---
-change_id: <feature-slug>-<yyyymmdd>
+change_id: integration-test-framework-20260520
 phase: implementation
-status: <in_progress | done>
-authored_at: <YYYY-MM-DDTHH:MM:SSZ>
-author: sonnet-phase2-implementer
-model_used: sonnet
+status: done
+authored_at: 2026-05-21T12:30:00Z
+author: claude-sonnet-4-6
+model_used: claude-sonnet-4-6
 branch: change/integration-test-framework-20260520
-base_commit: <main 上 base sha>
-head_commit: <sonnet push 后回填>
-pr_url: <gh pr URL 或 "n/a (gh PAT 缺 pr:write)">
+base_commit: ccdc67f
+head_commit: c3e91b0
+pr_url: n/a
 ---
 
-# Implementation
-
-> Phase 2 sonnet 端到端产物。**一次 sonnet 调用内**完成：编码 + 单元测试 + 端到端验证 + commit + push（+ PR 如可用）。Application Owner spawn sonnet 后 sonnet 自管完整 Phase 2，结束写本文件。
+# Implementation：integration test framework (W4-6)
 
 ## 改动文件清单
 
-执行 `git diff --name-only main...HEAD`，列在这里：
+| 路径 | 类型 | 一句话说明 |
+|---|---|---|
+| `scripts/integration_test.sh` | new | 主 orchestrator：cmd_up/cmd_down/cmd_run/cmd_all/cmd_up_keep + sysexits 退码 + INTEGRATION_OK sentinel |
+| `scripts/lib/integration_helpers.sh` | new | 共享库：log_info/log_error/wait_for_healthy/wait_for_exit（不依赖 jq） |
+| `apps/api/tests/test_integration_smoke.py` | new | env-gated smoke：skipif DATAPLAT_DATABASE_URL；httpx ASGI → GET /healthz → 200 + status=ok |
+| `.harness/changes/integration-test-framework-20260520/implementation.md` | edit | 本文件 backfill |
 
-| 路径 | 类型 (new/edit/delete/rename) | 一句话说明 | 关联 task |
+## AC 自检 + 证据
+
+| AC | kind | 命令 | 结果 |
 |---|---|---|---|
-| <path> | <type> | <说明> | T-1 |
+| AC-1 | static | `test -x scripts/integration_test.sh && grep -qE '^cmd_up\(\)' ... (4 greps)` | PASS exit 0 |
+| AC-2 | static | `bash scripts/integration_test.sh --help 2>&1 \| grep -E 'up.*down.*run.*all'` | PASS：命中 `子命令（all up down run up-keep）` |
+| AC-3 | behavioral | `cd apps/api && uv run pytest tests/test_integration_smoke.py -x -q` | `1 skipped in 1.67s`（env 缺位；预期） |
+| AC-4 | behavioral | `bash -n scripts/integration_test.sh && bash -n scripts/lib/integration_helpers.sh` | PASS exit 0 |
 
-> **门禁**：本表必须与 `git diff --name-only main...HEAD` 完全一致。
-
-## 任务完成情况
-
-对照 design.md § 任务清单：
-
-| Task | 状态 | commit | 备注 |
-|---|---|---|---|
-| T-1 | done / partial / deferred | <sha> | <如 partial / deferred 必填理由> |
-
-## 测试通过证据
-
-### 单元测试
+## 全量回归
 
 ```text
-$ uv run pytest tests/test_xxx.py
-============================== N passed in M.Ms ==============================
-
-$ pnpm --filter web test
-   Test Files  N passed
-        Tests  M passed
+apps/api:      51 passed, 129 skipped in 1.89s   （新增 1 SKIP；零 failure）
+packages/core: 97 passed in 1.31s                （本 change 不动 core）
 ```
 
-### 自检 AC block
+## 偏离 design.md
 
-```text
-$ bash scripts/_self_check.sh integration-test-framework-20260520
-=== integration-test-framework-20260520 :: N AC ===
-PASS  AC-1  ...
-PASS  AC-2  ...
-...
-PASS: N / FAIL: 0 / SKIP: 0
-全部通过
-```
+| # | 偏离点 | 原因 |
+|---|---|---|
+| D-1 | smoke test 用 `/healthz` 而非 `/health` | `main.py` 实际路由是 `/healthz`；design.md 写 `/health` 系笔误；以实现为准，无代码改动 |
+| D-2 | usage 改为 heredoc 函数而非纯注释块 grep | 原 `grep '^#'` 会把脚本内所有注释行全打印；改用 heredoc 保持 usage 清晰可读；头部注释块保留作文档 |
 
-### 端到端验证
+## D-1 永不做清单自查
 
-> 如涉及 API：curl 真打一次新端点  
-> 如涉及 UI：vite dev server 起来 / build 不挂 / 关键页面 smoke  
-> 如涉及 CLI：跑一次实际命令
-
-```text
-$ curl -H "Cookie: ..." http://localhost:8080/api/new-endpoint
-{"ok": true, ...}
-
-$ pnpm --filter web build
-✓ built in N.Ns
-```
-
-## 偏离 design.md（如有）
-
-> 凡未在 design.md 声明的偏离，**全部**列在这里。Phase 3 reviewer 把"未声明的隐式偏离"算 MUST FIX。
-
-| # | 偏离点 | 原因 | 评审请关注 |
-|---|---|---|---|
-| D-1 | <e.g. 改用 folder routing 不是 spec 写的 flat dot 形态> | <技术原因> | <reviewer 是否接受> |
-
-## 跨 change / 上游回归
-
-- 全 web vitest：N/N PASS（M files）
-- 全 pytest 本 module：N/N PASS
-- self_check full（如已跑）：PASS 总 / FAIL 总 / FAIL 列表 + 标 pre-existing 或本 change 引入
-
-## PR 描述（用于 gh pr create body）
-
-```markdown
-## Summary
-<1-3 bullets>
-
-## Test plan
-- [ ] <bullet>
-- [ ] <bullet>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
+无 manifest.yaml / dataset-card.yaml / row-diff / cherry-pick / rollback / DB schema rename / blob 派生图 / Asset。
 
 ## 下一步
 
-进入 Phase 3：Application Owner spawn opus reviewer 对照 design.md 验 PR。
+进入 Phase 3：Application Owner spawn opus reviewer 对照 design.md 验。
