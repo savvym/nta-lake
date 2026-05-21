@@ -1,6 +1,6 @@
 ---
 rollout_id: north-star-rollout-20260520
-last_updated: 2026-05-21T13:20:00Z
+last_updated: 2026-05-21T13:30:00Z
 ---
 
 # Dashboard：北极星 rollout 进度
@@ -15,7 +15,7 @@ last_updated: 2026-05-21T13:20:00Z
 | 1 | 地基 | 4 | **done** (4/4) | end-to-end PDF demo 跑通新模型（W2-5 接 Loader 后真跑） |
 | 2 | 核心算子链 | 6 | **done** (6/6) | 完整 recipe v2 跑通 + silver snapshot 持久化 |
 | 3 | 源覆盖 + 训练对接 | 7 | **done** (7/7) | 4 种格式跑通 + HF 导出 ✅ |
-| 4 | UI + 工程化 | 10 | **in_progress** (5/10; W4-6 next) | 用户完整 UI 流程跑通 |
+| 4 | UI + 工程化 | 10 | **in_progress** (6/10; W4-7 next) | 用户完整 UI 流程跑通 |
 
 ## change 级状态
 
@@ -43,7 +43,7 @@ last_updated: 2026-05-21T13:20:00Z
 | web-operator-chain-builder-20260520 | W4-3 | **merged** | APPROVED | change/web-operator-chain-builder-20260520 | 9a92134 | — |
 | web-snapshot-export-ui-20260520 | W4-4 | **merged** | APPROVED | change/web-snapshot-export-ui-20260520 | 95f55e7 | — |
 | cost-budget-system-20260520 | W4-5 | **merged** | APPROVED | change/cost-budget-system-20260520 | 9c73af6 | — |
-| integration-test-framework-20260520 | W4-6 | pending | — | — | — | depends W3 done |
+| integration-test-framework-20260520 | W4-6 | **merged** | APPROVED | change/integration-test-framework-20260520 | f8068fa | — |
 | observability-mvp-20260520 | W4-7 | pending | — | — | — | depends W2-5 |
 | operator-eval-gen-20260520 | W4-8 | pending | — | — | — | depends W2-5 |
 | operator-dpo-pair-gen-20260520 | W4-9 | pending | — | — | — | depends W4-8 |
@@ -51,10 +51,10 @@ last_updated: 2026-05-21T13:20:00Z
 
 ## 当前活动
 
-- **active change**: 无（W4-5 merged 9c73af6；准备启动 W4-6）
-- **next action**: 启动 W4-6 `integration-test-framework-*`（playwright e2e；前置：W3 done + W4-1..4 UI 已 merged；W4-5 cost budget 与 e2e 正交不阻塞）→ application-owner 自写 mini-design → sonnet 端到端 → opus verify
-- **Wave 1 + Wave 2 + Wave 3 Checkpoint 状态**：全部 done（17/17）；W4-1..W4-5 已 merged（snapshot row endpoint + PDF→silver row UI v2 / 通用 row 预览 + react-virtual / Recipe v2 chain builder UI / HF datasets export endpoint + UI / LLM cost budget + 402 + per-scope ledger + admin router）。
-- **UI 测试边界**：W4-1/W4-2/W4-3/W4-4 仅组件级 RTL+vi.mock，UI 真跑由 user final acceptance + W4-6 integration-test-framework 引入的 playwright 联合验。
+- **active change**: 无（W4-6 merged f8068fa；准备启动 W4-7）
+- **next action**: 启动 W4-7 `observability-mvp-*`（metrics / structured logs / health probe 扩展；前置：W2-5 / W4-5 已落）→ application-owner 自写 mini-design → sonnet 端到端 → opus verify
+- **Wave 1 + Wave 2 + Wave 3 Checkpoint 状态**：全部 done（17/17）；W4-1..W4-6 已 merged（snapshot row endpoint + PDF→silver row UI v2 / 通用 row 预览 + react-virtual / Recipe v2 chain builder UI / HF datasets export endpoint + UI / LLM cost budget + 402 + per-scope ledger + admin router / **integration test framework — bash orchestrator (up / run / down / all) + env-gated smoke test**）。
+- **UI 测试边界**：W4-1/W4-2/W4-3/W4-4 仅组件级 RTL+vi.mock，UI 真跑由 user final acceptance + W4-6 integration_test.sh 真跑（env 就位时 ~129 SKIP 转 PASS）联合验。W4-6 已落 backend orchestrator；playwright UI e2e 延 `integration-playwright-e2e-*` follow-up。
 
 ## 代码扫描快照（2026-05-20 Wave 0）
 
@@ -73,17 +73,17 @@ last_updated: 2026-05-21T13:20:00Z
 
 ## 累计 metrics
 
-- Changes done: **22 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9, W2-6 ac82567, W3-1 4d11055, W3-2 f2ee022, W3-3 95d2e74, W3-4 fb76736, W3-5 57185f5, W3-6 0878c35, W3-7 09aa977, W4-1 e3dc25f, W4-2 4dea85a, W4-3 9a92134, W4-4 95f55e7, W4-5 9c73af6）
-- Wave 1 全部 done（4/4）；Wave 2 全部 done（6/6）；Wave 3 全部 done（7/7 ✅）；Wave 4 进度 5/10
+- Changes done: **23 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9, W2-6 ac82567, W3-1 4d11055, W3-2 f2ee022, W3-3 95d2e74, W3-4 fb76736, W3-5 57185f5, W3-6 0878c35, W3-7 09aa977, W4-1 e3dc25f, W4-2 4dea85a, W4-3 9a92134, W4-4 95f55e7, W4-5 9c73af6, W4-6 f8068fa）
+- Wave 1 全部 done（4/4）；Wave 2 全部 done（6/6）；Wave 3 全部 done（7/7 ✅）；Wave 4 进度 6/10
 - Phase 1 reviewer cycles: 1（W1-1；W1-2 起 v3 不再跑）
-- Phase 3 reviewer cycles: 22（W1-1..W4-5 全部 APPROVED）
-- v3 mini-design 实测：design 56-160 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-9 min（W4-1/W4-4 含 full-stack 跨 apps/api + apps/web，W4-2 / W4-3 纯前端 < 5 min，W4-5 packages/core + apps/api 双栈 < 5 min）
-- 0-issue APPROVED 连续 19 次（W1-4 / W2-1..W2-6 / W3-1..W3-7 / W4-1 / W4-2 / W4-3 / W4-4 / W4-5）；W4-5 含 3 DEVIATION ACCEPT（DEV-1 bonus test 4→5 / DEV-2 `test-model` 直接入 DEFAULT_RATES 与 design §决策 5 一致 / DEV-3 `check` 与 `record` 各自加锁不持锁跨 provider call）+ 0 NICE TO HAVE（follow-up 全部已在 design 列出）
-- packages/core 测试：97/97 PASS（W4-5 +5 = baseline 92 + 5 新增）
-- apps/web 测试：60/60 PASS（W4-5 packages/web 零改动）
-- apps/api 测试：51 passed + 128 skipped（W4-5 +3 env-free PASS：test_llm_cost ；+3 env-gated SKIP：test_router_budgets，与 W4-1 同模式；零回归）
-- Wave 3 新增第三方依赖：python-docx>=1.1,<2 / python-pptx>=0.6,<2（W3-5）；datasets>=2.14,<4（W3-7，~100MB transitive）；Wave 4 W4-2 引入 @tanstack/react-virtual@^3；Wave 4 W4-3 引入 @dnd-kit/core@^6 + @dnd-kit/sortable@^8 + @dnd-kit/utilities@^3 + js-yaml@^4 + @types/js-yaml@^4 devDep；**W4-4 / W4-5 零新依赖**（W4-4 `tarfile`/`io` stdlib；W4-5 asyncio + pydantic 既有）
-- Wave 4 UI 测试边界：W4-1/W4-2/W4-3/W4-4 仅组件级 RTL+vi.mock；UI 真跑由 user final acceptance + W4-6 playwright 联合验
+- Phase 3 reviewer cycles: 23（W1-1..W4-6 全部 APPROVED）
+- v3 mini-design 实测：design 56-160 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-9 min（W4-6 纯 bash + 1 smoke test < 3 min）
+- 0-issue APPROVED 连续 20 次（W1-4 / W2-1..W2-6 / W3-1..W3-7 / W4-1 / W4-2 / W4-3 / W4-4 / W4-5 / W4-6）；W4-6 含 2 DEVIATION ACCEPT（DEV-1 smoke test 用 `/healthz`（main.py 实际路由）而非 design 笔误 `/health` / DEV-2 usage 改 heredoc 函数避免 `grep '^#'` 打印全部注释行）+ 0 NICE TO HAVE 阻塞（helpers.sh 双空格 + cmd_run tail 截断仅记 follow-up）
+- packages/core 测试：97/97 PASS（W4-6 不动 core）
+- apps/web 测试：60/60 PASS（W4-6 不动 web）
+- apps/api 测试：51 passed + 129 skipped（W4-6 +1 env-gated SKIP：test_integration_smoke，与 W4-1 同模式；零回归）
+- Wave 3 新增第三方依赖：python-docx>=1.1,<2 / python-pptx>=0.6,<2（W3-5）；datasets>=2.14,<4（W3-7，~100MB transitive）；Wave 4 W4-2 引入 @tanstack/react-virtual@^3；Wave 4 W4-3 引入 @dnd-kit/core@^6 + @dnd-kit/sortable@^8 + @dnd-kit/utilities@^3 + js-yaml@^4 + @types/js-yaml@^4 devDep；**W4-4 / W4-5 / W4-6 零新依赖**（W4-4 `tarfile`/`io` stdlib；W4-5 asyncio + pydantic 既有；W4-6 bash + 既有 httpx）
+- Wave 4 UI 测试边界：W4-1/W4-2/W4-3/W4-4 仅组件级 RTL+vi.mock；UI 真跑由 user final acceptance + W4-6 integration_test.sh 真跑（playwright UI e2e 延 follow-up）联合验
 - BIG REWRITE 次数: 0
 - MAJOR ISSUE 次数: 0
 - 用户介入次数（非验收）: 2（efficiency pivot → v3；self_check 取消）
