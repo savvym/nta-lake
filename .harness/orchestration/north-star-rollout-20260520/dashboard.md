@@ -1,6 +1,6 @@
 ---
 rollout_id: north-star-rollout-20260520
-last_updated: 2026-05-21T12:50:00Z
+last_updated: 2026-05-21T13:10:00Z
 ---
 
 # Dashboard：北极星 rollout 进度
@@ -15,7 +15,7 @@ last_updated: 2026-05-21T12:50:00Z
 | 1 | 地基 | 4 | **done** (4/4) | end-to-end PDF demo 跑通新模型（W2-5 接 Loader 后真跑） |
 | 2 | 核心算子链 | 6 | **done** (6/6) | 完整 recipe v2 跑通 + silver snapshot 持久化 |
 | 3 | 源覆盖 + 训练对接 | 7 | **done** (7/7) | 4 种格式跑通 + HF 导出 ✅ |
-| 4 | UI + 工程化 | 10 | **in_progress** (3/10; W4-4 next) | 用户完整 UI 流程跑通 |
+| 4 | UI + 工程化 | 10 | **in_progress** (4/10; W4-5 next) | 用户完整 UI 流程跑通 |
 
 ## change 级状态
 
@@ -41,7 +41,7 @@ last_updated: 2026-05-21T12:50:00Z
 | web-pdf-mineru-ui-v2-20260520 | W4-1 | **merged** | APPROVED | change/web-pdf-mineru-ui-v2-20260520 | e3dc25f | — |
 | web-row-preview-20260520 | W4-2 | **merged** | APPROVED | change/web-row-preview-20260520 | 4dea85a | — |
 | web-operator-chain-builder-20260520 | W4-3 | **merged** | APPROVED | change/web-operator-chain-builder-20260520 | 9a92134 | — |
-| web-snapshot-export-ui-20260520 | W4-4 | pending | — | — | — | depends W4-3 |
+| web-snapshot-export-ui-20260520 | W4-4 | **merged** | APPROVED | change/web-snapshot-export-ui-20260520 | 95f55e7 | — |
 | cost-budget-system-20260520 | W4-5 | pending | — | — | — | depends W2-3 |
 | integration-test-framework-20260520 | W4-6 | pending | — | — | — | depends W3 done |
 | observability-mvp-20260520 | W4-7 | pending | — | — | — | depends W2-5 |
@@ -51,10 +51,10 @@ last_updated: 2026-05-21T12:50:00Z
 
 ## 当前活动
 
-- **active change**: 无（W4-3 merged 9a92134；准备启动 W4-4）
-- **next action**: 启动 W4-4 `web-snapshot-export-ui-*`（gold export 触发 UI；选 snapshot → 选导出格式 → 调用 W2-6 dataset-export-engine endpoint → 下载链接）→ application-owner 自写 mini-design → sonnet 端到端 → opus verify
-- **Wave 1 + Wave 2 + Wave 3 Checkpoint 状态**：全部 done（17/17）；W4-1（apps/api silver row endpoint + apps/web PDF→silver row UI v2）+ W4-2（通用 row 预览 + react-virtual）+ W4-3（Recipe v2 chain builder UI）已 merged。
-- **UI 测试边界**：W4-1/W4-2/W4-3 仅组件级 RTL+vi.mock，UI 真跑由 user final acceptance + W4-6 integration-test-framework 引入的 playwright 联合验。Wave 4 后续 UI changes (W4-4) 同此边界。
+- **active change**: 无（W4-4 merged 95f55e7；准备启动 W4-5）
+- **next action**: 启动 W4-5 `cost-budget-system-*`（LLM Gateway 成本预算 + 配额；依赖 W2-3 image-to-text-suite 已 done）→ application-owner 自写 mini-design → sonnet 端到端 → opus verify
+- **Wave 1 + Wave 2 + Wave 3 Checkpoint 状态**：全部 done（17/17）；W4-1..W4-4 已 merged（snapshot row endpoint + PDF→silver row UI v2 / 通用 row 预览 + react-virtual / Recipe v2 chain builder UI / HF datasets export endpoint + UI）。
+- **UI 测试边界**：W4-1/W4-2/W4-3/W4-4 仅组件级 RTL+vi.mock，UI 真跑由 user final acceptance + W4-6 integration-test-framework 引入的 playwright 联合验。
 
 ## 代码扫描快照（2026-05-20 Wave 0）
 
@@ -73,17 +73,17 @@ last_updated: 2026-05-21T12:50:00Z
 
 ## 累计 metrics
 
-- Changes done: **20 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9, W2-6 ac82567, W3-1 4d11055, W3-2 f2ee022, W3-3 95d2e74, W3-4 fb76736, W3-5 57185f5, W3-6 0878c35, W3-7 09aa977, W4-1 e3dc25f, W4-2 4dea85a, W4-3 9a92134）
-- Wave 1 全部 done（4/4）；Wave 2 全部 done（6/6）；Wave 3 全部 done（7/7 ✅）；Wave 4 进度 3/10
+- Changes done: **21 / 27**（W1-1 a51a126, W1-2 af8a7d5, W1-3 13abd0d, W1-4 999ca82, W2-1 5d0ed99, W2-2 0f8f6ba, W2-3 c288082, W2-4 4dd1d3e, W2-5 153c2c9, W2-6 ac82567, W3-1 4d11055, W3-2 f2ee022, W3-3 95d2e74, W3-4 fb76736, W3-5 57185f5, W3-6 0878c35, W3-7 09aa977, W4-1 e3dc25f, W4-2 4dea85a, W4-3 9a92134, W4-4 95f55e7）
+- Wave 1 全部 done（4/4）；Wave 2 全部 done（6/6）；Wave 3 全部 done（7/7 ✅）；Wave 4 进度 4/10
 - Phase 1 reviewer cycles: 1（W1-1；W1-2 起 v3 不再跑）
-- Phase 3 reviewer cycles: 20（W1-1..W4-3 全部 APPROVED）
-- v3 mini-design 实测：design 56-160 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-9 min（W4-1 含 full-stack 跨 apps/api + apps/web，W4-2 / W4-3 纯前端 < 5 min）
-- 0-issue APPROVED 连续 17 次（W1-4 / W2-1..W2-6 / W3-1..W3-7 / W4-1 / W4-2 / W4-3）；W2-4 含 2 ACCEPT AS-IS；W3-1 含 1 drift correction；W3-5 含 2 NICE TO HAVE；W3-6 含 1 DEVIATION ACCEPT；W3-7 含 2 DEVIATION ACCEPT + 2 NICE TO HAVE；W4-1 含 3 DEVIATION ACCEPT + 1 NICE TO HAVE；W4-2 含 2 DEVIATION ACCEPT + 1 NICE TO HAVE；W4-3 含 3 DEVIATION ACCEPT（design example name vs real registry / dnd-kit utilities peerDep / routeTree 手动）+ 2 NICE TO HAVE（jsdom scrollTo 继承 W4-2；design example name 规则落地）
-- packages/core 测试：92/92 PASS（W3-5..W3-7 累计 +14）
-- apps/web 测试：58/58 PASS（W4-1 +2 / W4-2 +3 / W4-3 +6 = 6 个 RTL + 3 个 pure 函数）
-- apps/api 测试：122 passed（W4-1 +3，env 就位时）/ 48 failed（与 main 完全一致，零回归）
-- Wave 3 新增第三方依赖：python-docx>=1.1,<2 / python-pptx>=0.6,<2（W3-5）；datasets>=2.14,<4（W3-7，~100MB transitive）；Wave 4 W4-2 引入 @tanstack/react-virtual@^3；Wave 4 W4-3 引入 @dnd-kit/core@^6 + @dnd-kit/sortable@^8 + @dnd-kit/utilities@^3 + js-yaml@^4 + @types/js-yaml@^4 devDep（拒 react-flow，design 决策 1）
-- Wave 4 UI 测试边界：W4-1/W4-2/W4-3 仅组件级 RTL+vi.mock；UI 真跑由 user final acceptance + W4-6 playwright 联合验
+- Phase 3 reviewer cycles: 21（W1-1..W4-4 全部 APPROVED）
+- v3 mini-design 实测：design 56-160 行 / 3-4 AC；application-owner + sonnet + opus 各 1 次 spawn，verify ~2-9 min（W4-1/W4-4 含 full-stack 跨 apps/api + apps/web，W4-2 / W4-3 纯前端 < 5 min）
+- 0-issue APPROVED 连续 18 次（W1-4 / W2-1..W2-6 / W3-1..W3-7 / W4-1 / W4-2 / W4-3 / W4-4）；W4-4 含 2 DEVIATION ACCEPT（DEV-1 父路由 typed-search `<a href>` 替代 `<Link search>` / DEV-2 `_resolve_silver_jsonl_blob_sha` 提取为 module-level helper 与 W4-1 共享）+ 1 NICE TO HAVE（`web-typed-search-link-helper-*` 包装器消除 DEV-1 类拼接）
+- packages/core 测试：92/92 PASS（W4-4 packages/core 零改动）
+- apps/web 测试：60/60 PASS（W4-4 +2 RTL = W4-1..W4-4 累计 +11，21 files）
+- apps/api 测试：48 passed + 125 skipped（W4-4 新增 3 个 env-gated SKIP 与 W4-1 同模式；零回归）
+- Wave 3 新增第三方依赖：python-docx>=1.1,<2 / python-pptx>=0.6,<2（W3-5）；datasets>=2.14,<4（W3-7，~100MB transitive）；Wave 4 W4-2 引入 @tanstack/react-virtual@^3；Wave 4 W4-3 引入 @dnd-kit/core@^6 + @dnd-kit/sortable@^8 + @dnd-kit/utilities@^3 + js-yaml@^4 + @types/js-yaml@^4 devDep；**W4-4 零新依赖**（`tarfile`/`io` stdlib；`datasets`/`pyarrow` 已由 W3-7 间接拉入）
+- Wave 4 UI 测试边界：W4-1/W4-2/W4-3/W4-4 仅组件级 RTL+vi.mock；UI 真跑由 user final acceptance + W4-6 playwright 联合验
 - BIG REWRITE 次数: 0
 - MAJOR ISSUE 次数: 0
 - 用户介入次数（非验收）: 2（efficiency pivot → v3；self_check 取消）
