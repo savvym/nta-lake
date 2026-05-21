@@ -16,8 +16,6 @@ import json
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
-
 from dataplat_core.operators.eval_gen import EvalGenOperator
 from dataplat_core.protocols.llm import LLMRequest, LLMResponse
 from dataplat_core.protocols.loader import SilverRow
