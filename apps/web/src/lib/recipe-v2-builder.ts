@@ -2,13 +2,11 @@
  * Recipe v2 builder：yaml 序列化 pure 函数 + loader/operator 名称常量 (W4-3)
  *
  * LOADER_NAMES 来自 packages/core/src/dataplat_core/loaders/__init__.py 注册列表
- * OPERATOR_NAMES 来自 packages/core/src/dataplat_core/operators/__init__.py 注册列表
+ * OPERATOR_NAMES（硬编码）已删除，由 useOperatorsQuery 运行时拉取替代（web-recipe-structured-config-20260521）。
  *
  * 注意：pdf_mineru / markdown loader 尚未在 LoaderRegistry 注册（W1-4 只做了
  * MinerU adapter，实际 LoaderRegistry 仅含 html-md / docx / pptx / jsonl）。
  * 如 W3-x 新增 loader，同步更新此处。
- *
- * operator 注册：W2-1..W2-4 累积 9 个（无 normalize_unicode / strip_html）。
  */
 
 import yaml from "js-yaml";
@@ -21,26 +19,17 @@ export const LOADER_NAMES = [
   "jsonl",
 ] as const;
 
-// 与 packages/core/src/dataplat_core/operators/__init__.py 注册列表对齐
-export const OPERATOR_NAMES = [
-  "identity",
-  "filter",
-  "dedup",
-  "score",
-  "chunker",
-  "image_strip",
-  "image_caption_stub",
-  "snapshot_tag",
-  "snapshot_sample",
-] as const;
-
 export type LoaderName = (typeof LOADER_NAMES)[number];
-export type OperatorName = (typeof OPERATOR_NAMES)[number];
 
 export type BuilderState = {
   name: string;
   loader: { name: string; configYaml: string; inputYaml: string } | null;
-  operators: Array<{ id: string; name: string; configYaml: string }>;
+  operators: Array<{
+    id: string;
+    name: string;
+    configYaml: string;
+    configObject: Record<string, unknown>;
+  }>;
 };
 
 /**
@@ -77,7 +66,11 @@ export function buildRecipeYaml(state: BuilderState): string {
 
   recipe.operators = state.operators.map((op) => ({
     name: op.name,
-    config: parseYamlField(op.configYaml),
+    // 优先用 configObject（结构化输入），否则 parse configYaml（fallback 路径）
+    config:
+      Object.keys(op.configObject).length > 0
+        ? op.configObject
+        : parseYamlField(op.configYaml),
   }));
 
   return yaml.dump(recipe, { lineWidth: -1, noRefs: true });

@@ -16,6 +16,7 @@ from dataplat_api.routers.budgets import router as budgets_router
 from dataplat_api.routers.ingest import router as ingest_router
 from dataplat_api.routers.jobs import router as jobs_router
 from dataplat_api.routers.metrics import router as metrics_router
+from dataplat_api.routers.operators import router as operators_router
 from dataplat_api.routers.pipelines import router as pipelines_router
 from dataplat_api.routers.process import router as process_router
 from dataplat_api.routers.repos import router as repos_router
@@ -44,6 +45,7 @@ app.include_router(admin_router)
 app.include_router(repos_router)
 app.include_router(budgets_router)
 app.include_router(metrics_router)
+app.include_router(operators_router)
 app.include_router(snapshots_router)
 app.include_router(ingest_router)
 app.include_router(jobs_router)

@@ -23,7 +23,7 @@ describe("buildRecipeYaml", () => {
         inputYaml: "blob_sha: abc",
       },
       operators: [
-        { id: "1", name: "chunker", configYaml: "" },
+        { id: "1", name: "chunker", configYaml: "", configObject: {} },
       ],
     };
 
@@ -52,8 +52,8 @@ describe("buildRecipeYaml", () => {
         inputYaml: "   ",
       },
       operators: [
-        { id: "op1", name: "filter", configYaml: "" },
-        { id: "op2", name: "dedup", configYaml: "   " },
+        { id: "op1", name: "filter", configYaml: "", configObject: {} },
+        { id: "op2", name: "dedup", configYaml: "   ", configObject: {} },
       ],
     };
 
@@ -74,7 +74,7 @@ describe("buildRecipeYaml", () => {
       name: "bad-recipe",
       loader: null,
       operators: [
-        { id: "op1", name: "score", configYaml: "invalid: yaml: ::::" },
+        { id: "op1", name: "score", configYaml: "invalid: yaml: ::::", configObject: {} },
       ],
     };
 
