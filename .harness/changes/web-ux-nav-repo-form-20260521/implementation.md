@@ -7,7 +7,7 @@ author: sonnet-phase2-implementer
 model_used: sonnet
 branch: change/web-ux-nav-repo-form-20260521
 base_commit: 1eb828c
-head_commit: <sonnet push 后回填>
+head_commit: fea806a
 pr_url: n/a (gh PAT 缺 pr:write)
 ---
 
