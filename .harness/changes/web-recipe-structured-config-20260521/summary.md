@@ -33,7 +33,7 @@ related_changes: [web-ux-nav-repo-form-20260521]
 |---|---|---|---|---|---|
 | Phase 1 Design | opus (self) | approved | — | 3748095 | [design.md](design.md) |
 | Phase 2 Implementation | sonnet | done | — | 79f0503 | [implementation.md](implementation.md) |
-| Phase 3 Verify | opus | approved | APPROVED | （待回填） | [verify_review.md](verify_review.md) |
+| Phase 3 Verify | opus | approved | APPROVED | 712bae8 | [verify_review.md](verify_review.md) |
 
 ## 关键决策
 
@@ -64,9 +64,9 @@ related_changes: [web-ux-nav-repo-form-20260521]
 
 ## 交付
 
-- Branch：`change/web-recipe-structured-config-20260521`（merge 后删）
-- Merge commit：（待回填）
-- 关闭时间：（待回填）
+- Branch：`change/web-recipe-structured-config-20260521`（已删，merged）
+- Merge commit：`7909d19`
+- 关闭时间：2026-05-21T21:35:00Z
 
 ## 复盘
 
