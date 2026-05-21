@@ -12,10 +12,12 @@
     SnapshotTagOperator       — 给行打 source_snapshot 标签（W2-4）
     SnapshotSampleOperator    — 基于 sha256 确定性哈希做按权重抽样（W2-4）
     EvalGenOperator           — 调 LLM 生成多选题写入 stats.eval_items（W4-8）
+    DPOPairGenOperator        — 调 LLM 2 次生成 DPO 偏好对写入 stats.dpo_pairs（W4-9）
 """
 
 from dataplat_core.operators.chunker import ChunkerOperator
 from dataplat_core.operators.dedup import DedupOperator
+from dataplat_core.operators.dpo_pair_gen import DPOPairGenOperator
 from dataplat_core.operators.eval_gen import EvalGenOperator
 from dataplat_core.operators.filter import FilterOperator
 from dataplat_core.operators.identity import IdentityOperator
@@ -38,9 +40,10 @@ __all__ = [
     "SnapshotTagOperator",
     "SnapshotSampleOperator",
     "EvalGenOperator",
+    "DPOPairGenOperator",
 ]
 
-# 模块级自动注册 10 个内置算子；try/except 防止模块重复 import 时重复注册。
+# 模块级自动注册 11 个内置算子；try/except 防止模块重复 import 时重复注册。
 for _name, _cls in [
     ("identity", IdentityOperator),
     ("filter", FilterOperator),
@@ -52,6 +55,7 @@ for _name, _cls in [
     ("snapshot_tag", SnapshotTagOperator),
     ("snapshot_sample", SnapshotSampleOperator),
     ("eval_gen", EvalGenOperator),
+    ("dpo_pair_gen", DPOPairGenOperator),
 ]:
     try:
         OperatorRegistry.register(_name, _cls)
