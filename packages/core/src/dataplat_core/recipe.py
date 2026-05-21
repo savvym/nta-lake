@@ -10,21 +10,22 @@
     RecipeV2            — 完整 v2 Recipe schema
     RecipeRunResult     — 执行结果（rows + 统计 + loader notes）
     load_recipe_v2      — yaml str / dict → RecipeV2 解析器
-    run_recipe_v2       — RecipeV2 + RunContext → RecipeRunResult 执行器
+    run_recipe_v2       — RecipeV2 + RunContext → RecipeRunResult 执行器（async，W4-7 埋点）
 """
 
 from __future__ import annotations
 
+from time import perf_counter
 from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from dataplat_core.loaders.registry import LoaderRegistry
+from dataplat_core.metrics import get_metrics_registry
 from dataplat_core.operators import OperatorRegistry
 from dataplat_core.protocols.loader import LoadResult, SilverRow
 from dataplat_core.protocols.runcontext import RunContext
-
 
 # ---------------------------------------------------------------------------
 # Schema
@@ -135,8 +136,8 @@ def load_recipe_v2(data: str | dict[str, Any]) -> RecipeV2:
 # ---------------------------------------------------------------------------
 
 
-def run_recipe_v2(recipe: RecipeV2, ctx: RunContext) -> RecipeRunResult:
-    """在进程内同步执行 RecipeV2：Loader → Operator 链 → RecipeRunResult。
+async def run_recipe_v2(recipe: RecipeV2, ctx: RunContext) -> RecipeRunResult:
+    """在进程内异步执行 RecipeV2：Loader → Operator 链 → RecipeRunResult。
 
     执行步骤（严格按 design.md §run_recipe_v2）：
       1. 从 LoaderRegistry 查找 Loader 类。
@@ -144,8 +145,11 @@ def run_recipe_v2(recipe: RecipeV2, ctx: RunContext) -> RecipeRunResult:
       3. 从 recipe.loader.input 取 blob_sha（缺失 → KeyError，expected v1 行为）。
       4. 调用 loader.load(blob_sha, config, ctx)，得 LoadResult。
       5. 展开 rows 列表，记录 total_input。
-      6. 逐个 Operator：从 OperatorRegistry 查找 → 实例化 → 对每行调用 run()。
+      6. 逐个 Operator：从 OperatorRegistry 查找 → 实例化 → 对每行调用 run()，
+         并向 MetricsRegistry 记录 rows_in / rows_out / duration_ms / error。
       7. 返 RecipeRunResult。
+
+    改为 async（W4-7）：支持 await registry.record_op_run（asyncio.Lock）。
 
     Args:
         recipe: 已通过 load_recipe_v2 验证的 RecipeV2 实例。
@@ -157,6 +161,8 @@ def run_recipe_v2(recipe: RecipeV2, ctx: RunContext) -> RecipeRunResult:
     Raises:
         KeyError: Loader / Operator 未注册；或 blob_sha 缺失；或 Operator config 缺必填 key。
     """
+    registry = get_metrics_registry()
+
     # 步骤 1：查找 Loader 类
     loader_cls = LoaderRegistry.get(recipe.loader.name)
 
@@ -173,13 +179,22 @@ def run_recipe_v2(recipe: RecipeV2, ctx: RunContext) -> RecipeRunResult:
     rows: list[SilverRow] = list(load_result.rows)
     total_input = len(rows)
 
-    # 步骤 6：逐个执行 Operator
+    # 步骤 6：逐个执行 Operator（埋点：error=True 先记再 raise）
     for op_spec in recipe.operators:
         op_cls = OperatorRegistry.get(op_spec.name)
         op = op_cls()
         new_rows: list[SilverRow] = []
-        for row in rows:
-            new_rows.extend(op.run(row, op_spec.config, ctx))
+        rows_in_count = len(rows)
+        t0 = perf_counter()
+        try:
+            for row in rows:
+                new_rows.extend(op.run(row, op_spec.config, ctx))
+        except Exception:
+            duration_ms = (perf_counter() - t0) * 1000
+            await registry.record_op_run(op_spec.name, rows_in_count, 0, duration_ms, error=True)
+            raise
+        duration_ms = (perf_counter() - t0) * 1000
+        await registry.record_op_run(op_spec.name, rows_in_count, len(new_rows), duration_ms)
         rows = new_rows
 
     # 步骤 7：返回结果

@@ -13,12 +13,13 @@ from dataplat_api import processors as _processors  # noqa: F401
 from dataplat_api.routers.admin import router as admin_router
 from dataplat_api.routers.auth import router as auth_router
 from dataplat_api.routers.budgets import router as budgets_router
-from dataplat_api.routers.snapshots import router as snapshots_router
 from dataplat_api.routers.ingest import router as ingest_router
 from dataplat_api.routers.jobs import router as jobs_router
+from dataplat_api.routers.metrics import router as metrics_router
 from dataplat_api.routers.pipelines import router as pipelines_router
 from dataplat_api.routers.process import router as process_router
 from dataplat_api.routers.repos import router as repos_router
+from dataplat_api.routers.snapshots import router as snapshots_router
 
 app = FastAPI(
     title="dataplat API",
@@ -42,6 +43,7 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(repos_router)
 app.include_router(budgets_router)
+app.include_router(metrics_router)
 app.include_router(snapshots_router)
 app.include_router(ingest_router)
 app.include_router(jobs_router)
